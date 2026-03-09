@@ -276,6 +276,21 @@
           const rows = data.scenes.map(s => `<tr><td>${s.scene_no}</td><td>${escHtml(s.text || '')}</td><td>${escHtml((s.actions || []).join('、') || '无')}</td><td>${escHtml((s.sfx || []).join('、') || '无')}</td><td>${s.intensity ?? ''}</td></tr>`).join('');
           blocks.push(`<h4>文本场景分析</h4><table class="table-lite"><thead><tr><th>场景</th><th>文本</th><th>动作</th><th>建议音效</th><th>强度</th></tr></thead><tbody>${rows}</tbody></table>`);
         }
+        if (Array.isArray(data.sfx_requirements) && data.sfx_requirements.length) {
+          const rows = data.sfx_requirements.map(r => {
+            const cands = (r.candidates || []).map(c => `${c.file_name}(${c.score})`).join('、') || '暂无';
+            return `<tr>
+              <td>${escHtml(r.term || '')}</td>
+              <td>${escHtml((r.scene_nos || []).join('、'))}</td>
+              <td>${escHtml(cands)}</td>
+              <td>${r.download_ready ? '可下载' : '待补素材'}</td>
+            </tr>`;
+          }).join('');
+          blocks.push(`<h4>音效需求清单（可直接找素材）</h4><table class="table-lite"><thead><tr><th>需求词</th><th>涉及场景</th><th>候选文件</th><th>状态</th></tr></thead><tbody>${rows}</tbody></table>`);
+        }
+        if (Array.isArray(data.quick_download_list) && data.quick_download_list.length) {
+          blocks.push(`<h4>快速下载清单</h4><div>${data.quick_download_list.map(escHtml).join('、')}</div>`);
+        }
         if (Array.isArray(data.cues) && data.cues.length) {
           const rows = data.cues.map(c => `<tr>
             <td>${c.scene_no}</td>

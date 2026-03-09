@@ -108,7 +108,9 @@ def _chat_completion(system_prompt: str, user_prompt: str) -> str | None:
         return None
 
 
-def _task_template(task_mode: str) -> str:
+def _task_template(task_mode: str, evidence_kind: str | None = None) -> str:
+    if evidence_kind == 'fusion' and task_mode == 'production':
+        return _load_prompt('fusion_production_task.txt')
     mapping = {
         'teaching': 'music_teaching_task.txt',
         'production': 'production_task.txt',
@@ -144,6 +146,7 @@ def _mode_chain(task_mode: str) -> list[str]:
 def generate_report(task_mode: str, evidence_payload: dict) -> tuple[dict | None, str | None, dict]:
     system_prompt = _load_prompt('core_system.txt')
     compact = _compact_evidence(evidence_payload)
+    evidence_kind = str(compact.get('kind') or '').strip().lower()
     attempts: list[str] = []
     first_unstructured_raw: str | None = None
     first_unstructured_mode: str | None = None
@@ -151,7 +154,7 @@ def generate_report(task_mode: str, evidence_payload: dict) -> tuple[dict | None
     for mode in _mode_chain(task_mode):
         attempts.append(mode)
         print(f'[LLM MODE] requested={task_mode} trying={mode}', file=sys.stderr)
-        task_prompt = _task_template(mode)
+        task_prompt = _task_template(mode, evidence_kind=evidence_kind)
         user_prompt = (
             f'{task_prompt}\n\n'
             '输出要求：\n'

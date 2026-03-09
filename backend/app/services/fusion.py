@@ -101,6 +101,28 @@ def build_fusion_plan(audio_markers: list[dict], scenes: list[dict], report_mode
     )
 
     llm_hit = bool(llm_meta.get('effective_mode')) and bool(report_markdown)
+    if isinstance(report_json, dict):
+        fv = report_json.get('fit_verdict')
+        if isinstance(fv, dict):
+            fit = {
+                'fit_score': int(fv.get('score', fit.get('fit_score', 0)) or 0),
+                'verdict': str(fv.get('verdict') or fit.get('verdict') or '未判定'),
+                'reasons': fv.get('reasons') if isinstance(fv.get('reasons'), list) else fit.get('reasons', []),
+            }
+        plan = report_json.get('music_entry_plan')
+        if isinstance(plan, list) and plan:
+            # If LLM returns a detailed entry plan, expose it for frontend rendering.
+            for idx, row in enumerate(plan):
+                if idx >= len(cues) or not isinstance(row, dict):
+                    continue
+                cues[idx]['music_segment_start_sec'] = row.get('music_start_sec', cues[idx]['music_segment_start_sec'])
+                cues[idx]['music_segment_end_sec'] = row.get('music_end_sec', cues[idx]['music_segment_end_sec'])
+                cues[idx]['dialogue_music_ratio'] = row.get('dialogue_music_ratio', cues[idx]['dialogue_music_ratio'])
+                if isinstance(row.get('sfx'), list) and row.get('sfx'):
+                    cues[idx]['recommended_sfx'] = row['sfx']
+                if row.get('entry_reason'):
+                    cues[idx]['entry_reason'] = row['entry_reason']
+
     return {
         'cues': cues,
         'fit': fit,

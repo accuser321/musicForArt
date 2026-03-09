@@ -1,8 +1,9 @@
 import re
 
 from app.config import settings
-from app.services.llm import generate_report, llm_enabled
+from app.services.llm import llm_enabled
 from app.services.nlp_zh import tokenize_cn
+from app.services.sfx_matcher import load_sfx_library, match_sfx_candidates
 
 ACTION_KEYWORDS = {
     '冲': '冲锋',
@@ -87,6 +88,52 @@ def _build_rule_report(scenes: list[dict]) -> str:
     return '\n'.join(lines)
 
 
+def _build_sfx_requirements(scenes: list[dict]) -> tuple[list[dict], list[str]]:
+    library = load_sfx_library()
+    req_map: dict[str, dict] = {}
+
+    for scene in scenes:
+        scene_no = scene.get('scene_no')
+        for action in scene.get('actions', []):
+            term = action
+            rec = req_map.setdefault(
+                term,
+                {
+                    'term': term,
+                    'scene_nos': [],
+                    'reasons': [],
+                    'candidates': [],
+                    'download_ready': False,
+                    'selected_file': None,
+                },
+            )
+            rec['scene_nos'].append(scene_no)
+            rec['reasons'].append(f'场景{scene_no}动作：{action}')
+
+    for term, rec in req_map.items():
+        cands = match_sfx_candidates(term, library, top_n=3)
+        rec['candidates'] = [
+            {
+                'file_name': c['file_name'],
+                'score': c['score'],
+                'canonical': c['canonical'],
+            }
+            for c in cands
+        ]
+        if cands:
+            rec['download_ready'] = True
+            rec['selected_file'] = cands[0]['file_name']
+        rec['scene_nos'] = sorted(set(rec['scene_nos']))
+        rec['reasons'] = sorted(set(rec['reasons']))
+
+    requirements = sorted(
+        req_map.values(),
+        key=lambda x: (0 if x['download_ready'] else 1, -len(x['scene_nos']), x['term']),
+    )
+    quick_download_list = sorted({x['selected_file'] for x in requirements if x.get('selected_file')})
+    return requirements, quick_download_list
+
+
 def analyze_text_for_audiobook(text: str, report_mode: str | None = None) -> dict:
     mode = report_mode or settings.report_mode_default
     sentence_items = _split_sentences_with_span(text)
@@ -123,20 +170,33 @@ def analyze_text_for_audiobook(text: str, report_mode: str | None = None) -> dic
             }
         )
 
-    report_json, report_markdown, llm_meta = generate_report(mode, {'kind': 'text', 'mode': mode, 'raw_text': text, 'scenes': scenes})
-    if not report_markdown:
-        report_markdown = _build_rule_report(scenes)
+    sfx_requirements, quick_download_list = _build_sfx_requirements(scenes)
+    report_markdown = _build_rule_report(scenes)
+    report_markdown += '\n\n## 音效需求清单\n'
+    if not sfx_requirements:
+        report_markdown += '- 未识别出明确动作音效需求。\n'
+    else:
+        for item in sfx_requirements:
+            cands = '、'.join([c['file_name'] for c in item['candidates']]) if item['candidates'] else '暂无匹配文件'
+            report_markdown += f"- {item['term']}（场景{','.join(str(x) for x in item['scene_nos'])}）→ 候选：{cands}\n"
 
-    llm_hit = bool(llm_meta.get('effective_mode')) and bool(report_markdown)
     return {
         'scenes': scenes,
+        'sfx_requirements': sfx_requirements,
+        'quick_download_list': quick_download_list,
         'report_markdown': report_markdown,
-        'report_json': report_json,
-        'analysis_mode': 'llm+rules' if llm_hit else 'rules-only',
-        'llm_structured': bool(report_json),
+        'report_json': {
+            'key_points': [
+                '先按场景动作提取音效需求词，再按候选文件快速试听筛选',
+                '优先处理 download_ready=true 的词条，先完成可落地版本',
+                '对未匹配词条建议后续补充音效素材',
+            ]
+        },
+        'analysis_mode': 'rules-only+semantic',
+        'llm_structured': False,
         'llm_enabled': llm_enabled(),
         'report_mode': mode,
-        'effective_report_mode': llm_meta.get('effective_mode'),
-        'llm_fallback_applied': llm_meta.get('fallback_applied', False),
-        'llm_attempted_modes': llm_meta.get('attempted_modes', []),
+        'effective_report_mode': None,
+        'llm_fallback_applied': False,
+        'llm_attempted_modes': [],
     }
