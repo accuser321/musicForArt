@@ -1,14 +1,15 @@
 任务：生成“教学版”音乐分析。
+语言要求：只用中文，不要英文术语与中英夹杂。
 必须覆盖：
-1. Basic Info
-2. Beginner Level
-3. Intermediate Level
-4. Advanced Level
-5. Structure Breakdown
-6. Instrumentation & Sound
-7. Listening Exercises
-8. Key Concepts Glossary
-9. Teaching Notes
+1. 基本信息
+2. 入门理解
+3. 中级分析
+4. 高级分析
+5. 结构拆解
+6. 配器与音色
+7. 听辨练习
+8. 术语解释
+9. 教学建议
 
 输出 JSON 字段：
 - title
@@ -16,7 +17,7 @@
 - sections: [{name, content, evidence_points[]}]
 - timeline: [{label,start_sec,end_sec,notes}]
 - instrumentation: [{name,time_sec,role,combination_tips}]
-- glossary: [{term_cn,term_en,explain}]
+- glossary: [{term,explain}]
 - exercises: [{level,task}]
 - teaching_notes: [string]
 - markdown

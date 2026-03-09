@@ -381,9 +381,9 @@ def build_fusion(project_id: int):
             return (
                 jsonify(
                     {
-                        'detail': 'Fusion requires both audio and text analysis first',
+                        'detail': '生成融合执行单前，需要先完成音乐分析和文本分析',
                         'missing': missing,
-                        'hint': 'Run steps 2) 音乐分析 and 3) 文本分析 before 4) 生成融合执行单',
+                        'hint': '请先完成第2步“音乐分析”和第3步“文本分析”，再执行第4步',
                     }
                 ),
                 400,

@@ -16,12 +16,12 @@ def _duration_by_mutagen(file_path: str) -> float:
 
 def _fallback_markers(duration_sec: float) -> list[dict]:
     return [
-        {'label': 'Intro', 'time_sec': round(duration_sec * 0.05, 2), 'type': 'build'},
-        {'label': 'Peak-1', 'time_sec': round(duration_sec * 0.28, 2), 'type': 'peak'},
-        {'label': 'Drop-1', 'time_sec': round(duration_sec * 0.38, 2), 'type': 'valley'},
-        {'label': 'Peak-2', 'time_sec': round(duration_sec * 0.62, 2), 'type': 'peak'},
-        {'label': 'Drop-2', 'time_sec': round(duration_sec * 0.72, 2), 'type': 'valley'},
-        {'label': 'Final Peak', 'time_sec': round(duration_sec * 0.82, 2), 'type': 'peak'},
+        {'label': '起势段', 'time_sec': round(duration_sec * 0.05, 2), 'type': 'build'},
+        {'label': '高潮一', 'time_sec': round(duration_sec * 0.28, 2), 'type': 'peak'},
+        {'label': '回落一', 'time_sec': round(duration_sec * 0.38, 2), 'type': 'valley'},
+        {'label': '高潮二', 'time_sec': round(duration_sec * 0.62, 2), 'type': 'peak'},
+        {'label': '回落二', 'time_sec': round(duration_sec * 0.72, 2), 'type': 'valley'},
+        {'label': '终局高潮', 'time_sec': round(duration_sec * 0.82, 2), 'type': 'peak'},
     ]
 
 
@@ -34,24 +34,24 @@ def _build_rule_report(features: dict) -> str:
     lines = [
         '# 音乐分析报告（规则版）',
         '',
-        '## 1) Basic Info',
+        '## 1) 基本信息',
         f'- 时长: {duration_sec:.2f}s',
         f'- 估计 BPM: {bpm:.1f}',
         f"- 标签: {', '.join(tags)}",
         '',
-        '## 2) Beginner Level',
+        '## 2) 入门理解',
         '- 这首音乐以节奏推进为主，适合冲突、战斗、集体行动类段落。',
         '- 证据：存在明确 Peak/Drop 段，可用于冲锋与回撤切换。',
         '',
-        '## 3) Intermediate Level',
+        '## 3) 中级分析',
         '- 主要依赖短动机和节奏重复推进，适合做段落化剪辑。',
         '- 证据：锚点分布相对均匀，适合模块化切片。',
         '',
-        '## 4) Advanced Level',
+        '## 4) 高级建议',
         '- 建议把 Peak 作为动作命中点，Drop 作为旁白窗口。',
         '- 证据：时间锚点中 peak/valley 已分离。',
         '',
-        '## 5) Structure Breakdown',
+        '## 5) 结构时间轴',
     ]
 
     for marker in markers:
@@ -60,7 +60,7 @@ def _build_rule_report(features: dict) -> str:
     lines.extend(
         [
             '',
-            '## 6) Audiobook Use Case',
+            '## 6) 有声书制作建议',
             '- 战斗描写：对白/BGM 可设 45/55，动作句对齐 Peak。',
             '- 叙述与旁白：对白/BGM 可设 70/30，放在 Drop 或 Intro。',
         ]
@@ -79,7 +79,7 @@ def analyze_audio_for_audiobook(file_path: str, report_mode: str | None = None) 
     features = {
         'duration_sec': duration_sec,
         'estimated_bpm': 120.0,
-        'tags': ['cinematic', 'epic', 'battle-ready'],
+        'tags': ['电影感', '史诗感', '战斗推进'],
         'markers': _fallback_markers(duration_sec),
         'feature_evidence': {
             'engine': 'rule-based-timeline-v1',
