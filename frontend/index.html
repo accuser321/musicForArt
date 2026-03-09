@@ -52,6 +52,34 @@
         padding: 10px;
         min-height: 180px;
       }
+      .review {
+        margin-top: 12px;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px;
+      }
+      .review h4 { margin: 0 0 8px; }
+      .review-actions {
+        display: flex;
+        gap: 8px;
+        margin: 8px 0;
+      }
+      .review-actions button {
+        width: auto;
+        padding: 6px 10px;
+      }
+      .review-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      .review-table th,
+      .review-table td {
+        border: 1px solid var(--line);
+        padding: 6px;
+        text-align: left;
+      }
       .hint { font-size: 12px; opacity: 0.8; }
       @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
     </style>
@@ -99,12 +127,21 @@
           <button onclick="opsLexiconDraft()">13) 生成词典草稿</button>
           <button onclick="opsLexiconDraftApplyMerge()">14) 应用词典草稿(merge)</button>
           <button onclick="opsLexiconDraftApplyHighConf()">15) 应用高置信草稿(>=0.45)</button>
-          <button onclick="opsLexiconDraftApplyManual()">16) 手动选择候选并应用</button>
+          <button onclick="opsLexiconDraftApplyManual()">16) 按勾选候选应用</button>
         </section>
 
         <section class="card">
           <h3>输出结果</h3>
           <pre id="output">等待操作...</pre>
+          <div class="review" id="draftReview">
+            <h4>词典草稿审核区</h4>
+            <div class="hint">先点击“13) 生成词典草稿”，再在此勾选候选词应用。</div>
+            <div class="review-actions">
+              <button onclick="selectAllDraftItems(true)">全选</button>
+              <button onclick="selectAllDraftItems(false)">全不选</button>
+            </div>
+            <div id="draftReviewTable"></div>
+          </div>
         </section>
       </div>
     </div>
@@ -123,6 +160,54 @@
 
       function reportMode() {
         return document.getElementById('reportMode').value;
+      }
+
+      function escHtml(s) {
+        return String(s ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
+      function renderDraftReview(data) {
+        const tableBox = document.getElementById('draftReviewTable');
+        const items = (data && data.draft_items) || [];
+        if (!items.length) {
+          tableBox.innerHTML = '<div class="hint">暂无候选词。</div>';
+          return;
+        }
+        const rows = items.map((it, idx) => {
+          const conf = Number(it.confidence || 0);
+          const checked = conf >= 0.45 ? 'checked' : '';
+          const lowMatch = (it.sources && it.sources.low_match) || 0;
+          const missing = (it.sources && it.sources.missing_sfx) || 0;
+          return `
+            <tr>
+              <td><input type="checkbox" class="draft-item-check" data-idx="${idx}" ${checked} /></td>
+              <td>${escHtml(it.candidate)}</td>
+              <td>${escHtml(it.target_head)}</td>
+              <td>${conf.toFixed(3)}</td>
+              <td>low_match=${lowMatch}, missing_sfx=${missing}</td>
+            </tr>
+          `;
+        }).join('');
+        tableBox.innerHTML = `
+          <table class="review-table">
+            <thead>
+              <tr>
+                <th>选择</th><th>候选词</th><th>建议归并头词</th><th>置信度</th><th>来源</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+      }
+
+      function selectAllDraftItems(checked) {
+        const checks = document.querySelectorAll('.draft-item-check');
+        checks.forEach(ch => { ch.checked = checked; });
       }
 
       async function createProject() {
@@ -236,6 +321,7 @@
         const res = await fetch(`${apiBase()}/ops/lexicon-draft?days=7`);
         const data = await res.json();
         latestLexiconDraft = data;
+        renderDraftReview(data);
         show(data);
       }
 
@@ -277,13 +363,18 @@
         if (!latestLexiconDraft || !latestLexiconDraft.draft_items) {
           return show('请先执行“生成词典草稿”');
         }
-        const raw = prompt('输入要应用的候选词（用英文逗号分隔），例如：战马踩水冲锋,盔甲拖地摩擦');
-        if (!raw) return show('已取消');
-        const selectedSet = new Set(raw.split(',').map(x => x.trim()).filter(Boolean));
-        const items = (latestLexiconDraft.draft_items || []).map(x => ({
+        const checks = Array.from(document.querySelectorAll('.draft-item-check'));
+        if (!checks.length) return show('审核列表为空，请先生成草稿');
+        const selectedIdx = new Set(
+          checks.filter(ch => ch.checked).map(ch => Number(ch.dataset.idx))
+        );
+        const items = (latestLexiconDraft.draft_items || []).map((x, idx) => ({
           ...x,
-          selected: selectedSet.has(x.candidate),
+          selected: selectedIdx.has(idx),
         }));
+        if (items.filter(x => x.selected).length === 0) {
+          return show('请至少勾选一个候选词');
+        }
         const res = await fetch(`${apiBase()}/ops/lexicon-draft/apply`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
