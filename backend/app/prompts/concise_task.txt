@@ -1,0 +1,10 @@
+任务：生成“简版”分析，适合普通互联网用户快速阅读。
+
+输出 JSON 字段：
+- title
+- quick_tags: [string]
+- key_points: [string]
+- best_use_cases: [string]
+- markdown
+
+要求：markdown 控制在 300-500 字。

@@ -1,0 +1,12 @@
+任务：生成“有声书制作版”分析，面向后期实操。
+重点：场景落点、对白/BGM比、音效建议、混音建议、下载清单建议。
+
+输出 JSON 字段：
+- title
+- scene_plan: [{scene_no,target_time_sec,intent,dialogue_music_ratio,sfx,mix_tip}]
+- hit_points: [{time_sec,event,why}]
+- risks: [string]
+- export_hints: [string]
+- markdown
+
+要求：每个场景至少 1 条可执行建议。

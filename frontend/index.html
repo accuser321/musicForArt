@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Music For Art - MVP</title>
+    <style>
+      :root {
+        --bg: #f4efe6;
+        --ink: #1f1f1f;
+        --panel: #fff8ee;
+        --accent: #8d2b20;
+        --line: #d4c6ad;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Noto Serif SC", "Source Han Serif SC", serif;
+        color: var(--ink);
+        background: radial-gradient(circle at top, #fffaf3 0%, var(--bg) 65%);
+      }
+      .wrap { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+      h1 { margin: 0 0 16px; font-size: 28px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px;
+      }
+      label { display: block; margin: 8px 0 4px; font-weight: 600; }
+      input, textarea, button, select {
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+        border: none;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 700;
+      }
+      pre {
+        white-space: pre-wrap;
+        line-height: 1.45;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px;
+        min-height: 180px;
+      }
+      .hint { font-size: 12px; opacity: 0.8; }
+      @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Audiobook AI Studio · MVP 验证台</h1>
+      <div class="grid">
+        <section class="card">
+          <label>API 地址</label>
+          <input id="apiBase" value="http://127.0.0.1:8090/api" />
+
+          <label>项目标题</label>
+          <input id="projectTitle" value="玄武战役教学样例" />
+          <button onclick="createProject()">1) 创建项目</button>
+          <p class="hint">当前项目ID: <span id="projectId">-</span></p>
+
+          <label>报告模式</label>
+          <select id="reportMode">
+            <option value="production" selected>production（制作版）</option>
+            <option value="teaching">teaching（教学版）</option>
+            <option value="concise">concise（简版）</option>
+          </select>
+
+          <label>上传音乐</label>
+          <input id="audioFile" type="file" accept="audio/*" />
+          <button onclick="uploadAudio()">2) 音乐分析</button>
+
+          <label>输入文本</label>
+          <textarea id="textInput" rows="8" placeholder="输入章节片段，系统会识别动作和音效建议"></textarea>
+          <button onclick="analyzeText()">3) 文本分析</button>
+
+          <button onclick="buildFusion()">4) 生成融合执行单</button>
+          <button onclick="fetchReport()">5) 拉取完整报告</button>
+          <button onclick="downloadCueCsv()">6) 下载 Cue CSV</button>
+          <button onclick="downloadSfxZip()">7) 下载 SFX ZIP</button>
+
+          <label>图谱推理词</label>
+          <input id="graphTerm" value="脚步声" />
+          <button onclick="graphReason()">8) 图谱推理</button>
+          <button onclick="graphStatus()">9) 图谱状态</button>
+          <button onclick="graphDashboard()">10) 图谱看板</button>
+          <button onclick="opsFunnel()">11) 漏斗指标</button>
+          <button onclick="opsRecommend()">12) 优化建议</button>
+          <button onclick="opsLexiconDraft()">13) 生成词典草稿</button>
+          <button onclick="opsLexiconDraftApplyMerge()">14) 应用词典草稿(merge)</button>
+          <button onclick="opsLexiconDraftApplyHighConf()">15) 应用高置信草稿(>=0.45)</button>
+          <button onclick="opsLexiconDraftApplyManual()">16) 手动选择候选并应用</button>
+        </section>
+
+        <section class="card">
+          <h3>输出结果</h3>
+          <pre id="output">等待操作...</pre>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      let projectId = null;
+      let latestLexiconDraft = null;
+
+      function show(data) {
+        document.getElementById('output').textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      }
+
+      function apiBase() {
+        return document.getElementById('apiBase').value.replace(/\/$/, '');
+      }
+
+      function reportMode() {
+        return document.getElementById('reportMode').value;
+      }
+
+      async function createProject() {
+        const title = document.getElementById('projectTitle').value;
+        const res = await fetch(`${apiBase()}/projects`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title }),
+        });
+        const data = await res.json();
+        projectId = data.id;
+        document.getElementById('projectId').textContent = projectId;
+        show(data);
+      }
+
+      async function uploadAudio() {
+        if (!projectId) return show('请先创建项目');
+        const f = document.getElementById('audioFile').files[0];
+        if (!f) return show('请先选择音频文件');
+        const form = new FormData();
+        form.append('file', f);
+        const res = await fetch(`${apiBase()}/analysis/${projectId}/audio?report_mode=${encodeURIComponent(reportMode())}`, { method: 'POST', body: form });
+        show(await res.json());
+      }
+
+      async function analyzeText() {
+        if (!projectId) return show('请先创建项目');
+        const text = document.getElementById('textInput').value;
+        const res = await fetch(`${apiBase()}/analysis/${projectId}/text`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, report_mode: reportMode() }),
+        });
+        show(await res.json());
+      }
+
+      async function buildFusion() {
+        if (!projectId) return show('请先创建项目');
+        const res = await fetch(`${apiBase()}/analysis/${projectId}/fusion?report_mode=${encodeURIComponent(reportMode())}`, { method: 'POST' });
+        show(await res.json());
+      }
+
+      async function fetchReport() {
+        if (!projectId) return show('请先创建项目');
+        const res = await fetch(`${apiBase()}/analysis/${projectId}/report`);
+        show(await res.json());
+      }
+
+      async function _download(url, fallbackName) {
+        const res = await fetch(url);
+        if (!res.ok) return show(await res.text());
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        const href = URL.createObjectURL(blob);
+        a.href = href;
+        const cd = res.headers.get('content-disposition') || '';
+        const m = cd.match(/filename=\"?([^\";]+)\"?/i);
+        a.download = (m && m[1]) || fallbackName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(href);
+      }
+
+      async function downloadCueCsv() {
+        if (!projectId) return show('请先创建项目');
+        await _download(`${apiBase()}/analysis/${projectId}/export?type=cue_csv`, `project_${projectId}_cue.csv`);
+      }
+
+      async function downloadSfxZip() {
+        if (!projectId) return show('请先创建项目');
+        await _download(`${apiBase()}/analysis/${projectId}/export?type=sfx_zip`, `project_${projectId}_sfx.zip`);
+      }
+
+      async function graphReason() {
+        const term = document.getElementById('graphTerm').value.trim();
+        if (!term) return show('请输入图谱推理词');
+        const pidPart = projectId ? `&project_id=${projectId}` : '';
+        const res = await fetch(`${apiBase()}/graph/reason?term=${encodeURIComponent(term)}&limit=12&max_hops=2${pidPart}`);
+        show(await res.json());
+      }
+
+      async function graphStatus() {
+        const res = await fetch(`${apiBase()}/graph/status`);
+        show(await res.json());
+      }
+
+      async function graphDashboard() {
+        const [healthRes, statusRes, metricsRes] = await Promise.all([
+          fetch(`${apiBase().replace(/\/api$/, '')}/health`),
+          fetch(`${apiBase()}/graph/status`),
+          fetch(`${apiBase()}/graph/metrics?days=7`),
+        ]);
+        const health = await healthRes.json();
+        const status = await statusRes.json();
+        const metrics = await metricsRes.json();
+        show({ health, status, metrics, current_project_id: projectId });
+      }
+
+      async function opsFunnel() {
+        const res = await fetch(`${apiBase()}/ops/funnel?days=7`);
+        show(await res.json());
+      }
+
+      async function opsRecommend() {
+        const res = await fetch(`${apiBase()}/ops/recommendations?days=7`);
+        show(await res.json());
+      }
+
+      async function opsLexiconDraft() {
+        const res = await fetch(`${apiBase()}/ops/lexicon-draft?days=7`);
+        const data = await res.json();
+        latestLexiconDraft = data;
+        show(data);
+      }
+
+      async function opsLexiconDraftApplyMerge() {
+        if (!latestLexiconDraft || !latestLexiconDraft.draft_lexicon) {
+          return show('请先执行“生成词典草稿”');
+        }
+        const res = await fetch(`${apiBase()}/ops/lexicon-draft/apply`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            draft_lexicon: latestLexiconDraft.draft_lexicon,
+            mode: 'merge',
+            dry_run: false,
+          }),
+        });
+        show(await res.json());
+      }
+
+      async function opsLexiconDraftApplyHighConf() {
+        if (!latestLexiconDraft || !latestLexiconDraft.draft_items) {
+          return show('请先执行“生成词典草稿”');
+        }
+        const res = await fetch(`${apiBase()}/ops/lexicon-draft/apply`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            draft_items: latestLexiconDraft.draft_items,
+            min_confidence: 0.45,
+            only_selected: false,
+            mode: 'merge',
+            dry_run: false,
+          }),
+        });
+        show(await res.json());
+      }
+
+      async function opsLexiconDraftApplyManual() {
+        if (!latestLexiconDraft || !latestLexiconDraft.draft_items) {
+          return show('请先执行“生成词典草稿”');
+        }
+        const raw = prompt('输入要应用的候选词（用英文逗号分隔），例如：战马踩水冲锋,盔甲拖地摩擦');
+        if (!raw) return show('已取消');
+        const selectedSet = new Set(raw.split(',').map(x => x.trim()).filter(Boolean));
+        const items = (latestLexiconDraft.draft_items || []).map(x => ({
+          ...x,
+          selected: selectedSet.has(x.candidate),
+        }));
+        const res = await fetch(`${apiBase()}/ops/lexicon-draft/apply`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            draft_items: items,
+            min_confidence: 0,
+            only_selected: true,
+            mode: 'merge',
+            dry_run: false,
+          }),
+        });
+        show(await res.json());
+      }
+    </script>
+  </body>
+</html>
