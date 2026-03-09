@@ -42,6 +42,62 @@ def _extract_json_blob(text: str) -> dict | None:
         return None
 
 
+def _is_num(v) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _validate_contract(payload: dict, evidence_kind: str | None) -> tuple[bool, str]:
+    if not isinstance(payload, dict):
+        return False, 'payload is not object'
+
+    kind = (evidence_kind or '').strip().lower()
+    if kind == 'text_with_music':
+        required = ['title', 'fit_verdict', 'key_points', 'scene_alignment', 'production_notes', 'risks', 'markdown']
+        for k in required:
+            if k not in payload:
+                return False, f'missing key: {k}'
+        fv = payload.get('fit_verdict')
+        if not isinstance(fv, dict):
+            return False, 'fit_verdict must be object'
+        if not isinstance(fv.get('verdict'), str):
+            return False, 'fit_verdict.verdict must be string'
+        if not _is_num(fv.get('score')):
+            return False, 'fit_verdict.score must be number'
+        if not isinstance(fv.get('reasons'), list):
+            return False, 'fit_verdict.reasons must be list'
+        sa = payload.get('scene_alignment')
+        if not isinstance(sa, list):
+            return False, 'scene_alignment must be list'
+        for i, row in enumerate(sa):
+            if not isinstance(row, dict):
+                return False, f'scene_alignment[{i}] must be object'
+            row_required = [
+                'scene_no',
+                'text_start_char',
+                'text_end_char',
+                'text_excerpt',
+                'music_start_sec',
+                'music_end_sec',
+                'entry_reason',
+                'dialogue_music_ratio',
+                'sfx',
+            ]
+            for rk in row_required:
+                if rk not in row:
+                    return False, f'scene_alignment[{i}] missing key: {rk}'
+        return True, ''
+
+    if kind == 'fusion':
+        # Fusion accepts richer schemas; require minimum stable fields.
+        minimum = ['markdown']
+        for k in minimum:
+            if k not in payload:
+                return False, f'missing key: {k}'
+        return True, ''
+
+    return True, ''
+
+
 def _chat_completion(system_prompt: str, user_prompt: str) -> str | None:
     if not llm_enabled():
         return None
@@ -171,6 +227,10 @@ def generate_report(task_mode: str, evidence_payload: dict) -> tuple[dict | None
 
         parsed = _extract_json_blob(raw)
         if parsed and isinstance(parsed, dict):
+            ok, reason = _validate_contract(parsed, evidence_kind=evidence_kind)
+            if not ok:
+                print(f'[LLM CONTRACT INVALID] mode={mode} reason={reason}', file=sys.stderr)
+                continue
             markdown = parsed.get('markdown') if isinstance(parsed.get('markdown'), str) else raw
             return parsed, markdown, {
                 'requested_mode': task_mode,
