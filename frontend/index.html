@@ -155,6 +155,10 @@
           <textarea id="textInput" rows="8" placeholder="输入章节片段，系统会识别动作和音效建议"></textarea>
           <button onclick="analyzeText()">3) 文本分析</button>
 
+          <label>上传演绎音频（可选但推荐）</label>
+          <input id="narrationFile" type="file" accept="audio/*" />
+          <button onclick="analyzeNarration()">3.5) 演绎音频时间轴</button>
+
           <button onclick="buildFusion()">4) 生成融合执行单</button>
           <button onclick="fetchReport()">5) 拉取完整报告</button>
           <button onclick="downloadCueCsv()">6) 下载 Cue CSV</button>
@@ -308,12 +312,13 @@
             <td>${c.scene_no}</td>
             <td>${c.text_start_char ?? '-'} ~ ${c.text_end_char ?? '-'}</td>
             <td>${escHtml(c.text_excerpt || '')}</td>
+            <td>${c.narration_start_sec ?? '-'} ~ ${c.narration_end_sec ?? '-'}</td>
             <td>${c.music_segment_start_sec ?? c.target_time_sec} ~ ${c.music_segment_end_sec ?? c.target_time_sec}</td>
             <td>${escHtml(c.marker_label || '')}</td>
             <td>${escHtml(c.dialogue_music_ratio || '')}</td>
             <td>${escHtml((c.recommended_sfx || []).join('、') || '无')}</td>
           </tr>`).join('');
-          blocks.push(`<h4>文字-音乐对位执行单</h4><table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>音乐区间(秒)</th><th>锚点</th><th>对白/音乐</th><th>推荐音效</th></tr></thead><tbody>${rows}</tbody></table>`);
+          blocks.push(`<h4>文字-旁白-音乐对位执行单</h4><table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>旁白区间(秒)</th><th>音乐区间(秒)</th><th>锚点</th><th>对白/音乐</th><th>推荐音效</th></tr></thead><tbody>${rows}</tbody></table>`);
         }
         if (data.report_json && Array.isArray(data.report_json.scene_alignment) && data.report_json.scene_alignment.length) {
           const rows = data.report_json.scene_alignment.map(r => `<tr>
@@ -469,6 +474,18 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text, report_mode: reportMode() }),
           });
+          show(await readApiResponse(res));
+        });
+      }
+
+      async function analyzeNarration() {
+        if (!projectId) return show('请先创建项目');
+        const f = document.getElementById('narrationFile').files[0];
+        if (!f) return show('请先选择演绎音频');
+        await runAction('演绎音频时间轴', async () => {
+          const form = new FormData();
+          form.append('file', f);
+          const res = await fetch(`${apiBase()}/analysis/${projectId}/narration`, { method: 'POST', body: form });
           show(await readApiResponse(res));
         });
       }

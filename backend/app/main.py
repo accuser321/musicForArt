@@ -9,8 +9,9 @@ from sqlalchemy import select
 
 from app.config import settings
 from app.db import SessionLocal, engine
-from app.models import AudioAnalysis, Base, DraftReview, FusionPlan, Project, TextAnalysis
+from app.models import AudioAnalysis, Base, DraftReview, FusionPlan, NarrationAnalysis, Project, TextAnalysis
 from app.services.audio_analysis import analyze_audio_for_audiobook
+from app.services.narration import analyze_narration_for_audiobook
 from app.services.semantic_graph import expand_term, graph_status, reason_term, upsert_relation
 from app.services.semantic_store import get_lexicon, merge_lexicon, save_lexicon
 from app.services.sfx_matcher import load_sfx_library, match_sfx_candidates
@@ -407,6 +408,51 @@ def analyze_text(project_id: int):
         return jsonify(result)
 
 
+@app.post(f'{settings.api_prefix}/analysis/<int:project_id>/narration')
+def analyze_narration(project_id: int):
+    file = request.files.get('file')
+    if file is None:
+        return jsonify({'detail': 'file is required'}), 400
+
+    with SessionLocal() as db:
+        project = db.get(Project, project_id)
+        if not project:
+            return jsonify({'detail': 'Project not found'}), 404
+
+        text = db.execute(select(TextAnalysis).where(TextAnalysis.project_id == project_id)).scalar_one_or_none()
+        if not text:
+            return jsonify({'detail': 'Text analysis is required before narration analysis'}), 400
+
+        upload_dir = Path(settings.upload_dir).resolve()
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        ext = Path(file.filename or 'narration.bin').suffix
+        save_path = upload_dir / f'project_{project_id}_narration{ext}'
+        save_path.write_bytes(file.read())
+
+        scenes = json.loads(text.scenes_json)
+        result = analyze_narration_for_audiobook(str(save_path), scenes=scenes)
+        row = db.execute(select(NarrationAnalysis).where(NarrationAnalysis.project_id == project_id)).scalar_one_or_none()
+        if row is None:
+            row = NarrationAnalysis(
+                project_id=project_id,
+                file_name=file.filename or save_path.name,
+                file_path=str(save_path),
+                duration_sec=result['duration_sec'],
+                timeline_json=json.dumps(result['timeline'], ensure_ascii=False),
+                report_markdown=result['report_markdown'],
+            )
+            db.add(row)
+        else:
+            row.file_name = file.filename or save_path.name
+            row.file_path = str(save_path)
+            row.duration_sec = result['duration_sec']
+            row.timeline_json = json.dumps(result['timeline'], ensure_ascii=False)
+            row.report_markdown = result['report_markdown']
+
+        db.commit()
+        return jsonify(result)
+
+
 @app.post(f'{settings.api_prefix}/analysis/<int:project_id>/fusion')
 def build_fusion(project_id: int):
     report_mode = (request.args.get('report_mode') or settings.report_mode_default).strip().lower()
@@ -417,6 +463,7 @@ def build_fusion(project_id: int):
 
         audio = db.execute(select(AudioAnalysis).where(AudioAnalysis.project_id == project_id)).scalar_one_or_none()
         text = db.execute(select(TextAnalysis).where(TextAnalysis.project_id == project_id)).scalar_one_or_none()
+        narration = db.execute(select(NarrationAnalysis).where(NarrationAnalysis.project_id == project_id)).scalar_one_or_none()
 
         if not audio or not text:
             missing = []
@@ -435,7 +482,12 @@ def build_fusion(project_id: int):
                 400,
             )
 
-        result = build_fusion_plan(json.loads(audio.markers_json), json.loads(text.scenes_json), report_mode=report_mode)
+        result = build_fusion_plan(
+            json.loads(audio.markers_json),
+            json.loads(text.scenes_json),
+            narration_timeline=(json.loads(narration.timeline_json) if narration else None),
+            report_mode=report_mode,
+        )
         row = db.execute(select(FusionPlan).where(FusionPlan.project_id == project_id)).scalar_one_or_none()
 
         if row is None:
@@ -472,6 +524,7 @@ def get_report(project_id: int):
         audio = db.execute(select(AudioAnalysis).where(AudioAnalysis.project_id == project_id)).scalar_one_or_none()
         text = db.execute(select(TextAnalysis).where(TextAnalysis.project_id == project_id)).scalar_one_or_none()
         fusion = db.execute(select(FusionPlan).where(FusionPlan.project_id == project_id)).scalar_one_or_none()
+        narration = db.execute(select(NarrationAnalysis).where(NarrationAnalysis.project_id == project_id)).scalar_one_or_none()
 
         return jsonify(
             {
@@ -488,6 +541,13 @@ def get_report(project_id: int):
                 'text': None
                 if not text
                 else {'scenes': json.loads(text.scenes_json), 'report_markdown': text.report_markdown},
+                'narration': None
+                if not narration
+                else {
+                    'duration_sec': narration.duration_sec,
+                    'timeline': json.loads(narration.timeline_json),
+                    'report_markdown': narration.report_markdown,
+                },
                 'fusion': None
                 if not fusion
                 else {'cues': json.loads(fusion.cue_sheet_json), 'report_markdown': fusion.report_markdown},

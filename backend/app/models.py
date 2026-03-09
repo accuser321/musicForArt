@@ -52,6 +52,19 @@ class FusionPlan(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
+class NarrationAnalysis(Base):
+    __tablename__ = 'narration_analysis'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey('projects.id', ondelete='CASCADE'), unique=True, index=True)
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_path: Mapped[str] = mapped_column(String(1024), nullable=False)
+    duration_sec: Mapped[float] = mapped_column(Float, nullable=False)
+    timeline_json: Mapped[str] = mapped_column(Text, nullable=False)
+    report_markdown: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
 class ReasoningCache(Base):
     __tablename__ = 'reasoning_cache'
 

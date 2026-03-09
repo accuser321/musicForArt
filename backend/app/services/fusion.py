@@ -46,7 +46,12 @@ def _build_rule_report(cues: list[dict]) -> str:
     return '\n'.join(lines)
 
 
-def build_fusion_plan(audio_markers: list[dict], scenes: list[dict], report_mode: str | None = None) -> dict:
+def build_fusion_plan(
+    audio_markers: list[dict],
+    scenes: list[dict],
+    narration_timeline: list[dict] | None = None,
+    report_mode: str | None = None,
+) -> dict:
     mode = report_mode or settings.report_mode_default
     if not audio_markers or not scenes:
         return {
@@ -66,12 +71,20 @@ def build_fusion_plan(audio_markers: list[dict], scenes: list[dict], report_mode
     marker_len = len(audio_markers)
     fit = _assess_fit(audio_markers, scenes)
 
+    narration_map = {int(x.get('scene_no')): x for x in (narration_timeline or []) if isinstance(x, dict) and x.get('scene_no')}
+
     for i, scene in enumerate(scenes):
         marker_idx = min(i, marker_len - 1)
         marker = audio_markers[marker_idx]
         next_marker = audio_markers[min(marker_idx + 1, marker_len - 1)]
         seg_start = float(marker['time_sec'])
-        seg_end = float(next_marker['time_sec']) if marker_idx + 1 < marker_len else seg_start + 10.0
+        narr = narration_map.get(int(scene.get('scene_no') or 0))
+        narr_len = None
+        if narr and narr.get('start_sec') is not None and narr.get('end_sec') is not None:
+            narr_len = max(1.5, float(narr['end_sec']) - float(narr['start_sec']))
+        seg_end = float(next_marker['time_sec']) if marker_idx + 1 < marker_len else seg_start + (narr_len or 10.0)
+        if narr_len is not None:
+            seg_end = min(seg_end, seg_start + narr_len + 0.8)
         cues.append(
             {
                 'scene_no': scene['scene_no'],
@@ -85,6 +98,8 @@ def build_fusion_plan(audio_markers: list[dict], scenes: list[dict], report_mode
                 'text_start_char': scene.get('char_start'),
                 'text_end_char': scene.get('char_end'),
                 'text_excerpt': scene.get('text', ''),
+                'narration_start_sec': narr.get('start_sec') if narr else None,
+                'narration_end_sec': narr.get('end_sec') if narr else None,
             }
         )
 
@@ -95,6 +110,7 @@ def build_fusion_plan(audio_markers: list[dict], scenes: list[dict], report_mode
             'mode': mode,
             'audio_markers': audio_markers,
             'scenes': scenes,
+            'narration_timeline': narration_timeline or [],
             'cues': cues,
             'fit': fit,
         },
