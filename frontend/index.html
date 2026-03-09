@@ -81,6 +81,14 @@
         text-align: left;
       }
       .hint { font-size: 12px; opacity: 0.8; }
+      .busy {
+        margin-top: 8px;
+        padding: 8px;
+        border-radius: 8px;
+        border: 1px dashed var(--line);
+        background: #fff;
+        font-size: 13px;
+      }
       @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
     </style>
   </head>
@@ -135,6 +143,7 @@
         <section class="card">
           <h3>输出结果</h3>
           <pre id="output">等待操作...</pre>
+          <div id="busyTip" class="busy" style="display:none;">处理中，请稍候...</div>
           <div class="review" id="draftReview">
             <h4>词典草稿审核区</h4>
             <div class="hint">先点击“13) 生成词典草稿”，再在此勾选候选词应用。</div>
@@ -151,9 +160,50 @@
     <script>
       let projectId = null;
       let latestLexiconDraft = null;
+      let uiBusy = false;
 
       function show(data) {
         document.getElementById('output').textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      }
+
+      function setBusy(busy, label) {
+        uiBusy = busy;
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(btn => { btn.disabled = busy; });
+        const tip = document.getElementById('busyTip');
+        if (busy) {
+          tip.style.display = 'block';
+          tip.textContent = label ? `处理中：${label}` : '处理中，请稍候...';
+        } else {
+          tip.style.display = 'none';
+          tip.textContent = '处理中，请稍候...';
+        }
+      }
+
+      async function readApiResponse(res) {
+        const text = await res.text();
+        let data = text;
+        try {
+          data = JSON.parse(text);
+        } catch (_) {}
+        if (!res.ok) {
+          const detail = typeof data === 'object' && data ? (data.detail || JSON.stringify(data)) : String(data);
+          throw new Error(`HTTP ${res.status}: ${detail}`);
+        }
+        return data;
+      }
+
+      async function runAction(label, fn) {
+        if (uiBusy) return show('已有任务在执行，请稍候完成');
+        setBusy(true, label);
+        show(`正在执行：${label}`);
+        try {
+          await fn();
+        } catch (e) {
+          show(`执行失败：${label}\n${e.message || e}`);
+        } finally {
+          setBusy(false);
+        }
       }
 
       function apiBase() {
@@ -214,65 +264,82 @@
       }
 
       async function createProject() {
-        const title = document.getElementById('projectTitle').value;
-        const res = await fetch(`${apiBase()}/projects`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title }),
+        await runAction('创建项目', async () => {
+          const title = document.getElementById('projectTitle').value;
+          const res = await fetch(`${apiBase()}/projects`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title }),
+          });
+          const data = await readApiResponse(res);
+          projectId = data.id;
+          document.getElementById('projectId').textContent = projectId;
+          show(data);
         });
-        const data = await res.json();
-        projectId = data.id;
-        document.getElementById('projectId').textContent = projectId;
-        show(data);
       }
 
       async function uploadAudio() {
         if (!projectId) return show('请先创建项目');
         const f = document.getElementById('audioFile').files[0];
         if (!f) return show('请先选择音频文件');
-        const form = new FormData();
-        form.append('file', f);
-        const res = await fetch(`${apiBase()}/analysis/${projectId}/audio?report_mode=${encodeURIComponent(reportMode())}`, { method: 'POST', body: form });
-        show(await res.json());
+        await runAction('音乐分析', async () => {
+          const form = new FormData();
+          form.append('file', f);
+          const res = await fetch(`${apiBase()}/analysis/${projectId}/audio?report_mode=${encodeURIComponent(reportMode())}`, { method: 'POST', body: form });
+          show(await readApiResponse(res));
+        });
       }
 
       async function analyzeText() {
         if (!projectId) return show('请先创建项目');
-        const text = document.getElementById('textInput').value;
-        const res = await fetch(`${apiBase()}/analysis/${projectId}/text`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, report_mode: reportMode() }),
+        await runAction('文本分析', async () => {
+          const text = document.getElementById('textInput').value;
+          const res = await fetch(`${apiBase()}/analysis/${projectId}/text`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, report_mode: reportMode() }),
+          });
+          show(await readApiResponse(res));
         });
-        show(await res.json());
       }
 
       async function buildFusion() {
         if (!projectId) return show('请先创建项目');
-        const res = await fetch(`${apiBase()}/analysis/${projectId}/fusion?report_mode=${encodeURIComponent(reportMode())}`, { method: 'POST' });
-        show(await res.json());
+        await runAction('生成融合执行单', async () => {
+          const res = await fetch(`${apiBase()}/analysis/${projectId}/fusion?report_mode=${encodeURIComponent(reportMode())}`, { method: 'POST' });
+          show(await readApiResponse(res));
+        });
       }
 
       async function fetchReport() {
         if (!projectId) return show('请先创建项目');
-        const res = await fetch(`${apiBase()}/analysis/${projectId}/report`);
-        show(await res.json());
+        await runAction('拉取完整报告', async () => {
+          const res = await fetch(`${apiBase()}/analysis/${projectId}/report`);
+          show(await readApiResponse(res));
+        });
       }
 
       async function _download(url, fallbackName) {
-        const res = await fetch(url);
-        if (!res.ok) return show(await res.text());
-        const blob = await res.blob();
-        const a = document.createElement('a');
-        const href = URL.createObjectURL(blob);
-        a.href = href;
-        const cd = res.headers.get('content-disposition') || '';
-        const m = cd.match(/filename=\"?([^\";]+)\"?/i);
-        a.download = (m && m[1]) || fallbackName;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(href);
+        await runAction(`下载 ${fallbackName}`, async () => {
+          const res = await fetch(url);
+          if (!res.ok) {
+            const err = await readApiResponse(res);
+            show(err);
+            return;
+          }
+          const blob = await res.blob();
+          const a = document.createElement('a');
+          const href = URL.createObjectURL(blob);
+          a.href = href;
+          const cd = res.headers.get('content-disposition') || '';
+          const m = cd.match(/filename=\"?([^\";]+)\"?/i);
+          a.download = (m && m[1]) || fallbackName;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(href);
+          show({ ok: true, downloaded: a.download });
+        });
       }
 
       async function downloadCueCsv() {
@@ -288,78 +355,94 @@
       async function graphReason() {
         const term = document.getElementById('graphTerm').value.trim();
         if (!term) return show('请输入图谱推理词');
-        const pidPart = projectId ? `&project_id=${projectId}` : '';
-        const res = await fetch(`${apiBase()}/graph/reason?term=${encodeURIComponent(term)}&limit=12&max_hops=2${pidPart}`);
-        show(await res.json());
+        await runAction('图谱推理', async () => {
+          const pidPart = projectId ? `&project_id=${projectId}` : '';
+          const res = await fetch(`${apiBase()}/graph/reason?term=${encodeURIComponent(term)}&limit=12&max_hops=2${pidPart}`);
+          show(await readApiResponse(res));
+        });
       }
 
       async function graphStatus() {
-        const res = await fetch(`${apiBase()}/graph/status`);
-        show(await res.json());
+        await runAction('图谱状态', async () => {
+          const res = await fetch(`${apiBase()}/graph/status`);
+          show(await readApiResponse(res));
+        });
       }
 
       async function graphDashboard() {
-        const [healthRes, statusRes, metricsRes] = await Promise.all([
-          fetch(`${apiBase().replace(/\/api$/, '')}/health`),
-          fetch(`${apiBase()}/graph/status`),
-          fetch(`${apiBase()}/graph/metrics?days=7`),
-        ]);
-        const health = await healthRes.json();
-        const status = await statusRes.json();
-        const metrics = await metricsRes.json();
-        show({ health, status, metrics, current_project_id: projectId });
+        await runAction('图谱看板', async () => {
+          const [healthRes, statusRes, metricsRes] = await Promise.all([
+            fetch(`${apiBase().replace(/\/api$/, '')}/health`),
+            fetch(`${apiBase()}/graph/status`),
+            fetch(`${apiBase()}/graph/metrics?days=7`),
+          ]);
+          const health = await readApiResponse(healthRes);
+          const status = await readApiResponse(statusRes);
+          const metrics = await readApiResponse(metricsRes);
+          show({ health, status, metrics, current_project_id: projectId });
+        });
       }
 
       async function opsFunnel() {
-        const res = await fetch(`${apiBase()}/ops/funnel?days=7`);
-        show(await res.json());
+        await runAction('漏斗指标', async () => {
+          const res = await fetch(`${apiBase()}/ops/funnel?days=7`);
+          show(await readApiResponse(res));
+        });
       }
 
       async function opsRecommend() {
-        const res = await fetch(`${apiBase()}/ops/recommendations?days=7`);
-        show(await res.json());
+        await runAction('优化建议', async () => {
+          const res = await fetch(`${apiBase()}/ops/recommendations?days=7`);
+          show(await readApiResponse(res));
+        });
       }
 
       async function opsLexiconDraft() {
-        const res = await fetch(`${apiBase()}/ops/lexicon-draft?days=7`);
-        const data = await res.json();
-        latestLexiconDraft = data;
-        renderDraftReview(data);
-        show(data);
+        await runAction('生成词典草稿', async () => {
+          const res = await fetch(`${apiBase()}/ops/lexicon-draft?days=7`);
+          const data = await readApiResponse(res);
+          latestLexiconDraft = data;
+          renderDraftReview(data);
+          show(data);
+        });
       }
 
       async function opsLexiconDraftApplyMerge() {
         if (!latestLexiconDraft || !latestLexiconDraft.draft_lexicon) {
           return show('请先执行“生成词典草稿”');
         }
-        const res = await fetch(`${apiBase()}/ops/lexicon-draft/apply`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            draft_lexicon: latestLexiconDraft.draft_lexicon,
-            mode: 'merge',
-            dry_run: false,
-          }),
+        await runAction('应用词典草稿(merge)', async () => {
+          const res = await fetch(`${apiBase()}/ops/lexicon-draft/apply`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              draft_lexicon: latestLexiconDraft.draft_lexicon,
+              mode: 'merge',
+              dry_run: false,
+            }),
+          });
+          show(await readApiResponse(res));
         });
-        show(await res.json());
       }
 
       async function opsLexiconDraftApplyHighConf() {
         if (!latestLexiconDraft || !latestLexiconDraft.draft_items) {
           return show('请先执行“生成词典草稿”');
         }
-        const res = await fetch(`${apiBase()}/ops/lexicon-draft/apply`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            draft_items: latestLexiconDraft.draft_items,
-            min_confidence: 0.45,
-            only_selected: false,
-            mode: 'merge',
-            dry_run: false,
-          }),
+        await runAction('应用高置信草稿', async () => {
+          const res = await fetch(`${apiBase()}/ops/lexicon-draft/apply`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              draft_items: latestLexiconDraft.draft_items,
+              min_confidence: 0.45,
+              only_selected: false,
+              mode: 'merge',
+              dry_run: false,
+            }),
+          });
+          show(await readApiResponse(res));
         });
-        show(await res.json());
       }
 
       async function opsLexiconDraftApplyManual() {
@@ -378,18 +461,20 @@
         if (items.filter(x => x.selected).length === 0) {
           return show('请至少勾选一个候选词');
         }
-        const res = await fetch(`${apiBase()}/ops/lexicon-draft/apply`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            draft_items: items,
-            min_confidence: 0,
-            only_selected: true,
-            mode: 'merge',
-            dry_run: false,
-          }),
+        await runAction('按勾选候选应用', async () => {
+          const res = await fetch(`${apiBase()}/ops/lexicon-draft/apply`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              draft_items: items,
+              min_confidence: 0,
+              only_selected: true,
+              mode: 'merge',
+              dry_run: false,
+            }),
+          });
+          show(await readApiResponse(res));
         });
-        show(await res.json());
       }
 
       function _buildSelectedReviewItems(status) {
@@ -411,24 +496,28 @@
         if (!latestLexiconDraft || !latestLexiconDraft.draft_items) return show('请先生成词典草稿');
         const items = _buildSelectedReviewItems('rejected');
         if (!items.length) return show('请至少勾选一个候选词');
-        const res = await fetch(`${apiBase()}/ops/lexicon-review`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items }),
+        await runAction('标记候选为拒绝', async () => {
+          const res = await fetch(`${apiBase()}/ops/lexicon-review`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items }),
+          });
+          show(await readApiResponse(res));
         });
-        show(await res.json());
       }
 
       async function markSelectedDraftApproved() {
         if (!latestLexiconDraft || !latestLexiconDraft.draft_items) return show('请先生成词典草稿');
         const items = _buildSelectedReviewItems('approved');
         if (!items.length) return show('请至少勾选一个候选词');
-        const res = await fetch(`${apiBase()}/ops/lexicon-review`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items }),
+        await runAction('标记候选为通过', async () => {
+          const res = await fetch(`${apiBase()}/ops/lexicon-review`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items }),
+          });
+          show(await readApiResponse(res));
         });
-        show(await res.json());
       }
     </script>
   </body>

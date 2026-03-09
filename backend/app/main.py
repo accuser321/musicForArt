@@ -373,7 +373,21 @@ def build_fusion(project_id: int):
         text = db.execute(select(TextAnalysis).where(TextAnalysis.project_id == project_id)).scalar_one_or_none()
 
         if not audio or not text:
-            return jsonify({'detail': 'Audio and text analysis are both required'}), 400
+            missing = []
+            if not audio:
+                missing.append('audio')
+            if not text:
+                missing.append('text')
+            return (
+                jsonify(
+                    {
+                        'detail': 'Fusion requires both audio and text analysis first',
+                        'missing': missing,
+                        'hint': 'Run steps 2) 音乐分析 and 3) 文本分析 before 4) 生成融合执行单',
+                    }
+                ),
+                400,
+            )
 
         result = build_fusion_plan(json.loads(audio.markers_json), json.loads(text.scenes_json), report_mode=report_mode)
         row = db.execute(select(FusionPlan).where(FusionPlan.project_id == project_id)).scalar_one_or_none()
