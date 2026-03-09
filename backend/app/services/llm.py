@@ -1,6 +1,8 @@
 import json
 import re
 import sys
+import time
+import uuid
 import http.client
 import urllib.error
 import urllib.request
@@ -65,30 +67,44 @@ def _chat_completion(system_prompt: str, user_prompt: str) -> str | None:
         },
         method='POST',
     )
+    req_id = uuid.uuid4().hex[:8]
+    t0 = time.perf_counter()
+    print(
+        f'[LLM START] req={req_id} provider={settings.llm_provider} model={settings.llm_model} timeout={settings.llm_timeout_sec}s',
+        file=sys.stderr,
+    )
 
     try:
         with urllib.request.urlopen(req, timeout=settings.llm_timeout_sec) as resp:
             raw = resp.read().decode('utf-8')
             data = json.loads(raw)
-            return data['choices'][0]['message']['content'].strip()
+            content = data['choices'][0]['message']['content'].strip()
+            elapsed = int((time.perf_counter() - t0) * 1000)
+            print(f'[LLM OK] req={req_id} elapsed_ms={elapsed} chars={len(content)}', file=sys.stderr)
+            return content
     except urllib.error.HTTPError as e:
         try:
             err_body = e.read().decode('utf-8', errors='ignore')
         except Exception:
             err_body = ''
-        print(f'[LLM HTTPError] code={e.code} reason={e.reason} body={err_body[:500]}', file=sys.stderr)
+        elapsed = int((time.perf_counter() - t0) * 1000)
+        print(f'[LLM HTTPError] req={req_id} elapsed_ms={elapsed} code={e.code} reason={e.reason} body={err_body[:500]}', file=sys.stderr)
         return None
     except urllib.error.URLError as e:
-        print(f'[LLM URLError] reason={e.reason}', file=sys.stderr)
+        elapsed = int((time.perf_counter() - t0) * 1000)
+        print(f'[LLM URLError] req={req_id} elapsed_ms={elapsed} reason={e.reason}', file=sys.stderr)
         return None
     except TimeoutError:
-        print('[LLM TimeoutError] request timed out', file=sys.stderr)
+        elapsed = int((time.perf_counter() - t0) * 1000)
+        print(f'[LLM TimeoutError] req={req_id} elapsed_ms={elapsed} request timed out', file=sys.stderr)
         return None
     except http.client.IncompleteRead:
-        print('[LLM IncompleteRead] upstream connection closed unexpectedly', file=sys.stderr)
+        elapsed = int((time.perf_counter() - t0) * 1000)
+        print(f'[LLM IncompleteRead] req={req_id} elapsed_ms={elapsed} upstream connection closed unexpectedly', file=sys.stderr)
         return None
     except (KeyError, IndexError, json.JSONDecodeError) as e:
-        print(f'[LLM ParseError] {type(e).__name__}: {e}', file=sys.stderr)
+        elapsed = int((time.perf_counter() - t0) * 1000)
+        print(f'[LLM ParseError] req={req_id} elapsed_ms={elapsed} {type(e).__name__}: {e}', file=sys.stderr)
         return None
 
 
@@ -134,6 +150,7 @@ def generate_report(task_mode: str, evidence_payload: dict) -> tuple[dict | None
 
     for mode in _mode_chain(task_mode):
         attempts.append(mode)
+        print(f'[LLM MODE] requested={task_mode} trying={mode}', file=sys.stderr)
         task_prompt = _task_template(mode)
         user_prompt = (
             f'{task_prompt}\n\n'
@@ -160,6 +177,7 @@ def generate_report(task_mode: str, evidence_payload: dict) -> tuple[dict | None
         if first_unstructured_raw is None:
             first_unstructured_raw = raw
             first_unstructured_mode = mode
+            print(f'[LLM WARN] mode={mode} returned non-JSON, fallback continues', file=sys.stderr)
 
     if first_unstructured_raw is not None:
         return None, first_unstructured_raw, {

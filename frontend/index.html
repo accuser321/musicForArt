@@ -248,6 +248,23 @@
           return;
         }
         const blocks = [];
+        if (data.fit && typeof data.fit === 'object') {
+          const score = Number(data.fit.fit_score || 0);
+          const verdict = data.fit.verdict || '未判定';
+          const reasons = Array.isArray(data.fit.reasons) ? data.fit.reasons.map(x => `<li>${escHtml(x)}</li>`).join('') : '';
+          blocks.push(`
+            <h4>音乐与文本适配结论</h4>
+            <div class="kv"><div>结论</div><div><strong>${escHtml(verdict)}</strong></div></div>
+            <div class="kv"><div>适配评分</div><div>${score}/100</div></div>
+            ${reasons ? `<ul>${reasons}</ul>` : ''}
+          `);
+        }
+
+        const keyPoints = (data.report_json && Array.isArray(data.report_json.key_points)) ? data.report_json.key_points : [];
+        if (keyPoints.length) {
+          blocks.push(`<h4>关键结论</h4><ul>${keyPoints.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`);
+        }
+
         if (typeof data.duration_sec === 'number') {
           blocks.push(`
             <div class="kv"><div>时长</div><div>${data.duration_sec.toFixed(2)} 秒</div></div>
@@ -260,8 +277,16 @@
           blocks.push(`<h4>文本场景分析</h4><table class="table-lite"><thead><tr><th>场景</th><th>文本</th><th>动作</th><th>建议音效</th><th>强度</th></tr></thead><tbody>${rows}</tbody></table>`);
         }
         if (Array.isArray(data.cues) && data.cues.length) {
-          const rows = data.cues.map(c => `<tr><td>${c.scene_no}</td><td>${c.target_time_sec}</td><td>${escHtml(c.marker_label || '')}</td><td>${escHtml(c.dialogue_music_ratio || '')}</td><td>${escHtml((c.recommended_sfx || []).join('、') || '无')}</td></tr>`).join('');
-          blocks.push(`<h4>融合执行单</h4><table class="table-lite"><thead><tr><th>场景</th><th>时间点</th><th>锚点</th><th>对白/音乐</th><th>推荐音效</th></tr></thead><tbody>${rows}</tbody></table>`);
+          const rows = data.cues.map(c => `<tr>
+            <td>${c.scene_no}</td>
+            <td>${c.text_start_char ?? '-'} ~ ${c.text_end_char ?? '-'}</td>
+            <td>${escHtml(c.text_excerpt || '')}</td>
+            <td>${c.music_segment_start_sec ?? c.target_time_sec} ~ ${c.music_segment_end_sec ?? c.target_time_sec}</td>
+            <td>${escHtml(c.marker_label || '')}</td>
+            <td>${escHtml(c.dialogue_music_ratio || '')}</td>
+            <td>${escHtml((c.recommended_sfx || []).join('、') || '无')}</td>
+          </tr>`).join('');
+          blocks.push(`<h4>文字-音乐对位执行单</h4><table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>音乐区间(秒)</th><th>锚点</th><th>对白/音乐</th><th>推荐音效</th></tr></thead><tbody>${rows}</tbody></table>`);
         }
         if (data.report_markdown) {
           blocks.push(`<div class="md">${mdToHtml(data.report_markdown)}</div>`);

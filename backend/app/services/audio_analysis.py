@@ -1,4 +1,5 @@
 import json
+import sys
 from pathlib import Path
 
 from mutagen import File as MutagenFile
@@ -8,10 +9,14 @@ from app.services.llm import generate_report, llm_enabled
 
 
 def _duration_by_mutagen(file_path: str) -> float:
-    audio = MutagenFile(file_path)
-    if audio is None or audio.info is None:
+    try:
+        audio = MutagenFile(file_path)
+        if audio is None or audio.info is None:
+            return 0.0
+        return float(getattr(audio.info, 'length', 0.0) or 0.0)
+    except Exception as e:
+        print(f'[AUDIO WARN] duration parse failed: {type(e).__name__}: {e}', file=sys.stderr)
         return 0.0
-    return float(getattr(audio.info, 'length', 0.0) or 0.0)
 
 
 def _fallback_markers(duration_sec: float) -> list[dict]:

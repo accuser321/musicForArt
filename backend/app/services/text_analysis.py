@@ -37,9 +37,37 @@ SFX_MAP = {
 }
 
 
-def _split_sentences(text: str) -> list[str]:
-    chunks = re.split(r'[。！？!?\n]+', text)
-    return [c.strip() for c in chunks if c.strip()]
+def _split_sentences_with_span(text: str) -> list[dict]:
+    out = []
+    start = 0
+    for m in re.finditer(r'[。！？!?\n]+', text):
+        end = m.start()
+        raw = text[start:end]
+        stripped = raw.strip()
+        if stripped:
+            left_trim = len(raw) - len(raw.lstrip())
+            right_trim = len(raw) - len(raw.rstrip())
+            out.append(
+                {
+                    'text': stripped,
+                    'char_start': start + left_trim,
+                    'char_end': end - right_trim,
+                }
+            )
+        start = m.end()
+    tail = text[start:]
+    tail_stripped = tail.strip()
+    if tail_stripped:
+        left_trim = len(tail) - len(tail.lstrip())
+        right_trim = len(tail) - len(tail.rstrip())
+        out.append(
+            {
+                'text': tail_stripped,
+                'char_start': start + left_trim,
+                'char_end': len(text) - right_trim,
+            }
+        )
+    return out
 
 
 def _build_rule_report(scenes: list[dict]) -> str:
@@ -61,10 +89,11 @@ def _build_rule_report(scenes: list[dict]) -> str:
 
 def analyze_text_for_audiobook(text: str, report_mode: str | None = None) -> dict:
     mode = report_mode or settings.report_mode_default
-    sentences = _split_sentences(text)
+    sentence_items = _split_sentences_with_span(text)
     scenes = []
 
-    for idx, sentence in enumerate(sentences, start=1):
+    for idx, item in enumerate(sentence_items, start=1):
+        sentence = item['text']
         actions = []
         emotions = []
         tokens = tokenize_cn(sentence)
@@ -84,6 +113,8 @@ def analyze_text_for_audiobook(text: str, report_mode: str | None = None) -> dic
             {
                 'scene_no': idx,
                 'text': sentence,
+                'char_start': item['char_start'],
+                'char_end': item['char_end'],
                 'tokens': tokens,
                 'actions': sorted(set(actions)),
                 'emotions': sorted(set(emotions)),

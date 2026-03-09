@@ -27,6 +27,37 @@ app = Flask(settings.app_name)
 CORS(app)
 
 
+def _fallback_audio_result_on_error(err: Exception) -> dict:
+    return {
+        'duration_sec': 180.0,
+        'bpm': 120.0,
+        'tags': ['电影感', '史诗感', '战斗推进'],
+        'markers': [
+            {'label': '起势段', 'time_sec': 9.0, 'type': 'build'},
+            {'label': '高潮一', 'time_sec': 50.4, 'type': 'peak'},
+            {'label': '回落一', 'time_sec': 68.4, 'type': 'valley'},
+            {'label': '高潮二', 'time_sec': 111.6, 'type': 'peak'},
+            {'label': '回落二', 'time_sec': 129.6, 'type': 'valley'},
+            {'label': '终局高潮', 'time_sec': 147.6, 'type': 'peak'},
+        ],
+        'report_markdown': (
+            '# 音乐分析报告（降级版）\n\n'
+            '- 音频元数据解析异常，系统已自动降级为可执行分析。\n'
+            '- 你仍可继续进行文本分析与融合执行单生成。\n'
+            f'- 异常信息：{type(err).__name__}: {err}\n'
+        ),
+        'report_json': None,
+        'analysis_mode': 'rules-only',
+        'llm_structured': False,
+        'llm_enabled': llm_enabled(),
+        'report_mode': settings.report_mode_default,
+        'effective_report_mode': None,
+        'llm_fallback_applied': True,
+        'llm_attempted_modes': [],
+        'degraded': True,
+    }
+
+
 @app.before_request
 def ensure_tables():
     Base.metadata.create_all(bind=engine)
@@ -300,7 +331,11 @@ def upload_audio(project_id: int):
         save_path.write_bytes(file_bytes)
 
         report_mode = (request.args.get('report_mode') or settings.report_mode_default).strip().lower()
-        result = analyze_audio_for_audiobook(str(save_path), report_mode=report_mode)
+        try:
+            result = analyze_audio_for_audiobook(str(save_path), report_mode=report_mode)
+        except Exception as e:
+            app.logger.exception('audio analyze failed; fallback enabled')
+            result = _fallback_audio_result_on_error(e)
 
         row = db.execute(select(AudioAnalysis).where(AudioAnalysis.project_id == project_id)).scalar_one_or_none()
         if row is None:
