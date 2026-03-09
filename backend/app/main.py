@@ -376,7 +376,18 @@ def analyze_text(project_id: int):
         if not project:
             return jsonify({'detail': 'Project not found'}), 404
 
-        result = analyze_text_for_audiobook(text, report_mode=report_mode)
+        audio = db.execute(select(AudioAnalysis).where(AudioAnalysis.project_id == project_id)).scalar_one_or_none()
+        audio_context = None
+        if audio is not None:
+            audio_context = {
+                'duration_sec': audio.duration_sec,
+                'bpm': audio.bpm,
+                'tags': json.loads(audio.tags_json),
+                'markers': json.loads(audio.markers_json),
+                'report_markdown': audio.report_markdown,
+            }
+
+        result = analyze_text_for_audiobook(text, report_mode=report_mode, audio_context=audio_context)
         row = db.execute(select(TextAnalysis).where(TextAnalysis.project_id == project_id)).scalar_one_or_none()
 
         if row is None:

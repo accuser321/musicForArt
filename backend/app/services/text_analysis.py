@@ -1,7 +1,7 @@
 import re
 
 from app.config import settings
-from app.services.llm import llm_enabled
+from app.services.llm import generate_report, llm_enabled
 from app.services.nlp_zh import tokenize_cn
 from app.services.sfx_matcher import load_sfx_library, match_sfx_candidates
 
@@ -134,7 +134,7 @@ def _build_sfx_requirements(scenes: list[dict]) -> tuple[list[dict], list[str]]:
     return requirements, quick_download_list
 
 
-def analyze_text_for_audiobook(text: str, report_mode: str | None = None) -> dict:
+def analyze_text_for_audiobook(text: str, report_mode: str | None = None, audio_context: dict | None = None) -> dict:
     mode = report_mode or settings.report_mode_default
     sentence_items = _split_sentences_with_span(text)
     scenes = []
@@ -180,23 +180,57 @@ def analyze_text_for_audiobook(text: str, report_mode: str | None = None) -> dic
             cands = '、'.join([c['file_name'] for c in item['candidates']]) if item['candidates'] else '暂无匹配文件'
             report_markdown += f"- {item['term']}（场景{','.join(str(x) for x in item['scene_nos'])}）→ 候选：{cands}\n"
 
+    report_json = {
+        'key_points': [
+            '先按场景动作提取音效需求词，再按候选文件快速试听筛选',
+            '优先处理 download_ready=true 的词条，先完成可落地版本',
+            '对未匹配词条建议后续补充音效素材',
+        ]
+    }
+    analysis_mode = 'rules-only+semantic'
+    llm_structured = False
+    effective_mode = None
+    llm_fallback = False
+    llm_attempted_modes: list[str] = []
+
+    # 核心链路：音乐分析文本 + 系统证据 + 用户文本 联合调用 LLM
+    if audio_context:
+        payload = {
+            'kind': 'text_with_music',
+            'mode': mode,
+            'raw_text': text,
+            'music_analysis_text': str(audio_context.get('report_markdown') or ''),
+            'audio_context': audio_context,
+            'scenes': scenes,
+        }
+        llm_json, llm_md, llm_meta = generate_report(mode, payload)
+        if llm_md:
+            report_markdown = llm_md
+            analysis_mode = 'llm+rules+music'
+            llm_structured = bool(llm_json)
+            effective_mode = llm_meta.get('effective_mode')
+            llm_fallback = llm_meta.get('fallback_applied', False)
+            llm_attempted_modes = llm_meta.get('attempted_modes', [])
+            if isinstance(llm_json, dict):
+                # 保留模型关键结论，同时拼接本地可执行音效清单
+                base_points = llm_json.get('key_points') if isinstance(llm_json.get('key_points'), list) else []
+                report_json = dict(llm_json)
+                report_json['key_points'] = list(base_points) + report_json.get('key_points_local', [])
+        else:
+            llm_attempted_modes = llm_meta.get('attempted_modes', [])
+
     return {
         'scenes': scenes,
         'sfx_requirements': sfx_requirements,
         'quick_download_list': quick_download_list,
         'report_markdown': report_markdown,
-        'report_json': {
-            'key_points': [
-                '先按场景动作提取音效需求词，再按候选文件快速试听筛选',
-                '优先处理 download_ready=true 的词条，先完成可落地版本',
-                '对未匹配词条建议后续补充音效素材',
-            ]
-        },
-        'analysis_mode': 'rules-only+semantic',
-        'llm_structured': False,
+        'report_json': report_json,
+        'analysis_mode': analysis_mode,
+        'llm_structured': llm_structured,
         'llm_enabled': llm_enabled(),
         'report_mode': mode,
-        'effective_report_mode': None,
-        'llm_fallback_applied': False,
-        'llm_attempted_modes': [],
+        'effective_report_mode': effective_mode,
+        'llm_fallback_applied': llm_fallback,
+        'llm_attempted_modes': llm_attempted_modes,
+        'integration_mode': 'music+text+prompt' if audio_context else 'text-only',
     }

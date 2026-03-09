@@ -248,6 +248,18 @@
           return;
         }
         const blocks = [];
+        const fitFromReport = data.report_json && typeof data.report_json === 'object' ? data.report_json.fit_verdict : null;
+        if (fitFromReport && typeof fitFromReport === 'object') {
+          const score = Number(fitFromReport.score || 0);
+          const verdict = fitFromReport.verdict || '未判定';
+          const reasons = Array.isArray(fitFromReport.reasons) ? fitFromReport.reasons.map(x => `<li>${escHtml(x)}</li>`).join('') : '';
+          blocks.push(`
+            <h4>音乐与文本适配结论</h4>
+            <div class="kv"><div>结论</div><div><strong>${escHtml(verdict)}</strong></div></div>
+            <div class="kv"><div>适配评分</div><div>${score}/100</div></div>
+            ${reasons ? `<ul>${reasons}</ul>` : ''}
+          `);
+        }
         if (data.fit && typeof data.fit === 'object') {
           const score = Number(data.fit.fit_score || 0);
           const verdict = data.fit.verdict || '未判定';
@@ -302,6 +314,18 @@
             <td>${escHtml((c.recommended_sfx || []).join('、') || '无')}</td>
           </tr>`).join('');
           blocks.push(`<h4>文字-音乐对位执行单</h4><table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>音乐区间(秒)</th><th>锚点</th><th>对白/音乐</th><th>推荐音效</th></tr></thead><tbody>${rows}</tbody></table>`);
+        }
+        if (data.report_json && Array.isArray(data.report_json.scene_alignment) && data.report_json.scene_alignment.length) {
+          const rows = data.report_json.scene_alignment.map(r => `<tr>
+            <td>${r.scene_no ?? '-'}</td>
+            <td>${r.text_start_char ?? '-'} ~ ${r.text_end_char ?? '-'}</td>
+            <td>${escHtml(r.text_excerpt || '')}</td>
+            <td>${r.music_start_sec ?? '-'} ~ ${r.music_end_sec ?? '-'}</td>
+            <td>${escHtml(r.entry_reason || '')}</td>
+            <td>${escHtml(r.dialogue_music_ratio || '')}</td>
+            <td>${escHtml((r.sfx || []).join('、') || '无')}</td>
+          </tr>`).join('');
+          blocks.push(`<h4>文本分析阶段的对位建议</h4><table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>音乐区间(秒)</th><th>进入理由</th><th>对白/音乐</th><th>音效</th></tr></thead><tbody>${rows}</tbody></table>`);
         }
         if (data.report_markdown) {
           blocks.push(`<div class="md">${mdToHtml(data.report_markdown)}</div>`);

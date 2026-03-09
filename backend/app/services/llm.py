@@ -109,6 +109,8 @@ def _chat_completion(system_prompt: str, user_prompt: str) -> str | None:
 
 
 def _task_template(task_mode: str, evidence_kind: str | None = None) -> str:
+    if evidence_kind == 'text_with_music':
+        return _load_prompt('text_with_music_task.txt')
     if evidence_kind == 'fusion' and task_mode == 'production':
         return _load_prompt('fusion_production_task.txt')
     mapping = {
