@@ -128,6 +128,8 @@
           <button onclick="opsLexiconDraftApplyMerge()">14) 应用词典草稿(merge)</button>
           <button onclick="opsLexiconDraftApplyHighConf()">15) 应用高置信草稿(>=0.45)</button>
           <button onclick="opsLexiconDraftApplyManual()">16) 按勾选候选应用</button>
+          <button onclick="markSelectedDraftRejected()">17) 标记勾选为拒绝</button>
+          <button onclick="markSelectedDraftApproved()">18) 标记勾选为通过</button>
         </section>
 
         <section class="card">
@@ -190,6 +192,7 @@
               <td>${escHtml(it.target_head)}</td>
               <td>${conf.toFixed(3)}</td>
               <td>low_match=${lowMatch}, missing_sfx=${missing}</td>
+              <td>${escHtml(it.review_status || 'pending')}</td>
             </tr>
           `;
         }).join('');
@@ -197,7 +200,7 @@
           <table class="review-table">
             <thead>
               <tr>
-                <th>选择</th><th>候选词</th><th>建议归并头词</th><th>置信度</th><th>来源</th>
+                <th>选择</th><th>候选词</th><th>建议归并头词</th><th>置信度</th><th>来源</th><th>审核状态</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -385,6 +388,45 @@
             mode: 'merge',
             dry_run: false,
           }),
+        });
+        show(await res.json());
+      }
+
+      function _buildSelectedReviewItems(status) {
+        const checks = Array.from(document.querySelectorAll('.draft-item-check'));
+        const selectedIdx = new Set(checks.filter(ch => ch.checked).map(ch => Number(ch.dataset.idx)));
+        const src = latestLexiconDraft?.draft_items || [];
+        const items = src
+          .filter((x, idx) => selectedIdx.has(idx))
+          .map(x => ({
+            candidate: x.candidate,
+            target_head: x.target_head,
+            status,
+            note: status === 'rejected' ? 'manual_reject' : 'manual_approve',
+          }));
+        return items;
+      }
+
+      async function markSelectedDraftRejected() {
+        if (!latestLexiconDraft || !latestLexiconDraft.draft_items) return show('请先生成词典草稿');
+        const items = _buildSelectedReviewItems('rejected');
+        if (!items.length) return show('请至少勾选一个候选词');
+        const res = await fetch(`${apiBase()}/ops/lexicon-review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items }),
+        });
+        show(await res.json());
+      }
+
+      async function markSelectedDraftApproved() {
+        if (!latestLexiconDraft || !latestLexiconDraft.draft_items) return show('请先生成词典草稿');
+        const items = _buildSelectedReviewItems('approved');
+        if (!items.length) return show('请至少勾选一个候选词');
+        const res = await fetch(`${apiBase()}/ops/lexicon-review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items }),
         });
         show(await res.json());
       }

@@ -43,6 +43,7 @@ REPORT_MODE_DEFAULT=production
 
 新增能力：推理缓存、质量日志、灰度发布开关（local/hybrid/neo4j）
 新增能力：自动词典补全草稿（基于线上日志自动推荐词典扩展）
+新增能力：草稿审核状态持久化（approved/rejected，自动去重）
 
 已提供线上验证命令，见 docs/GRAPH_REASONING.md
 
@@ -58,6 +59,8 @@ REPORT_MODE_DEFAULT=production
 自动词典补全草稿接口见 `docs/API.md`：  
 - `GET /api/ops/lexicon-draft`  
 - `POST /api/ops/lexicon-draft/apply`
+- `GET /api/ops/lexicon-review`
+- `POST /api/ops/lexicon-review`
 
 ## 导出能力
 

@@ -9,7 +9,7 @@ from sqlalchemy import select
 
 from app.config import settings
 from app.db import SessionLocal, engine
-from app.models import AudioAnalysis, Base, FusionPlan, Project, TextAnalysis
+from app.models import AudioAnalysis, Base, DraftReview, FusionPlan, Project, TextAnalysis
 from app.services.audio_analysis import analyze_audio_for_audiobook
 from app.services.semantic_graph import expand_term, graph_status, reason_term, upsert_relation
 from app.services.semantic_store import get_lexicon, merge_lexicon, save_lexicon
@@ -589,6 +589,62 @@ def ops_lexicon_draft():
     return jsonify(draft)
 
 
+@app.get(f'{settings.api_prefix}/ops/lexicon-review')
+def ops_lexicon_review_list():
+    with SessionLocal() as db:
+        rows = db.execute(
+            select(DraftReview.candidate, DraftReview.target_head, DraftReview.status, DraftReview.note, DraftReview.updated_at)
+        ).all()
+    out = [
+        {
+            'candidate': c,
+            'target_head': h,
+            'status': s,
+            'note': n,
+            'updated_at': (u.isoformat() if u else None),
+        }
+        for c, h, s, n, u in rows
+    ]
+    return jsonify({'count': len(out), 'items': out})
+
+
+@app.post(f'{settings.api_prefix}/ops/lexicon-review')
+def ops_lexicon_review_upsert():
+    payload = request.get_json(force=True)
+    items = payload.get('items')
+    if not isinstance(items, list):
+        return jsonify({'detail': 'items must be a list'}), 400
+
+    valid_status = {'pending', 'approved', 'rejected'}
+    upserted = 0
+    with SessionLocal() as db:
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            candidate = str(item.get('candidate') or '').strip()
+            if not candidate:
+                continue
+            status = str(item.get('status') or 'pending').strip().lower()
+            if status not in valid_status:
+                continue
+            target_head = str(item.get('target_head') or '').strip()
+            note = str(item.get('note') or '').strip()
+
+            exist = db.execute(select(DraftReview).where(DraftReview.candidate == candidate)).scalar_one_or_none()
+            if exist is None:
+                exist = DraftReview(candidate=candidate, target_head=target_head, status=status, note=note)
+                db.add(exist)
+            else:
+                if target_head:
+                    exist.target_head = target_head
+                exist.status = status
+                exist.note = note
+            upserted += 1
+        db.commit()
+
+    return jsonify({'ok': True, 'upserted': upserted})
+
+
 @app.post(f'{settings.api_prefix}/ops/lexicon-draft/apply')
 def ops_lexicon_draft_apply():
     payload = request.get_json(force=True)
@@ -600,6 +656,7 @@ def ops_lexicon_draft_apply():
     dry_run = bool(payload.get('dry_run', False))
 
     # Alternative input: draft_items (with candidate/target_head/confidence/selected)
+    applied_review_items = []
     if draft_lexicon is None and isinstance(draft_items, list):
         threshold = 0.0
         if min_confidence is not None:
@@ -625,6 +682,7 @@ def ops_lexicon_draft_apply():
             if not head or not cand:
                 continue
             mapped.setdefault(head, []).append(cand)
+            applied_review_items.append({'candidate': cand, 'target_head': head, 'status': 'approved', 'note': 'applied'})
         draft_lexicon = mapped
 
     if not isinstance(draft_lexicon, dict):
@@ -682,6 +740,25 @@ def ops_lexicon_draft_apply():
     else:
         save_lexicon(draft_lexicon)
         after = get_lexicon()
+
+    if applied_review_items:
+        with SessionLocal() as db:
+            for item in applied_review_items:
+                exist = db.execute(select(DraftReview).where(DraftReview.candidate == item['candidate'])).scalar_one_or_none()
+                if exist is None:
+                    db.add(
+                        DraftReview(
+                            candidate=item['candidate'],
+                            target_head=item['target_head'],
+                            status='approved',
+                            note=item['note'],
+                        )
+                    )
+                else:
+                    exist.target_head = item['target_head']
+                    exist.status = 'approved'
+                    exist.note = item['note']
+            db.commit()
 
     return jsonify(
         {

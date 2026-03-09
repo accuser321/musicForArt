@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import ReasoningLog
+from app.models import DraftReview, ReasoningLog
 from app.services.nlp_zh import char_bigram_counter, cosine_counter, normalize_text, tokenize_cn
 from app.services.semantic_store import get_lexicon
 
@@ -79,11 +79,18 @@ def generate_lexicon_draft(db: Session, days: int = 7) -> dict:
 
     lex = get_lexicon()
     heads = list(lex.keys())
+    reviewed_map = {
+        normalize_text(cand): status
+        for cand, status in db.execute(select(DraftReview.candidate, DraftReview.status)).all()
+    }
 
     draft_lexicon: dict[str, list[str]] = {}
     draft_items = []
 
     for cand, cnt in candidates.most_common(40):
+        reviewed_status = reviewed_map.get(cand)
+        if reviewed_status in {'approved', 'rejected'}:
+            continue
         target, score, reason = _pick_target_head(cand, heads)
         if target is None:
             # If we cannot confidently map to existing head, propose a new head bucket
@@ -110,6 +117,7 @@ def generate_lexicon_draft(db: Session, days: int = 7) -> dict:
                     'low_match': low_match_counter.get(cand, 0),
                     'missing_sfx': missing_sfx_counter.get(cand, 0),
                 },
+                'review_status': reviewed_status or 'pending',
             }
         )
 

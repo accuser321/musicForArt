@@ -75,3 +75,16 @@ class ReasoningLog(Base):
     input_json: Mapped[str] = mapped_column(Text, nullable=False)
     output_json: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class DraftReview(Base):
+    __tablename__ = 'draft_review'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    candidate: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    target_head: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    status: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='pending')
+    note: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )

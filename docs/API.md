@@ -58,6 +58,8 @@ Base URL: `http://127.0.0.1:8090/api`
 - GET /ops/funnel?days=7
 - GET /ops/recommendations?days=7
 - GET /ops/lexicon-draft?days=7
+- GET /ops/lexicon-review
+- POST /ops/lexicon-review
 - POST /ops/lexicon-draft/apply
 
 ## 8) 导出资源
@@ -126,3 +128,27 @@ ZIP内容：
   - 仅应用置信度不低于阈值的候选（0~1）
 - `only_selected`（可选）:
   - `true` 时只应用 `selected=true` 的候选，适合人工审核后提交
+
+### 9.3 词典审核状态持久化
+
+- `GET /ops/lexicon-review`
+  - 查看候选词审核记录（pending/approved/rejected）
+- `POST /ops/lexicon-review`
+  - 批量写入审核结论
+
+请求示例：
+```json
+{
+  "items": [
+    {
+      "candidate": "盔甲拖地摩擦",
+      "target_head": "金属",
+      "status": "rejected",
+      "note": "manual_reject"
+    }
+  ]
+}
+```
+
+说明：
+- 已标记为 `approved` 或 `rejected` 的候选，后续草稿生成会自动跳过，避免重复出现。
