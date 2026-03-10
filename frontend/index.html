@@ -353,6 +353,16 @@
           }).join('');
           blocks.push(`<h4>音效需求清单（可直接找素材）</h4><table class="table-lite"><thead><tr><th>需求词</th><th>涉及场景</th><th>候选文件</th><th>状态</th></tr></thead><tbody>${rows}</tbody></table>`);
         }
+        if (Array.isArray(data.clause_timeline) && data.clause_timeline.length) {
+          const rows = data.clause_timeline.map(c => `<tr>
+            <td>${c.clause_no ?? '-'}</td>
+            <td>${c.text_start_char ?? '-'} ~ ${c.text_end_char ?? '-'}</td>
+            <td>${escHtml(c.text || '')}</td>
+            <td>${escHtml(c.punct || '无')}</td>
+            <td>${c.start_sec ?? '-'} ~ ${c.end_sec ?? '-'}</td>
+          </tr>`).join('');
+          blocks.push(`<h4>标点级语句时间线（核心时间证据）</h4><table class="table-lite"><thead><tr><th>语句</th><th>字符区间</th><th>内容</th><th>标点</th><th>时间(秒)</th></tr></thead><tbody>${rows}</tbody></table>`);
+        }
         if (Array.isArray(data.quick_download_list) && data.quick_download_list.length) {
           blocks.push(`<h4>快速下载清单</h4><div>${data.quick_download_list.map(escHtml).join('、')}</div>`);
         }
