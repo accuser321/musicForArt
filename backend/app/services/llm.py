@@ -51,8 +51,46 @@ def _validate_contract(payload: dict, evidence_kind: str | None) -> tuple[bool, 
         return False, 'payload is not object'
 
     kind = (evidence_kind or '').strip().lower()
+    def _validate_sections_and_structure(obj: dict) -> tuple[bool, str]:
+        if not isinstance(obj.get('sections'), list):
+            return False, 'sections must be list'
+        if not isinstance(obj.get('structure_logic'), dict):
+            return False, 'structure_logic must be object'
+        sl = obj['structure_logic']
+        for k in ['pattern_guess', 'repeat_groups', 'evidence']:
+            if k not in sl:
+                return False, f'structure_logic missing key: {k}'
+        for i, row in enumerate(obj['sections']):
+            if not isinstance(row, dict):
+                return False, f'sections[{i}] must be object'
+            req = [
+                'section_no',
+                'section_type',
+                'label',
+                'start_sec',
+                'end_sec',
+                'instruments',
+                'new_instruments_vs_prev',
+                'energy_level',
+                'layer_progression',
+            ]
+            for rk in req:
+                if rk not in row:
+                    return False, f'sections[{i}] missing key: {rk}'
+        return True, ''
+
     if kind == 'text_with_music':
-        required = ['title', 'fit_verdict', 'key_points', 'scene_alignment', 'production_notes', 'risks', 'markdown']
+        required = [
+            'title',
+            'fit_verdict',
+            'key_points',
+            'sections',
+            'structure_logic',
+            'scene_alignment',
+            'production_notes',
+            'risks',
+            'markdown',
+        ]
         for k in required:
             if k not in payload:
                 return False, f'missing key: {k}'
@@ -85,14 +123,52 @@ def _validate_contract(payload: dict, evidence_kind: str | None) -> tuple[bool, 
             for rk in row_required:
                 if rk not in row:
                     return False, f'scene_alignment[{i}] missing key: {rk}'
+        ok, reason = _validate_sections_and_structure(payload)
+        if not ok:
+            return False, reason
         return True, ''
 
     if kind == 'fusion':
-        # Fusion accepts richer schemas; require minimum stable fields.
-        minimum = ['markdown']
-        for k in minimum:
+        required = [
+            'title',
+            'fit_verdict',
+            'key_points',
+            'sections',
+            'structure_logic',
+            'music_entry_plan',
+            'hit_points',
+            'risks',
+            'export_hints',
+            'markdown',
+        ]
+        for k in required:
             if k not in payload:
                 return False, f'missing key: {k}'
+        fv = payload.get('fit_verdict')
+        if not isinstance(fv, dict):
+            return False, 'fit_verdict must be object'
+        if not isinstance(payload.get('music_entry_plan'), list):
+            return False, 'music_entry_plan must be list'
+        for i, row in enumerate(payload.get('music_entry_plan') or []):
+            if not isinstance(row, dict):
+                return False, f'music_entry_plan[{i}] must be object'
+            req = [
+                'scene_no',
+                'text_start_char',
+                'text_end_char',
+                'text_excerpt',
+                'music_start_sec',
+                'music_end_sec',
+                'entry_reason',
+                'dialogue_music_ratio',
+                'sfx',
+            ]
+            for rk in req:
+                if rk not in row:
+                    return False, f'music_entry_plan[{i}] missing key: {rk}'
+        ok, reason = _validate_sections_and_structure(payload)
+        if not ok:
+            return False, reason
         return True, ''
 
     return True, ''

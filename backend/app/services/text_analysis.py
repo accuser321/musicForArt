@@ -212,10 +212,9 @@ def analyze_text_for_audiobook(text: str, report_mode: str | None = None, audio_
             llm_fallback = llm_meta.get('fallback_applied', False)
             llm_attempted_modes = llm_meta.get('attempted_modes', [])
             if isinstance(llm_json, dict):
-                # 保留模型关键结论，同时拼接本地可执行音效清单
-                base_points = llm_json.get('key_points') if isinstance(llm_json.get('key_points'), list) else []
                 report_json = dict(llm_json)
-                report_json['key_points'] = list(base_points) + report_json.get('key_points_local', [])
+                if not isinstance(report_json.get('key_points'), list):
+                    report_json['key_points'] = []
         else:
             llm_attempted_modes = llm_meta.get('attempted_modes', [])
 

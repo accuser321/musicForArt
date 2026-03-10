@@ -12,6 +12,16 @@
 2. 再给“文字与音乐对位建议”：
    - 每个场景都要包含文字起止区间、建议音乐起止时间、进入理由、对白/音乐比例、音效建议
 3. 输出必须可执行、可直接用于后期剪辑，不要空泛描述。
+4. 必须分析音乐乐段逻辑，并输出细颗粒度结构信息：
+   - 乐段切分（乐段1/乐段2/间奏/尾声）
+   - 每段时间范围（start_sec/end_sec）
+   - 每段配器组成（instruments）
+   - 与上一段相比新增配器（new_instruments_vs_prev）
+   - 每段层次递进说明（layer_progression）
+5. 必须给出结构规律：
+   - pattern_guess（如 AB / ABB / 其他）
+   - repeat_groups（如 A,A1,A2 / B,B1,B2）
+   - evidence（至少2条证据）
 
 语言要求：
 - 全部中文，不要中英混杂。
@@ -21,6 +31,8 @@
 - title
 - fit_verdict: {verdict, score, reasons[]}
 - key_points: [string]
+- sections: [{section_no,section_type,label,start_sec,end_sec,instruments[],new_instruments_vs_prev[],energy_level,layer_progression}]
+- structure_logic: {pattern_guess,repeat_groups[],evidence[]}
 - scene_alignment: [{scene_no,text_start_char,text_end_char,text_excerpt,music_start_sec,music_end_sec,entry_reason,dialogue_music_ratio,sfx[]}]
 - production_notes: [string]
 - risks: [string]

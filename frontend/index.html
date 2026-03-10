@@ -280,6 +280,28 @@
         if (keyPoints.length) {
           blocks.push(`<h4>关键结论</h4><ul>${keyPoints.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`);
         }
+        if (data.report_json && data.report_json.structure_logic && typeof data.report_json.structure_logic === 'object') {
+          const sl = data.report_json.structure_logic;
+          blocks.push(`
+            <h4>乐段结构规律</h4>
+            <div class="kv"><div>结构猜测</div><div>${escHtml(sl.pattern_guess || '未识别')}</div></div>
+            <div class="kv"><div>重复组</div><div>${escHtml((sl.repeat_groups || []).join('；') || '无')}</div></div>
+            <div class="kv"><div>证据</div><div>${escHtml((sl.evidence || []).join('；') || '无')}</div></div>
+          `);
+        }
+        if (data.report_json && Array.isArray(data.report_json.sections) && data.report_json.sections.length) {
+          const rows = data.report_json.sections.map(s => `<tr>
+            <td>${s.section_no ?? '-'}</td>
+            <td>${escHtml(s.section_type || '')}</td>
+            <td>${escHtml(s.label || '')}</td>
+            <td>${s.start_sec ?? '-'} ~ ${s.end_sec ?? '-'}</td>
+            <td>${escHtml((s.instruments || []).join('、') || '无')}</td>
+            <td>${escHtml((s.new_instruments_vs_prev || []).join('、') || '无')}</td>
+            <td>${s.energy_level ?? '-'}</td>
+            <td>${escHtml(s.layer_progression || '')}</td>
+          </tr>`).join('');
+          blocks.push(`<h4>乐段与配器递进</h4><table class="table-lite"><thead><tr><th>序号</th><th>类型</th><th>标签</th><th>时间(秒)</th><th>配器</th><th>新增配器</th><th>能量级</th><th>递进说明</th></tr></thead><tbody>${rows}</tbody></table>`);
+        }
 
         if (typeof data.duration_sec === 'number') {
           blocks.push(`
@@ -331,6 +353,18 @@
             <td>${escHtml((r.sfx || []).join('、') || '无')}</td>
           </tr>`).join('');
           blocks.push(`<h4>文本分析阶段的对位建议</h4><table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>音乐区间(秒)</th><th>进入理由</th><th>对白/音乐</th><th>音效</th></tr></thead><tbody>${rows}</tbody></table>`);
+        }
+        if (data.report_json && Array.isArray(data.report_json.music_entry_plan) && data.report_json.music_entry_plan.length) {
+          const rows = data.report_json.music_entry_plan.map(r => `<tr>
+            <td>${r.scene_no ?? '-'}</td>
+            <td>${r.text_start_char ?? '-'} ~ ${r.text_end_char ?? '-'}</td>
+            <td>${escHtml(r.text_excerpt || '')}</td>
+            <td>${r.music_start_sec ?? '-'} ~ ${r.music_end_sec ?? '-'}</td>
+            <td>${escHtml(r.entry_reason || '')}</td>
+            <td>${escHtml(r.dialogue_music_ratio || '')}</td>
+            <td>${escHtml((r.sfx || []).join('、') || '无')}</td>
+          </tr>`).join('');
+          blocks.push(`<h4>融合阶段对位计划（模型输出）</h4><table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>音乐区间(秒)</th><th>进入理由</th><th>对白/音乐</th><th>音效</th></tr></thead><tbody>${rows}</tbody></table>`);
         }
         if (data.report_markdown) {
           blocks.push(`<div class="md">${mdToHtml(data.report_markdown)}</div>`);
