@@ -51,6 +51,7 @@ def build_fusion_plan(
     scenes: list[dict],
     narration_timeline: list[dict] | None = None,
     report_mode: str | None = None,
+    debug_prompt: bool = False,
 ) -> dict:
     mode = report_mode or settings.report_mode_default
     if not audio_markers or not scenes:
@@ -114,6 +115,7 @@ def build_fusion_plan(
             'cues': cues,
             'fit': fit,
         },
+        debug_prompt=debug_prompt,
     )
 
     llm_hit = bool(llm_meta.get('effective_mode')) and bool(report_markdown)
@@ -151,4 +153,5 @@ def build_fusion_plan(
         'effective_report_mode': llm_meta.get('effective_mode'),
         'llm_fallback_applied': llm_meta.get('fallback_applied', False),
         'llm_attempted_modes': llm_meta.get('attempted_modes', []),
+        'llm_trace': llm_meta.get('llm_trace') if debug_prompt else None,
     }

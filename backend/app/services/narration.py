@@ -56,7 +56,65 @@ def _build_timeline(scenes: list[dict], duration_sec: float) -> list[dict]:
     return out
 
 
-def analyze_narration_for_audiobook(file_path: str, scenes: list[dict]) -> dict:
+def _split_clauses_with_span(raw_text: str) -> list[dict]:
+    out = []
+    start = 0
+    for m in re.finditer(r'[，,。！？!?；;：:、]', raw_text):
+        end = m.start()
+        seg = raw_text[start:end].strip()
+        if seg:
+            left = len(raw_text[start:end]) - len(raw_text[start:end].lstrip())
+            right = len(raw_text[start:end]) - len(raw_text[start:end].rstrip())
+            out.append(
+                {
+                    'text': seg,
+                    'text_start_char': start + left,
+                    'text_end_char': end - right,
+                    'punct': m.group(0),
+                }
+            )
+        start = m.end()
+    tail = raw_text[start:].strip()
+    if tail:
+        out.append(
+            {
+                'text': tail,
+                'text_start_char': start,
+                'text_end_char': len(raw_text),
+                'punct': '',
+            }
+        )
+    return out
+
+
+def _build_clause_timeline(raw_text: str, duration_sec: float) -> list[dict]:
+    clauses = _split_clauses_with_span(raw_text)
+    if not clauses:
+        return []
+    weights = [max(1.0, len(c['text'])) for c in clauses]
+    ws = sum(weights) or 1.0
+    cursor = 0.0
+    out = []
+    for i, c in enumerate(clauses, start=1):
+        seg_len = duration_sec * (weights[i - 1] / ws)
+        start = cursor
+        end = min(duration_sec, start + seg_len)
+        out.append(
+            {
+                'clause_no': i,
+                'text': c['text'],
+                'text_start_char': c['text_start_char'],
+                'text_end_char': c['text_end_char'],
+                'punct': c['punct'],
+                'start_sec': round(start, 3),
+                'end_sec': round(end, 3),
+            }
+        )
+        cursor = end
+    return out
+
+
+def analyze_narration_for_audiobook(file_path: str, scenes: list[dict], raw_text: str = '') -> dict:
     file_path = str(Path(file_path).resolve())
     duration_sec = _audio_duration_sec(file_path)
     if duration_sec <= 0:
@@ -65,6 +123,7 @@ def analyze_narration_for_audiobook(file_path: str, scenes: list[dict]) -> dict:
         duration_sec = max(8.0, total_chars / 4.0)
 
     timeline = _build_timeline(scenes, duration_sec)
+    clause_timeline = _build_clause_timeline(raw_text, duration_sec) if raw_text else []
     lines = [
         '# 演绎音频时间轴（系统估算）',
         '',
@@ -78,10 +137,17 @@ def analyze_narration_for_audiobook(file_path: str, scenes: list[dict]) -> dict:
         lines.append(
             f"- Scene {t['scene_no']}: {t['start_sec']:.2f}s ~ {t['end_sec']:.2f}s | 字符区间 {t.get('text_start_char')}~{t.get('text_end_char')}"
         )
+    if clause_timeline:
+        lines.extend(['', '## 标点级语句时间轴'])
+        for c in clause_timeline:
+            lines.append(
+                f"- Clause {c['clause_no']}: {c['start_sec']:.2f}s ~ {c['end_sec']:.2f}s | 字符区间 {c['text_start_char']}~{c['text_end_char']} | 标点 {c['punct'] or '无'}"
+            )
 
     return {
         'duration_sec': duration_sec,
         'timeline': timeline,
+        'clause_timeline': clause_timeline,
         'report_markdown': '\n'.join(lines),
         'analysis_mode': 'rules-timing',
     }

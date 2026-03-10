@@ -332,8 +332,9 @@ def upload_audio(project_id: int):
         save_path.write_bytes(file_bytes)
 
         report_mode = (request.args.get('report_mode') or settings.report_mode_default).strip().lower()
+        debug_prompt = (request.args.get('debug_prompt') or '0').strip() in {'1', 'true', 'yes'}
         try:
-            result = analyze_audio_for_audiobook(str(save_path), report_mode=report_mode)
+            result = analyze_audio_for_audiobook(str(save_path), report_mode=report_mode, debug_prompt=debug_prompt)
         except Exception as e:
             app.logger.exception('audio analyze failed; fallback enabled')
             result = _fallback_audio_result_on_error(e)
@@ -369,6 +370,7 @@ def analyze_text(project_id: int):
     payload = request.get_json(force=True)
     text = (payload.get('text') or '').strip()
     report_mode = (payload.get('report_mode') or request.args.get('report_mode') or settings.report_mode_default).strip().lower()
+    debug_prompt = bool(payload.get('debug_prompt', False))
     if not text:
         return jsonify({'detail': 'text is required'}), 400
 
@@ -388,7 +390,9 @@ def analyze_text(project_id: int):
                 'report_markdown': audio.report_markdown,
             }
 
-        result = analyze_text_for_audiobook(text, report_mode=report_mode, audio_context=audio_context)
+        result = analyze_text_for_audiobook(
+            text, report_mode=report_mode, audio_context=audio_context, debug_prompt=debug_prompt
+        )
         row = db.execute(select(TextAnalysis).where(TextAnalysis.project_id == project_id)).scalar_one_or_none()
 
         if row is None:
@@ -430,7 +434,8 @@ def analyze_narration(project_id: int):
         save_path.write_bytes(file.read())
 
         scenes = json.loads(text.scenes_json)
-        result = analyze_narration_for_audiobook(str(save_path), scenes=scenes)
+        result = analyze_narration_for_audiobook(str(save_path), scenes=scenes, raw_text=text.raw_text)
+        timeline_payload = {'scene_timeline': result['timeline'], 'clause_timeline': result.get('clause_timeline', [])}
         row = db.execute(select(NarrationAnalysis).where(NarrationAnalysis.project_id == project_id)).scalar_one_or_none()
         if row is None:
             row = NarrationAnalysis(
@@ -438,7 +443,7 @@ def analyze_narration(project_id: int):
                 file_name=file.filename or save_path.name,
                 file_path=str(save_path),
                 duration_sec=result['duration_sec'],
-                timeline_json=json.dumps(result['timeline'], ensure_ascii=False),
+                timeline_json=json.dumps(timeline_payload, ensure_ascii=False),
                 report_markdown=result['report_markdown'],
             )
             db.add(row)
@@ -446,7 +451,7 @@ def analyze_narration(project_id: int):
             row.file_name = file.filename or save_path.name
             row.file_path = str(save_path)
             row.duration_sec = result['duration_sec']
-            row.timeline_json = json.dumps(result['timeline'], ensure_ascii=False)
+            row.timeline_json = json.dumps(timeline_payload, ensure_ascii=False)
             row.report_markdown = result['report_markdown']
 
         db.commit()
@@ -456,6 +461,7 @@ def analyze_narration(project_id: int):
 @app.post(f'{settings.api_prefix}/analysis/<int:project_id>/fusion')
 def build_fusion(project_id: int):
     report_mode = (request.args.get('report_mode') or settings.report_mode_default).strip().lower()
+    debug_prompt = (request.args.get('debug_prompt') or '0').strip() in {'1', 'true', 'yes'}
     with SessionLocal() as db:
         project = db.get(Project, project_id)
         if not project:
@@ -482,11 +488,20 @@ def build_fusion(project_id: int):
                 400,
             )
 
+        narration_payload = None
+        if narration:
+            parsed_timeline = json.loads(narration.timeline_json)
+            if isinstance(parsed_timeline, dict):
+                narration_payload = parsed_timeline.get('scene_timeline') or []
+            elif isinstance(parsed_timeline, list):
+                narration_payload = parsed_timeline
+
         result = build_fusion_plan(
             json.loads(audio.markers_json),
             json.loads(text.scenes_json),
-            narration_timeline=(json.loads(narration.timeline_json) if narration else None),
+            narration_timeline=narration_payload,
             report_mode=report_mode,
+            debug_prompt=debug_prompt,
         )
         row = db.execute(select(FusionPlan).where(FusionPlan.project_id == project_id)).scalar_one_or_none()
 
@@ -512,6 +527,60 @@ def build_fusion(project_id: int):
             resp={'success': True, 'cue_count': len(result.get('cues', [])), 'analysis_mode': result.get('analysis_mode')},
         )
         return jsonify(result)
+
+
+@app.post(f'{settings.api_prefix}/analysis/<int:project_id>/director')
+def director_advise(project_id: int):
+    payload = request.get_json(force=True, silent=True) or {}
+    report_mode = (payload.get('report_mode') or request.args.get('report_mode') or 'production').strip().lower()
+    debug_prompt = bool(payload.get('debug_prompt', False))
+
+    with SessionLocal() as db:
+        project = db.get(Project, project_id)
+        if not project:
+            return jsonify({'detail': 'Project not found'}), 404
+        audio = db.execute(select(AudioAnalysis).where(AudioAnalysis.project_id == project_id)).scalar_one_or_none()
+        text = db.execute(select(TextAnalysis).where(TextAnalysis.project_id == project_id)).scalar_one_or_none()
+        fusion = db.execute(select(FusionPlan).where(FusionPlan.project_id == project_id)).scalar_one_or_none()
+        narration = db.execute(select(NarrationAnalysis).where(NarrationAnalysis.project_id == project_id)).scalar_one_or_none()
+        narration_json = None
+        if narration:
+            try:
+                narration_json = json.loads(narration.timeline_json)
+            except json.JSONDecodeError:
+                narration_json = None
+        if not audio or not text:
+            return jsonify({'detail': 'Director advice requires audio + text first'}), 400
+
+        narration_payload = None
+        if narration:
+            parsed = json.loads(narration.timeline_json)
+            narration_payload = parsed if isinstance(parsed, dict) else {'scene_timeline': parsed, 'clause_timeline': []}
+
+        from app.services.llm import generate_report  # local import to avoid circular usage expansion
+
+        evidence = {
+            'kind': 'director_final',
+            'mode': report_mode,
+            'project_title': project.title,
+            'audio_analysis_text': audio.report_markdown,
+            'audio_markers': json.loads(audio.markers_json),
+            'text_raw': text.raw_text,
+            'scenes': json.loads(text.scenes_json),
+            'narration': narration_payload or {},
+            'fusion_cues': json.loads(fusion.cue_sheet_json) if fusion else [],
+        }
+        out_json, out_md, meta = generate_report(report_mode, evidence, debug_prompt=debug_prompt)
+        return jsonify(
+            {
+                'report_mode': report_mode,
+                'report_json': out_json,
+                'report_markdown': out_md,
+                'llm_attempted_modes': meta.get('attempted_modes', []),
+                'effective_report_mode': meta.get('effective_mode'),
+                'llm_trace': meta.get('llm_trace') if debug_prompt else None,
+            }
+        )
 
 
 @app.get(f'{settings.api_prefix}/analysis/<int:project_id>/report')
@@ -545,7 +614,16 @@ def get_report(project_id: int):
                 if not narration
                 else {
                     'duration_sec': narration.duration_sec,
-                    'timeline': json.loads(narration.timeline_json),
+                    'timeline': (
+                        narration_json.get('scene_timeline')
+                        if isinstance(narration_json, dict)
+                        else narration_json
+                    ),
+                    'clause_timeline': (
+                        narration_json.get('clause_timeline', [])
+                        if isinstance(narration_json, dict)
+                        else []
+                    ),
                     'report_markdown': narration.report_markdown,
                 },
                 'fusion': None
@@ -897,3 +975,4 @@ def ops_lexicon_draft_apply():
 if __name__ == '__main__':
     Base.metadata.create_all(bind=engine)
     app.run(host='0.0.0.0', port=8090, debug=False, use_reloader=False)
+    debug_prompt = bool(payload.get('debug_prompt', False))

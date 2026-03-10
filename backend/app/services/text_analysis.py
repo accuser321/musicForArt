@@ -134,7 +134,12 @@ def _build_sfx_requirements(scenes: list[dict]) -> tuple[list[dict], list[str]]:
     return requirements, quick_download_list
 
 
-def analyze_text_for_audiobook(text: str, report_mode: str | None = None, audio_context: dict | None = None) -> dict:
+def analyze_text_for_audiobook(
+    text: str,
+    report_mode: str | None = None,
+    audio_context: dict | None = None,
+    debug_prompt: bool = False,
+) -> dict:
     mode = report_mode or settings.report_mode_default
     sentence_items = _split_sentences_with_span(text)
     scenes = []
@@ -203,7 +208,7 @@ def analyze_text_for_audiobook(text: str, report_mode: str | None = None, audio_
             'audio_context': audio_context,
             'scenes': scenes,
         }
-        llm_json, llm_md, llm_meta = generate_report(mode, payload)
+        llm_json, llm_md, llm_meta = generate_report(mode, payload, debug_prompt=debug_prompt)
         if llm_md:
             report_markdown = llm_md
             analysis_mode = 'llm+rules+music'
@@ -232,4 +237,5 @@ def analyze_text_for_audiobook(text: str, report_mode: str | None = None, audio_
         'llm_fallback_applied': llm_fallback,
         'llm_attempted_modes': llm_attempted_modes,
         'integration_mode': 'music+text+prompt' if audio_context else 'text-only',
+        'llm_trace': llm_meta.get('llm_trace') if (audio_context and debug_prompt) else None,
     }

@@ -171,12 +171,37 @@ def _validate_contract(payload: dict, evidence_kind: str | None) -> tuple[bool, 
             return False, reason
         return True, ''
 
+    if kind == 'director_final':
+        required = [
+            'title',
+            'fit_verdict',
+            'sections',
+            'structure_logic',
+            'timeline_direction',
+            'key_points',
+            'risks',
+            'action_list',
+            'markdown',
+        ]
+        for k in required:
+            if k not in payload:
+                return False, f'missing key: {k}'
+        fv = payload.get('fit_verdict')
+        if not isinstance(fv, dict) or not _is_num(fv.get('score')):
+            return False, 'fit_verdict invalid'
+        if not isinstance(payload.get('timeline_direction'), list):
+            return False, 'timeline_direction must be list'
+        ok, reason = _validate_sections_and_structure(payload)
+        if not ok:
+            return False, reason
+        return True, ''
+
     return True, ''
 
 
-def _chat_completion(system_prompt: str, user_prompt: str) -> str | None:
+def _chat_completion(system_prompt: str, user_prompt: str) -> tuple[str | None, dict]:
     if not llm_enabled():
-        return None
+        return None, {'status': 'disabled', 'error': 'llm not enabled'}
 
     payload = {
         'model': settings.llm_model,
@@ -213,7 +238,7 @@ def _chat_completion(system_prompt: str, user_prompt: str) -> str | None:
             content = data['choices'][0]['message']['content'].strip()
             elapsed = int((time.perf_counter() - t0) * 1000)
             print(f'[LLM OK] req={req_id} elapsed_ms={elapsed} chars={len(content)}', file=sys.stderr)
-            return content
+            return content, {'status': 'ok', 'request_id': req_id, 'elapsed_ms': elapsed}
     except urllib.error.HTTPError as e:
         try:
             err_body = e.read().decode('utf-8', errors='ignore')
@@ -221,26 +246,28 @@ def _chat_completion(system_prompt: str, user_prompt: str) -> str | None:
             err_body = ''
         elapsed = int((time.perf_counter() - t0) * 1000)
         print(f'[LLM HTTPError] req={req_id} elapsed_ms={elapsed} code={e.code} reason={e.reason} body={err_body[:500]}', file=sys.stderr)
-        return None
+        return None, {'status': 'http_error', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': f'{e.code} {e.reason}', 'body': err_body[:500]}
     except urllib.error.URLError as e:
         elapsed = int((time.perf_counter() - t0) * 1000)
         print(f'[LLM URLError] req={req_id} elapsed_ms={elapsed} reason={e.reason}', file=sys.stderr)
-        return None
+        return None, {'status': 'url_error', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': str(e.reason)}
     except TimeoutError:
         elapsed = int((time.perf_counter() - t0) * 1000)
         print(f'[LLM TimeoutError] req={req_id} elapsed_ms={elapsed} request timed out', file=sys.stderr)
-        return None
+        return None, {'status': 'timeout', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': 'request timed out'}
     except http.client.IncompleteRead:
         elapsed = int((time.perf_counter() - t0) * 1000)
         print(f'[LLM IncompleteRead] req={req_id} elapsed_ms={elapsed} upstream connection closed unexpectedly', file=sys.stderr)
-        return None
+        return None, {'status': 'incomplete_read', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': 'upstream connection closed unexpectedly'}
     except (KeyError, IndexError, json.JSONDecodeError) as e:
         elapsed = int((time.perf_counter() - t0) * 1000)
         print(f'[LLM ParseError] req={req_id} elapsed_ms={elapsed} {type(e).__name__}: {e}', file=sys.stderr)
-        return None
+        return None, {'status': 'parse_error', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': f'{type(e).__name__}: {e}'}
 
 
 def _task_template(task_mode: str, evidence_kind: str | None = None) -> str:
+    if evidence_kind == 'director_final':
+        return _load_prompt('director_final_task.txt')
     if evidence_kind == 'text_with_music':
         return _load_prompt('text_with_music_task.txt')
     if evidence_kind == 'fusion' and task_mode == 'production':
@@ -277,11 +304,12 @@ def _mode_chain(task_mode: str) -> list[str]:
     return [mode, 'production', 'concise']
 
 
-def generate_report(task_mode: str, evidence_payload: dict) -> tuple[dict | None, str | None, dict]:
+def generate_report(task_mode: str, evidence_payload: dict, debug_prompt: bool = False) -> tuple[dict | None, str | None, dict]:
     system_prompt = _load_prompt('core_system.txt')
     compact = _compact_evidence(evidence_payload)
     evidence_kind = str(compact.get('kind') or '').strip().lower()
     attempts: list[str] = []
+    trace: list[dict] = []
     first_unstructured_raw: str | None = None
     first_unstructured_mode: str | None = None
 
@@ -297,7 +325,19 @@ def generate_report(task_mode: str, evidence_payload: dict) -> tuple[dict | None
             f'证据 JSON:\n{json.dumps(compact, ensure_ascii=False, indent=2)}'
         )
 
-        raw = _chat_completion(system_prompt, user_prompt)
+        raw, call_meta = _chat_completion(system_prompt, user_prompt)
+        if debug_prompt:
+            trace.append(
+                {
+                    'mode': mode,
+                    'evidence_kind': evidence_kind,
+                    'task_prompt': task_prompt,
+                    'system_prompt': system_prompt,
+                    'user_prompt': user_prompt,
+                    'raw_response': raw,
+                    'call_meta': call_meta,
+                }
+            )
         if not raw:
             continue
 
@@ -306,13 +346,20 @@ def generate_report(task_mode: str, evidence_payload: dict) -> tuple[dict | None
             ok, reason = _validate_contract(parsed, evidence_kind=evidence_kind)
             if not ok:
                 print(f'[LLM CONTRACT INVALID] mode={mode} reason={reason}', file=sys.stderr)
+                if debug_prompt and trace:
+                    trace[-1]['contract_valid'] = False
+                    trace[-1]['contract_reason'] = reason
                 continue
+            if debug_prompt and trace:
+                trace[-1]['contract_valid'] = True
+                trace[-1]['contract_reason'] = ''
             markdown = parsed.get('markdown') if isinstance(parsed.get('markdown'), str) else raw
             return parsed, markdown, {
                 'requested_mode': task_mode,
                 'effective_mode': mode,
                 'attempted_modes': attempts,
                 'fallback_applied': mode != task_mode,
+                'llm_trace': trace if debug_prompt else None,
             }
 
         if first_unstructured_raw is None:
@@ -326,6 +373,7 @@ def generate_report(task_mode: str, evidence_payload: dict) -> tuple[dict | None
             'effective_mode': first_unstructured_mode,
             'attempted_modes': attempts,
             'fallback_applied': (first_unstructured_mode or task_mode) != task_mode,
+            'llm_trace': trace if debug_prompt else None,
         }
 
     return None, None, {
@@ -333,4 +381,5 @@ def generate_report(task_mode: str, evidence_payload: dict) -> tuple[dict | None
         'effective_mode': None,
         'attempted_modes': attempts,
         'fallback_applied': False,
+        'llm_trace': trace if debug_prompt else None,
     }

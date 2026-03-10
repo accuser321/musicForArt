@@ -146,6 +146,7 @@
             <option value="teaching">teaching（教学版）</option>
             <option value="concise">concise（简版）</option>
           </select>
+          <label><input id="debugPrompt" type="checkbox" style="width:auto; margin-right:6px;" /> 调试模式（显示Prompt输入/输出）</label>
 
           <label>上传音乐</label>
           <input id="audioFile" type="file" accept="audio/*" />
@@ -160,6 +161,7 @@
           <button onclick="analyzeNarration()">3.5) 演绎音频时间轴</button>
 
           <button onclick="buildFusion()">4) 生成融合执行单</button>
+          <button onclick="directorAdvise()">4.5) 导演建议（统一汇总）</button>
           <button onclick="fetchReport()">5) 拉取完整报告</button>
           <button onclick="downloadCueCsv()">6) 下载 Cue CSV</button>
           <button onclick="downloadSfxZip()">7) 下载 SFX ZIP</button>
@@ -187,6 +189,10 @@
             <pre id="output">等待操作...</pre>
           </details>
           <div id="busyTip" class="busy" style="display:none;">处理中，请稍候...</div>
+          <div class="review">
+            <h4>LLM 调试窗口（Prompt I/O）</h4>
+            <div id="llmDebugBox" class="hint">开启“调试模式”后执行分析，可查看调用输入与输出。</div>
+          </div>
           <div class="review" id="draftReview">
             <h4>词典草稿审核区</h4>
             <div class="hint">先点击“13) 生成词典草稿”，再在此勾选候选词应用。</div>
@@ -208,6 +214,27 @@
       function show(data) {
         document.getElementById('output').textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
         renderPretty(data);
+      }
+
+      function renderLlmDebug(data) {
+        const box = document.getElementById('llmDebugBox');
+        const trace = data && data.llm_trace;
+        if (!Array.isArray(trace) || !trace.length) {
+          box.textContent = '本次没有LLM调试追踪（可开启调试模式后重试）。';
+          return;
+        }
+        box.innerHTML = trace.map((t, idx) => {
+          const cm = t.call_meta || {};
+          return `
+            <details style="margin-bottom:8px;">
+              <summary>调用${idx + 1} | mode=${escHtml(t.mode || '')} | status=${escHtml(cm.status || '')} | request_id=${escHtml(cm.request_id || '')}</summary>
+              <div><strong>Task Prompt</strong><pre>${escHtml(t.task_prompt || '')}</pre></div>
+              <div><strong>User Prompt</strong><pre>${escHtml(t.user_prompt || '')}</pre></div>
+              <div><strong>Raw Response</strong><pre>${escHtml(t.raw_response || '')}</pre></div>
+              <div><strong>Contract</strong> ${t.contract_valid === false ? `不通过：${escHtml(t.contract_reason || '')}` : '通过或未校验'}</div>
+            </details>
+          `;
+        }).join('');
       }
 
       function mdToHtml(md) {
@@ -373,6 +400,7 @@
           blocks.push(`<div>${escHtml(JSON.stringify(data, null, 2))}</div>`);
         }
         box.innerHTML = blocks.join('');
+        renderLlmDebug(data);
       }
 
       function setBusy(busy, label) {
@@ -421,6 +449,10 @@
 
       function reportMode() {
         return document.getElementById('reportMode').value;
+      }
+
+      function debugPromptEnabled() {
+        return !!document.getElementById('debugPrompt').checked;
       }
 
       function escHtml(s) {
@@ -494,7 +526,8 @@
         await runAction('音乐分析', async () => {
           const form = new FormData();
           form.append('file', f);
-          const res = await fetch(`${apiBase()}/analysis/${projectId}/audio?report_mode=${encodeURIComponent(reportMode())}`, { method: 'POST', body: form });
+          const dbg = debugPromptEnabled() ? '&debug_prompt=1' : '';
+          const res = await fetch(`${apiBase()}/analysis/${projectId}/audio?report_mode=${encodeURIComponent(reportMode())}${dbg}`, { method: 'POST', body: form });
           show(await readApiResponse(res));
         });
       }
@@ -506,7 +539,7 @@
           const res = await fetch(`${apiBase()}/analysis/${projectId}/text`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text, report_mode: reportMode() }),
+            body: JSON.stringify({ text, report_mode: reportMode(), debug_prompt: debugPromptEnabled() }),
           });
           show(await readApiResponse(res));
         });
@@ -545,7 +578,20 @@
               throw new Error('请先执行第3步：文本分析（或先输入文本）');
             }
           }
-          const res = await fetch(`${apiBase()}/analysis/${projectId}/fusion?report_mode=${encodeURIComponent(reportMode())}`, { method: 'POST' });
+          const dbg = debugPromptEnabled() ? '&debug_prompt=1' : '';
+          const res = await fetch(`${apiBase()}/analysis/${projectId}/fusion?report_mode=${encodeURIComponent(reportMode())}${dbg}`, { method: 'POST' });
+          show(await readApiResponse(res));
+        });
+      }
+
+      async function directorAdvise() {
+        if (!projectId) return show('请先创建项目');
+        await runAction('导演建议（统一汇总）', async () => {
+          const res = await fetch(`${apiBase()}/analysis/${projectId}/director`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ report_mode: reportMode(), debug_prompt: debugPromptEnabled() }),
+          });
           show(await readApiResponse(res));
         });
       }

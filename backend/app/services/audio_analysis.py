@@ -73,7 +73,7 @@ def _build_rule_report(features: dict) -> str:
     return '\n'.join(lines)
 
 
-def analyze_audio_for_audiobook(file_path: str, report_mode: str | None = None) -> dict:
+def analyze_audio_for_audiobook(file_path: str, report_mode: str | None = None, debug_prompt: bool = False) -> dict:
     file_path = str(Path(file_path).resolve())
     mode = report_mode or settings.report_mode_default
 
@@ -93,7 +93,9 @@ def analyze_audio_for_audiobook(file_path: str, report_mode: str | None = None) 
         },
     }
 
-    report_json, report_markdown, llm_meta = generate_report(mode, {'kind': 'audio', 'mode': mode, 'audio_features': features})
+    report_json, report_markdown, llm_meta = generate_report(
+        mode, {'kind': 'audio', 'mode': mode, 'audio_features': features}, debug_prompt=debug_prompt
+    )
 
     if not report_markdown:
         report_markdown = _build_rule_report(
@@ -120,6 +122,7 @@ def analyze_audio_for_audiobook(file_path: str, report_mode: str | None = None) 
         'effective_report_mode': llm_meta.get('effective_mode'),
         'llm_fallback_applied': llm_meta.get('fallback_applied', False),
         'llm_attempted_modes': llm_meta.get('attempted_modes', []),
+        'llm_trace': llm_meta.get('llm_trace') if debug_prompt else None,
     }
 
     json.dumps(result, ensure_ascii=False)
