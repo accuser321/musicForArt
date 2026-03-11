@@ -1,0 +1,440 @@
+{
+  "version": "v2.1",
+  "tasks": [
+    {
+      "id": "system",
+      "name": "系统级约束",
+      "prompt_file": "V2-system_prompt.txt",
+      "summary": "跨任务通用约束：证据原则、输出顺序、可执行性、语言规范。"
+    },
+    {
+      "id": "music_analysis",
+      "name": "音乐分析",
+      "prompt_file": "V2-music_analysis_task.txt",
+      "summary": "把音乐证据转换为可创作消费的结构化信息。"
+    },
+    {
+      "id": "text_analysis",
+      "name": "文本分析+演绎时间轴",
+      "prompt_file": "V2-text_analysis_task.txt",
+      "summary": "把文本证据转换为场景化与时间映射证据。"
+    },
+    {
+      "id": "production_analysis",
+      "name": "执行单生成",
+      "prompt_file": "V2-production_analysis_task.txt",
+      "summary": "融合音乐+文本+演绎时间轴生成可落地执行单。"
+    }
+  ],
+  "fields": [
+    {
+      "id": "sys.evidence_only",
+      "name": "sys.evidence_only",
+      "task": "system",
+      "role": "output",
+      "description": "只能基于输入证据推理，禁止编造事实。"
+    },
+    {
+      "id": "sys.json_first",
+      "name": "sys.json_first",
+      "task": "system",
+      "role": "output",
+      "description": "输出顺序固定为先JSON后Markdown，保障程序可解析。"
+    },
+    {
+      "id": "sys.actionable_first",
+      "name": "sys.actionable_first",
+      "task": "system",
+      "role": "output",
+      "description": "优先给可执行建议，避免空泛表述。"
+    },
+    {
+      "id": "sys.bind_evidence_fields",
+      "name": "sys.bind_evidence_fields",
+      "task": "system",
+      "role": "output",
+      "description": "关键判断要绑定时间点/区间/场景号/字符区间等证据。"
+    },
+    {
+      "id": "sys.chinese_values",
+      "name": "sys.chinese_values",
+      "task": "system",
+      "role": "output",
+      "description": "JSON值与Markdown必须是中文（键名可英文）。"
+    },
+    {
+      "id": "sys.no_guess_when_missing",
+      "name": "sys.no_guess_when_missing",
+      "task": "system",
+      "role": "output",
+      "description": "证据不足必须显式说明不足项与影响。"
+    },
+
+    {
+      "id": "audio_features",
+      "name": "audio_features",
+      "task": "music_analysis",
+      "role": "input",
+      "description": "音乐原始证据容器（时长、锚点、能量、频段等）。"
+    },
+    {
+      "id": "title",
+      "name": "title",
+      "task": "music_analysis",
+      "role": "output",
+      "description": "报告标题，便于项目归档和展示。"
+    },
+    {
+      "id": "summary",
+      "name": "summary",
+      "task": "music_analysis",
+      "role": "output",
+      "description": "一句话总结该音乐在有声书中的用途。"
+    },
+    {
+      "id": "fit_genres",
+      "name": "fit_genres",
+      "task": "music_analysis",
+      "role": "output",
+      "description": "适配题材列表，指导快速选曲。"
+    },
+    {
+      "id": "risk_genres",
+      "name": "risk_genres",
+      "task": "music_analysis",
+      "role": "output",
+      "description": "不适配题材列表，避免误用。"
+    },
+    {
+      "id": "sections",
+      "name": "sections",
+      "task": "music_analysis",
+      "role": "output",
+      "description": "乐段拆分，提供段落起止与能量层次。"
+    },
+    {
+      "id": "sections.start_sec",
+      "name": "sections.start_sec",
+      "task": "music_analysis",
+      "role": "output",
+      "description": "乐段起始时间，用于剪辑入点。"
+    },
+    {
+      "id": "sections.end_sec",
+      "name": "sections.end_sec",
+      "task": "music_analysis",
+      "role": "output",
+      "description": "乐段结束时间，用于剪辑出点。"
+    },
+    {
+      "id": "sections.main_layers",
+      "name": "sections.main_layers",
+      "task": "music_analysis",
+      "role": "output",
+      "description": "主层次（低频/中频/高频/空间）用于混音分配。"
+    },
+    {
+      "id": "sections.instrument_guess",
+      "name": "sections.instrument_guess",
+      "task": "music_analysis",
+      "role": "output",
+      "description": "可感知配器，用于创作解释与教学。"
+    },
+    {
+      "id": "structure_logic",
+      "name": "structure_logic",
+      "task": "music_analysis",
+      "role": "output",
+      "description": "乐段结构规律（AB/ABB等）和重复关系。"
+    },
+    {
+      "id": "hit_points",
+      "name": "hit_points",
+      "task": "music_analysis",
+      "role": "output",
+      "description": "关键命中点（峰值/转折）供动作或台词对齐。"
+    },
+    {
+      "id": "mix_notes",
+      "name": "mix_notes",
+      "task": "music_analysis",
+      "role": "output",
+      "description": "混音建议（对白避让、频段处理）。"
+    },
+    {
+      "id": "teaching_notes",
+      "name": "teaching_notes",
+      "task": "music_analysis",
+      "role": "output",
+      "description": "教学用途要点。"
+    },
+    {
+      "id": "music_analysis.key_points",
+      "name": "key_points",
+      "task": "music_analysis",
+      "role": "output",
+      "description": "关键摘要，供前端重点展示。"
+    },
+    {
+      "id": "music_analysis.markdown",
+      "name": "markdown",
+      "task": "music_analysis",
+      "role": "output",
+      "description": "面向创作者阅读的完整报告文本。"
+    },
+
+    {
+      "id": "raw_text",
+      "name": "raw_text",
+      "task": "text_analysis",
+      "role": "input",
+      "description": "用户输入文本原文。"
+    },
+    {
+      "id": "scenes",
+      "name": "scenes",
+      "task": "text_analysis",
+      "role": "input",
+      "description": "系统初步场景切分结果（字符区间/动作/情绪）。"
+    },
+    {
+      "id": "music_analysis_text",
+      "name": "music_analysis_text",
+      "task": "text_analysis",
+      "role": "input",
+      "description": "音乐分析文本证据，用于适配判断。"
+    },
+    {
+      "id": "audio_context",
+      "name": "audio_context",
+      "task": "text_analysis",
+      "role": "input",
+      "description": "音乐结构化上下文（标签、锚点等）。"
+    },
+    {
+      "id": "text_theme",
+      "name": "text_theme",
+      "task": "text_analysis",
+      "role": "output",
+      "description": "文本主情绪与叙事方向。"
+    },
+    {
+      "id": "fit_with_music",
+      "name": "fit_with_music",
+      "task": "text_analysis",
+      "role": "output",
+      "description": "文本与音乐的适配判定。"
+    },
+    {
+      "id": "scene_units",
+      "name": "scene_units",
+      "task": "text_analysis",
+      "role": "output",
+      "description": "可被执行单消费的场景单元（含区间和情绪）。"
+    },
+    {
+      "id": "scene_units.text_start_char",
+      "name": "scene_units.text_start_char",
+      "task": "text_analysis",
+      "role": "output",
+      "description": "场景字符起点，后续映射演绎时间。"
+    },
+    {
+      "id": "scene_units.text_end_char",
+      "name": "scene_units.text_end_char",
+      "task": "text_analysis",
+      "role": "output",
+      "description": "场景字符终点，后续映射演绎时间。"
+    },
+    {
+      "id": "scene_units.music_need",
+      "name": "scene_units.music_need",
+      "task": "text_analysis",
+      "role": "output",
+      "description": "该场景音乐需求强度。"
+    },
+    {
+      "id": "scene_units.entry_hint",
+      "name": "scene_units.entry_hint",
+      "task": "text_analysis",
+      "role": "output",
+      "description": "音乐进入建议（渐入/突入/不入）。"
+    },
+    {
+      "id": "scene_units.exit_hint",
+      "name": "scene_units.exit_hint",
+      "task": "text_analysis",
+      "role": "output",
+      "description": "音乐退出建议（淡出/硬切/转场）。"
+    },
+    {
+      "id": "clause_timeline",
+      "name": "clause_timeline",
+      "task": "text_analysis",
+      "role": "output",
+      "description": "语句级时间证据，是执行单秒级对齐的关键前置。"
+    },
+    {
+      "id": "emotion_curve",
+      "name": "emotion_curve",
+      "task": "text_analysis",
+      "role": "output",
+      "description": "情绪强弱曲线，辅助音乐动态设计。"
+    },
+    {
+      "id": "sfx_requirements",
+      "name": "sfx_requirements",
+      "task": "text_analysis",
+      "role": "output",
+      "description": "音效需求词清单，供素材匹配与下载。"
+    },
+    {
+      "id": "text_analysis.key_points",
+      "name": "key_points",
+      "task": "text_analysis",
+      "role": "output",
+      "description": "文本分析关键摘要。"
+    },
+    {
+      "id": "text_analysis.risks",
+      "name": "risks",
+      "task": "text_analysis",
+      "role": "output",
+      "description": "文本阶段风险提示。"
+    },
+    {
+      "id": "text_analysis.markdown",
+      "name": "markdown",
+      "task": "text_analysis",
+      "role": "output",
+      "description": "文本分析完整报告文本。"
+    },
+
+    {
+      "id": "music_analysis",
+      "name": "music_analysis",
+      "task": "production_analysis",
+      "role": "input",
+      "description": "执行单阶段输入：音乐分析证据聚合。"
+    },
+    {
+      "id": "text_analysis",
+      "name": "text_analysis",
+      "task": "production_analysis",
+      "role": "input",
+      "description": "执行单阶段输入：文本分析证据聚合。"
+    },
+    {
+      "id": "narration_timeline",
+      "name": "narration_timeline",
+      "task": "production_analysis",
+      "role": "input",
+      "description": "执行单阶段输入：演绎音频真实时间证据。"
+    },
+    {
+      "id": "fit_verdict",
+      "name": "fit_verdict",
+      "task": "production_analysis",
+      "role": "output",
+      "description": "执行单最终适配结论（verdict+score+reasons）。"
+    },
+    {
+      "id": "music_entry_plan",
+      "name": "music_entry_plan",
+      "task": "production_analysis",
+      "role": "output",
+      "description": "执行单核心：文字区间到音乐区间映射。"
+    },
+    {
+      "id": "music_entry_plan.music_start_sec",
+      "name": "music_entry_plan.music_start_sec",
+      "task": "production_analysis",
+      "role": "output",
+      "description": "场景建议音乐起点秒数。"
+    },
+    {
+      "id": "music_entry_plan.music_end_sec",
+      "name": "music_entry_plan.music_end_sec",
+      "task": "production_analysis",
+      "role": "output",
+      "description": "场景建议音乐终点秒数。"
+    },
+    {
+      "id": "music_entry_plan.dialogue_music_ratio",
+      "name": "music_entry_plan.dialogue_music_ratio",
+      "task": "production_analysis",
+      "role": "output",
+      "description": "对白与音乐比例，直接指导混音。"
+    },
+    {
+      "id": "music_entry_plan.sfx",
+      "name": "music_entry_plan.sfx",
+      "task": "production_analysis",
+      "role": "output",
+      "description": "场景音效建议列表。"
+    },
+    {
+      "id": "export_hints",
+      "name": "export_hints",
+      "task": "production_analysis",
+      "role": "output",
+      "description": "执行单导出提示（DAW落地、文件组织）。"
+    },
+    {
+      "id": "production_analysis.key_points",
+      "name": "key_points",
+      "task": "production_analysis",
+      "role": "output",
+      "description": "执行单关键摘要。"
+    },
+    {
+      "id": "production_analysis.risks",
+      "name": "risks",
+      "task": "production_analysis",
+      "role": "output",
+      "description": "执行单阶段风险提示。"
+    },
+    {
+      "id": "production_analysis.markdown",
+      "name": "markdown",
+      "task": "production_analysis",
+      "role": "output",
+      "description": "执行单完整可读报告文本。"
+    }
+  ],
+  "edges": [
+    {"from": "sys.evidence_only", "to": "summary", "reason": "总结必须来自证据。"},
+    {"from": "sys.evidence_only", "to": "fit_with_music", "reason": "适配结论必须由证据支撑。"},
+    {"from": "sys.evidence_only", "to": "fit_verdict", "reason": "最终执行单结论必须可追溯。"},
+    {"from": "sys.json_first", "to": "music_analysis.markdown", "reason": "音乐分析输出必须先JSON后Markdown。"},
+    {"from": "sys.json_first", "to": "text_analysis.markdown", "reason": "文本分析输出必须先JSON后Markdown。"},
+    {"from": "sys.json_first", "to": "production_analysis.markdown", "reason": "执行单输出必须先JSON后Markdown。"},
+    {"from": "sys.actionable_first", "to": "music_entry_plan", "reason": "执行单核心输出必须可落地。"},
+    {"from": "sys.bind_evidence_fields", "to": "clause_timeline", "reason": "关键建议绑定时间证据。"},
+    {"from": "sys.bind_evidence_fields", "to": "hit_points", "reason": "关键节点需绑定时间。"},
+    {"from": "sys.chinese_values", "to": "music_analysis.key_points", "reason": "音乐分析关键摘要需中文输出。"},
+    {"from": "sys.chinese_values", "to": "text_analysis.key_points", "reason": "文本分析关键摘要需中文输出。"},
+    {"from": "sys.chinese_values", "to": "production_analysis.key_points", "reason": "执行单关键摘要需中文输出。"},
+    {"from": "sys.no_guess_when_missing", "to": "text_analysis.risks", "reason": "文本证据不足时输出风险说明。"},
+    {"from": "sys.no_guess_when_missing", "to": "production_analysis.risks", "reason": "执行单证据不足时输出风险说明。"},
+
+    {"from": "audio_features", "to": "sections", "reason": "音乐特征决定乐段边界与层次。"},
+    {"from": "audio_features", "to": "hit_points", "reason": "能量峰值与转折由音乐证据提取。"},
+    {"from": "sections", "to": "music_analysis", "reason": "乐段信息进入执行单输入。"},
+    {"from": "hit_points", "to": "music_analysis", "reason": "命中点进入执行单输入。"},
+
+    {"from": "raw_text", "to": "scene_units", "reason": "文本原文切分后生成场景单元。"},
+    {"from": "scenes", "to": "scene_units", "reason": "初步场景证据用于场景单元细化。"},
+    {"from": "music_analysis_text", "to": "fit_with_music", "reason": "文本适配判断依赖音乐分析证据。"},
+    {"from": "audio_context", "to": "fit_with_music", "reason": "音频上下文影响适配判定。"},
+    {"from": "scene_units", "to": "text_analysis", "reason": "scene_units构成执行单文本输入。"},
+    {"from": "clause_timeline", "to": "narration_timeline", "reason": "语句级时间证据构成演绎时间轴关键部分。"},
+    {"from": "fit_with_music", "to": "text_analysis", "reason": "适配判定进入执行单输入。"},
+
+    {"from": "music_analysis", "to": "music_entry_plan", "reason": "音乐结构与锚点决定可用乐段。"},
+    {"from": "text_analysis", "to": "music_entry_plan", "reason": "文本场景和情绪决定入退策略。"},
+    {"from": "narration_timeline", "to": "music_entry_plan", "reason": "演绎真实时间决定秒级对齐。"},
+    {"from": "music_entry_plan", "to": "fit_verdict", "reason": "执行单可落地程度影响最终适配结论。"},
+    {"from": "music_entry_plan", "to": "export_hints", "reason": "执行单结构直接决定导出策略。"}
+  ]
+}

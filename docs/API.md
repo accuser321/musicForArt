@@ -19,6 +19,23 @@ Base URL: `http://127.0.0.1:8090/api`
 
 `POST /projects`
 
+说明：
+- 需要先手机号登录（`Authorization: Bearer <token>`）
+- 未授权用户与授权用户策略：
+  - 授权用户：不限调用次数
+  - 未授权用户：全系统核心功能每日最多3次（跨功能合并计数）
+
+## 1.1 手机号认证
+
+- `POST /auth/request-code` 发送验证码（MVP测试版直接返回code）
+- `POST /auth/login` 手机号+验证码登录，返回 token
+- `GET /auth/me` 获取当前登录用户信息
+- `POST /auth/logout` 退出登录
+
+请求头：
+- `Authorization: Bearer <token>`
+- `X-User-Phone: <手机号>`（可选，便于行为日志归属）
+
 ## 2) 上传音频并分析
 
 `POST /analysis/{project_id}/audio?report_mode=teaching`
@@ -61,6 +78,59 @@ Base URL: `http://127.0.0.1:8090/api`
 - GET /ops/lexicon-review
 - POST /ops/lexicon-review
 - POST /ops/lexicon-draft/apply
+- GET /ops/user-events
+- GET /ops/project/{project_id}/flow-bundle
+- GET /ops/file?path=...
+
+说明：
+- 运营接口需要管理员账号（`is_admin=true`）
+
+## 7.0 管理员用户授权接口
+
+- `GET /admin/users` 查看用户列表
+- `POST /admin/users` 新增/更新用户授权
+
+`POST /admin/users` 请求示例：
+```json
+{
+  "phone": "13800138000",
+  "is_authorized": true,
+  "is_admin": false,
+  "daily_limit": 3
+}
+```
+
+### 7.1 用户行为审计查询
+
+`GET /ops/user-events`
+
+查询参数：
+- `phone`（可选）
+- `project_id`（可选）
+- `action`（可选）
+- `date_from`（可选，ISO 时间）
+- `date_to`（可选，ISO 时间）
+- `limit`（可选，默认200，最大1000）
+
+说明：
+- 支持请求头 `X-User-Phone` 或请求参数 `user_phone` 写入行为日志手机号。
+
+### 7.2 项目全流程打包查询
+
+`GET /ops/project/{project_id}/flow-bundle`
+
+返回：
+- 项目基础信息
+- 资产路径（音乐、演绎）
+- 分析文本（音乐/文本/演绎/执行单）
+- 该项目关联行为日志（含输入摘要、输出摘要、文件引用）
+
+### 7.3 本地归档文件下载
+
+`GET /ops/file?path=<绝对路径或UPLOAD_DIR下相对路径>`
+
+说明：
+- 仅允许下载 `UPLOAD_DIR` 目录下文件，接口内含路径安全校验。
 
 ## 8) 导出资源
 

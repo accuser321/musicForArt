@@ -1,0 +1,51 @@
+任务：基于音乐证据输出“有声书创作可用”的音乐分析结果。
+
+输入证据范围：audio_features（时长、锚点、频段/能量信息等）。
+
+输出JSON字段（必须完整）：
+{
+  "title": "字符串",
+  "summary": "一句话总结该音乐在有声书中的用途",
+  "fit_genres": ["适配题材1", "适配题材2"],
+  "risk_genres": ["不适配题材1", "不适配题材2"],
+  "sections": [
+    {
+      "section_no": 1,
+      "label": "乐段名称",
+      "start_sec": 0.0,
+      "end_sec": 15.7,
+      "energy_level": "低/中/高",
+      "main_layers": ["低频层", "中频层", "高频层", "空间层"],
+      "instrument_guess": ["配器1", "配器2"],
+      "entry_suggestion": "该段适合的叙事进入方式",
+      "exit_suggestion": "该段适合的退出方式"
+    }
+  ],
+  "structure_logic": {
+    "pattern_guess": "如AB/ABB/三幕推进",
+    "repeat_groups": ["A≈A1", "B≈B1"],
+    "progression_comment": "层次递进说明"
+  },
+  "hit_points": [
+    {
+      "time_sec": 83.2,
+      "type": "峰值/转折/抽空",
+      "usage": "可对齐的动作或台词建议"
+    }
+  ],
+  "mix_notes": ["混音建议1", "混音建议2"],
+  "teaching_notes": ["教学要点1", "教学要点2"],
+  "key_points": ["要点1", "要点2"],
+  "markdown": "完整音乐分析报告"
+}
+
+业务规则：
+1) section/hit_points 时间必须与输入证据一致。
+2) 重点说明“哪里可上音乐、哪里可让对白”。
+3) 报告用于创作者落地，不做泛化鉴赏。
+
+长度约束：
+1) sections<=6，hit_points<=6。
+2) key_points<=6（每条<=32字）。
+3) mix_notes<=6（每条<=38字），teaching_notes<=5（每条<=38字）。
+4) summary<=60字，markdown 450-700字。

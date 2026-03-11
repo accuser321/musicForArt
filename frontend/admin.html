@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Music For Art · 后台管理</title>
+    <style>
+      :root {
+        --bg: #07101f;
+        --panel: #0f1d35;
+        --line: #22406d;
+        --ink: #e6f0ff;
+        --muted: #9eb5d8;
+        --accent: #1ec8ff;
+        --accent2: #00e7b6;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(1200px 500px at 90% -10%, #14365e 0%, transparent 60%),
+          radial-gradient(900px 380px at -20% 110%, #0a3f58 0%, transparent 55%),
+          var(--bg);
+      }
+      .wrap { max-width: 1280px; margin: 20px auto; padding: 0 14px; }
+      .top {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: linear-gradient(120deg, #0b1a32, #11284a);
+        padding: 14px;
+        margin-bottom: 14px;
+      }
+      h1 { margin: 0 0 8px; font-size: 22px; letter-spacing: 1px; }
+      .muted { color: var(--muted); font-size: 12px; }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; }
+      .cell { flex: 1 1 220px; }
+      input, button, select, textarea {
+        width: 100%;
+        border: 1px solid var(--line);
+        background: #0a1830;
+        color: var(--ink);
+        border-radius: 8px;
+        padding: 10px;
+      }
+      button {
+        cursor: pointer;
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
+        color: #062235;
+        font-weight: 700;
+        border: none;
+      }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(14, 30, 56, 0.9);
+        padding: 12px;
+      }
+      .card h3 { margin: 0 0 10px; font-size: 15px; }
+      pre {
+        margin: 0;
+        padding: 10px;
+        background: #071325;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        min-height: 180px;
+        max-height: 540px;
+        overflow: auto;
+        white-space: pre-wrap;
+      }
+      table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      th, td { border: 1px solid var(--line); padding: 6px; text-align: left; }
+      .tag { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; margin-right: 4px; color: var(--muted); }
+      @media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <section class="top">
+        <h1>Music For Art · 后台管理系统</h1>
+        <div class="muted">手机号登录 · 授权用户管理 · 运营审计与全流程数据下载</div>
+        <div style="margin-top:8px;">
+          <a href="/prompt_graph.html" style="color:#7de8ff; text-decoration:none; border:1px solid #2d4f80; border-radius:8px; padding:6px 10px; display:inline-block;">打开 Prompt 字段图谱</a>
+        </div>
+      </section>
+
+      <section class="card" style="margin-bottom:14px;">
+        <h3>管理员登录</h3>
+        <div class="row">
+          <div class="cell"><input id="apiBase" value="http://127.0.0.1:8090/api" /></div>
+          <div class="cell"><input id="phone" placeholder="管理员手机号" /></div>
+          <div class="cell"><input id="code" placeholder="验证码" /></div>
+          <div class="cell"><button onclick="sendCode()">发送验证码</button></div>
+          <div class="cell"><button onclick="login()">登录后台</button></div>
+        </div>
+        <div style="margin-top:8px;">
+          <span class="tag" id="loginState">未登录</span>
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="card">
+          <h3>授权用户管理</h3>
+          <div class="row">
+            <div class="cell"><input id="uPhone" placeholder="用户手机号" /></div>
+            <div class="cell">
+              <select id="uAuth">
+                <option value="1">授权用户（不限次）</option>
+                <option value="0">未授权用户（日限3次）</option>
+              </select>
+            </div>
+            <div class="cell">
+              <select id="uAdmin">
+                <option value="0">普通用户</option>
+                <option value="1">管理员</option>
+              </select>
+            </div>
+            <div class="cell"><input id="uLimit" value="3" /></div>
+            <div class="cell"><button onclick="saveUser()">保存用户策略</button></div>
+          </div>
+          <div style="margin-top:8px;"><button onclick="loadUsers()">刷新用户列表</button></div>
+          <pre id="usersOut">等待加载...</pre>
+        </div>
+
+        <div class="card">
+          <h3>运营行为审计</h3>
+          <div class="row">
+            <div class="cell"><input id="qPhone" placeholder="按手机号筛选" /></div>
+            <div class="cell"><input id="qProject" placeholder="按项目ID筛选" /></div>
+            <div class="cell"><input id="qAction" placeholder="按动作筛选" /></div>
+            <div class="cell"><input id="qLimit" value="100" /></div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <div class="cell"><button onclick="loadEvents()">查询行为日志</button></div>
+            <div class="cell"><button onclick="loadFunnel()">运营漏斗</button></div>
+            <div class="cell"><button onclick="loadRecommendations()">优化建议</button></div>
+          </div>
+          <pre id="eventsOut">等待查询...</pre>
+        </div>
+
+        <div class="card">
+          <h3>项目全流程数据包</h3>
+          <div class="row">
+            <div class="cell"><input id="bundlePid" placeholder="项目ID" /></div>
+            <div class="cell"><button onclick="loadBundle()">加载项目全流</button></div>
+          </div>
+          <pre id="bundleOut">等待加载...</pre>
+        </div>
+
+        <div class="card">
+          <h3>文件下载（本地归档）</h3>
+          <div class="row">
+            <div class="cell"><textarea id="filePath" rows="4" placeholder="填入flow-bundle返回的绝对路径"></textarea></div>
+          </div>
+          <div class="row">
+            <div class="cell"><button onclick="downloadFile()">下载文件</button></div>
+          </div>
+          <pre id="fileOut">等待下载...</pre>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      let token = localStorage.getItem('mfa_admin_token') || '';
+      let loginPhone = localStorage.getItem('mfa_admin_phone') || '';
+
+      function base() { return document.getElementById('apiBase').value.replace(/\/$/, ''); }
+      function h(extra = {}) {
+        const x = { ...(extra || {}) };
+        if (token) x.Authorization = `Bearer ${token}`;
+        if (loginPhone) x['X-User-Phone'] = loginPhone;
+        return x;
+      }
+      function setState() {
+        document.getElementById('loginState').textContent = loginPhone ? `${loginPhone} 已登录` : '未登录';
+      }
+      async function read(res) {
+        const t = await res.text();
+        try { return JSON.parse(t); } catch { return t; }
+      }
+      function show(id, data) {
+        document.getElementById(id).textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      }
+
+      async function sendCode() {
+        const phone = (document.getElementById('phone').value || '').trim();
+        if (!phone) return show('usersOut', '请输入手机号');
+        const res = await fetch(`${base()}/auth/request-code`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone }),
+        });
+        const data = await read(res);
+        if (data && data.code) document.getElementById('code').value = data.code;
+        show('usersOut', data);
+      }
+
+      async function login() {
+        const phone = (document.getElementById('phone').value || '').trim();
+        const code = (document.getElementById('code').value || '').trim();
+        const res = await fetch(`${base()}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, code }),
+        });
+        const data = await read(res);
+        if (res.ok && data.token) {
+          token = data.token;
+          loginPhone = data.user.phone;
+          localStorage.setItem('mfa_admin_token', token);
+          localStorage.setItem('mfa_admin_phone', loginPhone);
+          setState();
+        }
+        show('usersOut', data);
+      }
+
+      async function loadUsers() {
+        const res = await fetch(`${base()}/admin/users`, { headers: h() });
+        show('usersOut', await read(res));
+      }
+
+      async function saveUser() {
+        const phone = (document.getElementById('uPhone').value || '').trim();
+        const is_authorized = document.getElementById('uAuth').value === '1';
+        const is_admin = document.getElementById('uAdmin').value === '1';
+        const daily_limit = Number(document.getElementById('uLimit').value || 3);
+        const res = await fetch(`${base()}/admin/users`, {
+          method: 'POST',
+          headers: h({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ phone, is_authorized, is_admin, daily_limit }),
+        });
+        show('usersOut', await read(res));
+        await loadUsers();
+      }
+
+      async function loadEvents() {
+        const phone = (document.getElementById('qPhone').value || '').trim();
+        const action = (document.getElementById('qAction').value || '').trim();
+        const pid = (document.getElementById('qProject').value || '').trim();
+        const limit = (document.getElementById('qLimit').value || '100').trim();
+        const q = new URLSearchParams();
+        if (phone) q.set('phone', phone);
+        if (action) q.set('action', action);
+        if (pid) q.set('project_id', pid);
+        q.set('limit', limit);
+        const res = await fetch(`${base()}/ops/user-events?${q.toString()}`, { headers: h() });
+        show('eventsOut', await read(res));
+      }
+
+      async function loadFunnel() {
+        const res = await fetch(`${base()}/ops/funnel?days=7`, { headers: h() });
+        show('eventsOut', await read(res));
+      }
+
+      async function loadRecommendations() {
+        const res = await fetch(`${base()}/ops/recommendations?days=7`, { headers: h() });
+        show('eventsOut', await read(res));
+      }
+
+      async function loadBundle() {
+        const pid = (document.getElementById('bundlePid').value || '').trim();
+        if (!pid) return show('bundleOut', '请输入项目ID');
+        const res = await fetch(`${base()}/ops/project/${encodeURIComponent(pid)}/flow-bundle`, { headers: h() });
+        const data = await read(res);
+        show('bundleOut', data);
+        if (res.ok && data.assets && data.assets.audio_file) {
+          document.getElementById('filePath').value = data.assets.audio_file;
+        }
+      }
+
+      async function downloadFile() {
+        const path = (document.getElementById('filePath').value || '').trim();
+        if (!path) return show('fileOut', '请输入文件路径');
+        const url = `${base()}/ops/file?path=${encodeURIComponent(path)}`;
+        const res = await fetch(url, { headers: h() });
+        if (!res.ok) return show('fileOut', await read(res));
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        const href = URL.createObjectURL(blob);
+        a.href = href;
+        a.download = path.split('/').pop() || 'download.bin';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(href);
+        show('fileOut', { ok: true, file: a.download });
+      }
+
+      setState();
+    </script>
+  </body>
+</html>

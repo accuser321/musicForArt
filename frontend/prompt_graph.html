@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prompt Graph · 字段依赖图</title>
+    <style>
+      :root {
+        --bg: #0a1220;
+        --panel: #111f36;
+        --line: #2d4f80;
+        --ink: #eaf2ff;
+        --muted: #9ab3d8;
+        --accent: #16c3ff;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(1000px 400px at 85% -10%, #16477a 0%, transparent 60%),
+          var(--bg);
+      }
+      .wrap { max-width: 1320px; margin: 16px auto; padding: 0 12px; }
+      .top, .card {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--panel);
+      }
+      .top { padding: 12px; margin-bottom: 12px; }
+      h1 { margin: 0 0 8px; font-size: 22px; }
+      .muted { color: var(--muted); font-size: 12px; }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+      input, button {
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: #0a1830;
+        color: var(--ink);
+        padding: 9px 10px;
+      }
+      button { cursor: pointer; background: linear-gradient(90deg, #0fd0ff, #2af7cf); color: #032433; font-weight: 700; border: none; }
+      .grid { display: grid; grid-template-columns: 1.2fr 1.2fr 1.6fr; gap: 12px; }
+      .card { padding: 10px; min-height: 560px; }
+      .card h3 { margin: 0 0 8px; font-size: 14px; }
+      .list { max-height: 520px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 6px; background: #0a1630; }
+      .item {
+        width: 100%; text-align: left; margin-bottom: 6px;
+        border: 1px solid var(--line); background: #122645; color: var(--ink);
+      }
+      .item.related { border-color: #2af7cf; box-shadow: 0 0 0 1px rgba(42,247,207,.35) inset; }
+      .item.active { border-color: #16c3ff; box-shadow: 0 0 0 1px rgba(22,195,255,.45) inset; }
+      .item small { color: var(--muted); }
+      .tag { display:inline-block; border:1px solid var(--line); border-radius:999px; padding:1px 8px; margin-left:6px; font-size:11px; color:var(--muted); }
+      .detail {
+        background: #081327;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px;
+        max-height: 520px;
+        overflow: auto;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+      .detail h4 { margin: 8px 0 6px; font-size: 13px; color: #b6dcff; }
+      .detail .kv { margin: 3px 0; }
+      .detail .chip {
+        display: inline-block;
+        margin-right: 6px;
+        margin-bottom: 6px;
+        padding: 2px 8px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: #d5ebff;
+      }
+      .detail .hint {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 6px;
+      }
+      .detail details { margin-top: 10px; }
+      .detail pre {
+        margin: 8px 0 0;
+        white-space: pre-wrap;
+        background: #061124;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px;
+      }
+      .editor {
+        margin-top: 10px;
+        border-top: 1px dashed var(--line);
+        padding-top: 10px;
+      }
+      .editor .frow { display: flex; gap: 8px; margin: 6px 0; flex-wrap: wrap; }
+      .editor label { width: 100%; font-size: 12px; color: var(--muted); }
+      .editor input, .editor select, .editor textarea {
+        width: 100%;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: #0a1830;
+        color: var(--ink);
+        padding: 8px;
+      }
+      .editor textarea { min-height: 84px; resize: vertical; }
+      @media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <section class="top">
+        <h1>Prompt 字段依赖图谱（V2）</h1>
+        <div class="muted">点击字段可查看：字段作用、前置字段、后置字段（用于维护提示词层级逻辑）</div>
+        <div class="row">
+          <input id="apiBase" value="http://127.0.0.1:8090/api" style="min-width:340px;" />
+          <input id="fieldSearch" placeholder="搜索字段ID/名称/说明" style="min-width:240px;" oninput="renderFields()" />
+          <label class="muted" style="display:flex;align-items:center;gap:6px;">
+            <input id="onlyLinked" type="checkbox" onchange="renderFields()" />
+            仅看关联字段
+          </label>
+          <button onclick="loadOverview()">刷新图谱</button>
+          <button onclick="rebuildNeo4j()">重建Neo4j图谱（管理员）</button>
+          <span id="status" class="tag">未加载</span>
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="card">
+          <h3>任务列表</h3>
+          <div id="taskList" class="list"></div>
+        </div>
+        <div class="card">
+          <h3>字段列表（点击查看依赖）</h3>
+          <div id="fieldList" class="list"></div>
+        </div>
+        <div class="card">
+          <h3>字段详情</h3>
+          <div id="detailOut" class="detail">等待选择字段...</div>
+          <div class="editor">
+            <h3 style="margin:0 0 8px;font-size:14px;">字段编辑（管理员）</h3>
+            <div class="frow">
+              <label>字段ID（新增时填写；编辑时默认当前字段）</label>
+              <input id="editId" placeholder="如：audio_features" />
+            </div>
+            <div class="frow">
+              <label>字段名称</label>
+              <input id="editName" placeholder="如：audio_features" />
+            </div>
+            <div class="frow">
+              <label>所属任务</label>
+              <select id="editTask"></select>
+            </div>
+            <div class="frow">
+              <label>角色</label>
+              <select id="editRole">
+                <option value="input">input（输入字段）</option>
+                <option value="output">output（输出字段）</option>
+              </select>
+            </div>
+            <div class="frow">
+              <label>字段说明</label>
+              <textarea id="editDesc" placeholder="写给运营人员看的业务解释"></textarea>
+            </div>
+            <div class="frow">
+              <button onclick="saveField()">保存字段</button>
+              <button style="background:#ff8e4d;color:#1b1208;" onclick="removeField()">删除字段</button>
+            </div>
+          </div>
+          <div class="editor">
+            <h3 style="margin:0 0 8px;font-size:14px;">依赖边编辑（管理员）</h3>
+            <div class="frow">
+              <label>from 字段ID</label>
+              <input id="edgeFrom" placeholder="如：audio_features" />
+            </div>
+            <div class="frow">
+              <label>to 字段ID</label>
+              <input id="edgeTo" placeholder="如：sections" />
+            </div>
+            <div class="frow">
+              <label>关系说明（reason）</label>
+              <textarea id="edgeReason" placeholder="写明为什么 from 会影响 to"></textarea>
+            </div>
+            <div class="frow">
+              <button onclick="saveEdge()">保存依赖边</button>
+              <button style="background:#ff8e4d;color:#1b1208;" onclick="removeEdge()">删除依赖边</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      let graph = null;
+      let token = localStorage.getItem('mfa_admin_token') || localStorage.getItem('mfa_auth_token') || '';
+      let phone = localStorage.getItem('mfa_admin_phone') || localStorage.getItem('mfa_auth_phone') || '';
+      let selectedTask = '';
+      let selectedFieldId = '';
+      let relatedFieldSet = new Set();
+
+      function base() { return (document.getElementById('apiBase').value || '').replace(/\/$/, ''); }
+      function headers(extra = {}) {
+        const h = { ...(extra || {}) };
+        if (token) h.Authorization = `Bearer ${token}`;
+        if (phone) h['X-User-Phone'] = phone;
+        return h;
+      }
+      async function read(res) {
+        const txt = await res.text();
+        try { return JSON.parse(txt); } catch { return txt; }
+      }
+      function setStatus(s) { document.getElementById('status').textContent = s; }
+      function esc(v) {
+        return String(v == null ? '' : v)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/\"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+      function taskLabel(task) {
+        const m = {
+          system: '系统级约束',
+          music_analysis: '音乐分析',
+          text_analysis: '文本分析+演绎时间轴',
+          production_analysis: '执行单生成'
+        };
+        return m[task] || task || '-';
+      }
+      function roleLabel(role) {
+        return role === 'input' ? '输入字段（前置数据）' : '输出字段（结果数据）';
+      }
+      function renderUpstreamList(list, currentFieldId) {
+        if (!list || !list.length) return `<h4>前置条件（这个字段依赖谁）</h4><div class="hint">无</div>`;
+        const rows = list.map(x => `
+          <div class="kv">• <strong>${esc(x.field_name || x.field_id)}</strong> <span class="tag">${esc(x.field_id || '')}</span>
+            <button style="margin-left:6px;padding:2px 8px;" onclick="fillEdgeEditor('${esc(x.field_id || '')}','${esc(currentFieldId || '')}','${esc(x.reason || '')}')">编辑此边</button>
+          </div>
+          <div class="hint">关系说明：${esc(x.reason || '无')}</div>
+        `).join('');
+        return `<h4>前置条件（这个字段依赖谁）</h4>${rows}`;
+      }
+      function renderDownstreamList(list, currentFieldId) {
+        if (!list || !list.length) return `<h4>影响字段（这个字段会影响谁）</h4><div class="hint">无</div>`;
+        const rows = list.map(x => `
+          <div class="kv">• <strong>${esc(x.field_name || x.field_id)}</strong> <span class="tag">${esc(x.field_id || '')}</span>
+            <button style="margin-left:6px;padding:2px 8px;" onclick="fillEdgeEditor('${esc(currentFieldId || '')}','${esc(x.field_id || '')}','${esc(x.reason || '')}')">编辑此边</button>
+          </div>
+          <div class="hint">关系说明：${esc(x.reason || '无')}</div>
+        `).join('');
+        return `<h4>影响字段（这个字段会影响谁）</h4>${rows}`;
+      }
+      function renderOverviewReadable(st, ov) {
+        return `
+          <div class="kv"><strong>图谱版本：</strong>${esc(ov.version || 'unknown')}</div>
+          <div class="kv"><strong>任务数：</strong>${esc(ov.task_count || 0)}，<strong>字段数：</strong>${esc(ov.field_count || 0)}，<strong>依赖边数：</strong>${esc(ov.edge_count || 0)}</div>
+          <div class="hint">upstream：前置条件（谁影响当前字段）</div>
+          <div class="hint">downstream：影响字段（当前字段影响谁）</div>
+          <div class="hint">field：当前字段定义（ID/任务/角色/说明）</div>
+        `;
+      }
+      function renderFieldReadable(data) {
+        if (!data || !data.field) {
+          return `<div class="kv">未找到字段</div><div class="hint">请确认字段ID是否存在。</div><details><summary>原始JSON</summary><pre>${esc(JSON.stringify(data, null, 2))}</pre></details>`;
+        }
+        const f = data.field;
+        return `
+          <div class="hint">upstream：前置条件（谁影响当前字段）</div>
+          <div class="hint">downstream：影响字段（当前字段影响谁）</div>
+          <div class="hint">field：当前字段定义（ID/任务/角色/说明）</div>
+          <div class="kv"><strong>字段：</strong>${esc(f.name || f.id)} <span class="tag">${esc(f.id || '')}</span></div>
+          <div class="kv"><strong>所属任务：</strong>${esc(taskLabel(f.task))}</div>
+          <div class="kv"><strong>字段角色：</strong>${esc(roleLabel(f.role))}</div>
+          <div class="kv"><strong>业务含义：</strong>${esc(f.description || '无')}</div>
+          ${renderUpstreamList(data.upstream, f.id)}
+          ${renderDownstreamList(data.downstream, f.id)}
+          <details>
+            <summary>原始JSON</summary>
+            <pre>${esc(JSON.stringify(data, null, 2))}</pre>
+          </details>
+        `;
+      }
+
+      function renderTasks() {
+        const box = document.getElementById('taskList');
+        const tasks = (graph && graph.tasks) || [];
+        box.innerHTML = tasks.map(t => `
+          <button class="item" onclick="selectTask('${String(t.id).replace(/'/g, "\\'")}')">
+            <div><strong>${t.name}</strong> <span class="tag">${t.id}</span></div>
+            <small>${t.prompt_file || ''}</small><br/>
+            <small>${t.summary || ''}</small>
+          </button>
+        `).join('') || '暂无任务';
+      }
+
+      function renderFields() {
+        const box = document.getElementById('fieldList');
+        const all = (graph && graph.fields) || [];
+        const q = (document.getElementById('fieldSearch').value || '').trim().toLowerCase();
+        const onlyLinked = !!document.getElementById('onlyLinked').checked;
+        let fields = selectedTask ? all.filter(x => x.task === selectedTask) : all;
+        if (q) {
+          fields = fields.filter(f => {
+            const s = `${f.id || ''} ${f.name || ''} ${f.description || ''}`.toLowerCase();
+            return s.includes(q);
+          });
+        }
+        if (onlyLinked && selectedFieldId) {
+          fields = fields.filter(f => relatedFieldSet.has(f.id) || f.id === selectedFieldId);
+        }
+        box.innerHTML = fields.map(f => `
+          <button class="item ${selectedFieldId === f.id ? 'active' : ''} ${relatedFieldSet.has(f.id) ? 'related' : ''}" onclick="loadField('${String(f.id).replace(/'/g, "\\'")}')">
+            <div><strong>${f.name}</strong> <span class="tag">${f.role}</span></div>
+            <small>task=${f.task}</small><br/>
+            <small>${f.description || ''}</small>
+          </button>
+        `).join('') || '暂无字段';
+      }
+
+      function selectTask(taskId) {
+        selectedTask = taskId;
+        renderFields();
+      }
+      function fillTaskOptions() {
+        const sel = document.getElementById('editTask');
+        const tasks = (graph && graph.tasks) || [];
+        sel.innerHTML = tasks.map(t => `<option value="${esc(t.id)}">${esc(taskLabel(t.id))} (${esc(t.id)})</option>`).join('');
+      }
+      function fillEditorFromField(field) {
+        if (!field) return;
+        document.getElementById('editId').value = field.id || '';
+        document.getElementById('editName').value = field.name || '';
+        document.getElementById('editTask').value = field.task || '';
+        document.getElementById('editRole').value = field.role || 'output';
+        document.getElementById('editDesc').value = field.description || '';
+        if (!document.getElementById('edgeFrom').value) document.getElementById('edgeFrom').value = field.id || '';
+      }
+      function fillEdgeEditor(from, to, reason) {
+        document.getElementById('edgeFrom').value = from || '';
+        document.getElementById('edgeTo').value = to || '';
+        document.getElementById('edgeReason').value = reason || '';
+      }
+
+      async function loadOverview() {
+        setStatus('加载中...');
+        const stRes = await fetch(`${base()}/prompt-graph/status`, { headers: headers() });
+        const st = await read(stRes);
+        const ovRes = await fetch(`${base()}/prompt-graph/overview`, { headers: headers() });
+        const ov = await read(ovRes);
+        graph = ov;
+        selectedTask = '';
+        selectedFieldId = '';
+        relatedFieldSet = new Set();
+        fillTaskOptions();
+        renderTasks();
+        renderFields();
+        setStatus(`version=${ov.version || 'unknown'} | neo4j=${st.neo4j_connected ? 'on' : 'off'}`);
+        document.getElementById('detailOut').innerHTML = renderOverviewReadable(st, ov);
+      }
+
+      async function loadField(fieldId) {
+        const res = await fetch(`${base()}/prompt-graph/field?field_id=${encodeURIComponent(fieldId)}`, { headers: headers() });
+        const data = await read(res);
+        selectedFieldId = fieldId;
+        relatedFieldSet = new Set();
+        ((data && data.upstream) || []).forEach(x => relatedFieldSet.add(x.field_id));
+        ((data && data.downstream) || []).forEach(x => relatedFieldSet.add(x.field_id));
+        fillEditorFromField(data.field);
+        renderFields();
+        document.getElementById('detailOut').innerHTML = renderFieldReadable(data);
+      }
+
+      async function rebuildNeo4j() {
+        const res = await fetch(`${base()}/prompt-graph/rebuild`, { method: 'POST', headers: headers() });
+        const data = await read(res);
+        document.getElementById('detailOut').innerHTML = `<div class="kv"><strong>重建结果：</strong>${data && data.ok ? '成功' : '失败'}</div><details><summary>原始JSON</summary><pre>${esc(JSON.stringify(data, null, 2))}</pre></details>`;
+        await loadOverview();
+      }
+      async function saveField() {
+        const payload = {
+          id: (document.getElementById('editId').value || '').trim(),
+          name: (document.getElementById('editName').value || '').trim(),
+          task: (document.getElementById('editTask').value || '').trim(),
+          role: (document.getElementById('editRole').value || '').trim(),
+          description: (document.getElementById('editDesc').value || '').trim()
+        };
+        if (!payload.id) {
+          alert('请先填写字段ID');
+          return;
+        }
+        const res = await fetch(`${base()}/prompt-graph/field`, {
+          method: 'POST',
+          headers: headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify(payload)
+        });
+        const data = await read(res);
+        document.getElementById('detailOut').innerHTML = `<div class="kv"><strong>保存结果：</strong>${data && data.ok ? '成功' : '失败'}</div><details><summary>原始JSON</summary><pre>${esc(JSON.stringify(data, null, 2))}</pre></details>`;
+        await loadOverview();
+        if (payload.id) await loadField(payload.id);
+      }
+      async function removeField() {
+        const fid = (document.getElementById('editId').value || '').trim();
+        if (!fid) {
+          alert('请先填写字段ID');
+          return;
+        }
+        if (!confirm(`确认删除字段 ${fid} 吗？这会同时删除依赖边。`)) return;
+        const res = await fetch(`${base()}/prompt-graph/field?field_id=${encodeURIComponent(fid)}`, {
+          method: 'DELETE',
+          headers: headers()
+        });
+        const data = await read(res);
+        document.getElementById('detailOut').innerHTML = `<div class="kv"><strong>删除结果：</strong>${data && data.ok ? '成功' : '失败'}</div><details><summary>原始JSON</summary><pre>${esc(JSON.stringify(data, null, 2))}</pre></details>`;
+        await loadOverview();
+      }
+      async function saveEdge() {
+        const payload = {
+          from: (document.getElementById('edgeFrom').value || '').trim(),
+          to: (document.getElementById('edgeTo').value || '').trim(),
+          reason: (document.getElementById('edgeReason').value || '').trim()
+        };
+        if (!payload.from || !payload.to) {
+          alert('from 和 to 不能为空');
+          return;
+        }
+        const res = await fetch(`${base()}/prompt-graph/edge`, {
+          method: 'POST',
+          headers: headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify(payload)
+        });
+        const data = await read(res);
+        document.getElementById('detailOut').innerHTML = `<div class="kv"><strong>边保存结果：</strong>${data && data.ok ? '成功' : '失败'}</div><details><summary>原始JSON</summary><pre>${esc(JSON.stringify(data, null, 2))}</pre></details>`;
+        await loadOverview();
+        if (selectedFieldId) await loadField(selectedFieldId);
+      }
+      async function removeEdge() {
+        const from = (document.getElementById('edgeFrom').value || '').trim();
+        const to = (document.getElementById('edgeTo').value || '').trim();
+        if (!from || !to) {
+          alert('from 和 to 不能为空');
+          return;
+        }
+        if (!confirm(`确认删除依赖边 ${from} -> ${to} 吗？`)) return;
+        const res = await fetch(`${base()}/prompt-graph/edge?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, {
+          method: 'DELETE',
+          headers: headers()
+        });
+        const data = await read(res);
+        document.getElementById('detailOut').innerHTML = `<div class="kv"><strong>边删除结果：</strong>${data && data.ok ? '成功' : '失败'}</div><details><summary>原始JSON</summary><pre>${esc(JSON.stringify(data, null, 2))}</pre></details>`;
+        await loadOverview();
+        if (selectedFieldId) await loadField(selectedFieldId);
+      }
+
+      loadOverview();
+    </script>
+  </body>
+</html>

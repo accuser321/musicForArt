@@ -11,13 +11,33 @@ from pathlib import Path
 from app.config import settings
 
 PROMPT_DIR = Path(__file__).resolve().parent.parent / 'prompts'
+SYSTEM_PROMPT_FILE = ''
+PROMPT_CHAIN_BY_KIND = {
+    'audio': ['V3-music_analysis_task.txt'],
+    'text_analysis': ['V3-text_analysis_task.txt'],
+    'text_with_music': ['V3-text_analysis_task.txt'],
+    'fusion': ['V3-production_analysis_task.txt'],
+    'director_final': ['director_final_task.txt'],
+}
+DEFAULT_SYSTEM_PROMPT_FALLBACK = (
+    '你是有声书后期分析助手。请严格遵守任务提示词中的输入输出约束。'
+)
 
 
 def _load_prompt(name: str) -> str:
+    if not name:
+        return ''
     p = PROMPT_DIR / name
-    if not p.exists():
+    if not p.exists() or not p.is_file():
         return ''
     return p.read_text(encoding='utf-8').strip()
+
+
+def _load_system_prompt() -> tuple[str, str]:
+    prompt = _load_prompt(SYSTEM_PROMPT_FILE)
+    if prompt:
+        return prompt, SYSTEM_PROMPT_FILE
+    return DEFAULT_SYSTEM_PROMPT_FALLBACK, '(fallback)'
 
 
 def llm_enabled() -> bool:
@@ -128,6 +148,83 @@ def _validate_contract(payload: dict, evidence_kind: str | None) -> tuple[bool, 
             return False, reason
         return True, ''
 
+    if kind == 'text_analysis':
+        required = [
+            'title',
+            'text_theme',
+            'fit_with_music',
+            'scene_units',
+            'clause_timeline',
+            'emotion_curve',
+            'sfx_requirements',
+            'key_points',
+            'risks',
+            'markdown',
+        ]
+        for k in required:
+            if k not in payload:
+                return False, f'missing key: {k}'
+        fm = payload.get('fit_with_music')
+        if not isinstance(fm, dict):
+            return False, 'fit_with_music must be object'
+        if not isinstance(fm.get('verdict'), str):
+            return False, 'fit_with_music.verdict must be string'
+        if not _is_num(fm.get('score')):
+            return False, 'fit_with_music.score must be number'
+        if not isinstance(fm.get('reasons'), list):
+            return False, 'fit_with_music.reasons must be list'
+
+        su = payload.get('scene_units')
+        if not isinstance(su, list):
+            return False, 'scene_units must be list'
+        for i, row in enumerate(su):
+            if not isinstance(row, dict):
+                return False, f'scene_units[{i}] must be object'
+            row_required = [
+                'scene_no',
+                'text_start_char',
+                'text_end_char',
+                'text_excerpt',
+                'emotion',
+                'emotion_change',
+                'action_tags',
+                'intensity',
+                'music_need',
+                'entry_hint',
+                'exit_hint',
+                'sfx_terms',
+            ]
+            for rk in row_required:
+                if rk not in row:
+                    return False, f'scene_units[{i}] missing key: {rk}'
+        cl = payload.get('clause_timeline')
+        if not isinstance(cl, list):
+            return False, 'clause_timeline must be list'
+        for i, row in enumerate(cl):
+            if not isinstance(row, dict):
+                return False, f'clause_timeline[{i}] must be object'
+            row_required = [
+                'clause_no',
+                'text_start_char',
+                'text_end_char',
+                'text',
+                'punct',
+                'start_sec',
+                'end_sec',
+            ]
+            for rk in row_required:
+                if rk not in row:
+                    return False, f'clause_timeline[{i}] missing key: {rk}'
+        if not isinstance(payload.get('emotion_curve'), list):
+            return False, 'emotion_curve must be list'
+        if not isinstance(payload.get('sfx_requirements'), list):
+            return False, 'sfx_requirements must be list'
+        if not isinstance(payload.get('key_points'), list):
+            return False, 'key_points must be list'
+        if not isinstance(payload.get('risks'), list):
+            return False, 'risks must be list'
+        return True, ''
+
     if kind == 'fusion':
         required = [
             'title',
@@ -224,60 +321,60 @@ def _chat_completion(system_prompt: str, user_prompt: str) -> tuple[str | None, 
         },
         method='POST',
     )
-    req_id = uuid.uuid4().hex[:8]
-    t0 = time.perf_counter()
-    print(
-        f'[LLM START] req={req_id} provider={settings.llm_provider} model={settings.llm_model} timeout={settings.llm_timeout_sec}s',
-        file=sys.stderr,
-    )
-
-    try:
-        with urllib.request.urlopen(req, timeout=settings.llm_timeout_sec) as resp:
-            raw = resp.read().decode('utf-8')
-            data = json.loads(raw)
-            content = data['choices'][0]['message']['content'].strip()
-            elapsed = int((time.perf_counter() - t0) * 1000)
-            print(f'[LLM OK] req={req_id} elapsed_ms={elapsed} chars={len(content)}', file=sys.stderr)
-            return content, {'status': 'ok', 'request_id': req_id, 'elapsed_ms': elapsed}
-    except urllib.error.HTTPError as e:
+    max_attempts = 2
+    for attempt in range(1, max_attempts + 1):
+        req_id = uuid.uuid4().hex[:8]
+        t0 = time.perf_counter()
+        print(
+            f'[LLM START] req={req_id} attempt={attempt}/{max_attempts} provider={settings.llm_provider} model={settings.llm_model} timeout={settings.llm_timeout_sec}s',
+            file=sys.stderr,
+        )
         try:
-            err_body = e.read().decode('utf-8', errors='ignore')
-        except Exception:
-            err_body = ''
-        elapsed = int((time.perf_counter() - t0) * 1000)
-        print(f'[LLM HTTPError] req={req_id} elapsed_ms={elapsed} code={e.code} reason={e.reason} body={err_body[:500]}', file=sys.stderr)
-        return None, {'status': 'http_error', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': f'{e.code} {e.reason}', 'body': err_body[:500]}
-    except urllib.error.URLError as e:
-        elapsed = int((time.perf_counter() - t0) * 1000)
-        print(f'[LLM URLError] req={req_id} elapsed_ms={elapsed} reason={e.reason}', file=sys.stderr)
-        return None, {'status': 'url_error', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': str(e.reason)}
-    except TimeoutError:
-        elapsed = int((time.perf_counter() - t0) * 1000)
-        print(f'[LLM TimeoutError] req={req_id} elapsed_ms={elapsed} request timed out', file=sys.stderr)
-        return None, {'status': 'timeout', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': 'request timed out'}
-    except http.client.IncompleteRead:
-        elapsed = int((time.perf_counter() - t0) * 1000)
-        print(f'[LLM IncompleteRead] req={req_id} elapsed_ms={elapsed} upstream connection closed unexpectedly', file=sys.stderr)
-        return None, {'status': 'incomplete_read', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': 'upstream connection closed unexpectedly'}
-    except (KeyError, IndexError, json.JSONDecodeError) as e:
-        elapsed = int((time.perf_counter() - t0) * 1000)
-        print(f'[LLM ParseError] req={req_id} elapsed_ms={elapsed} {type(e).__name__}: {e}', file=sys.stderr)
-        return None, {'status': 'parse_error', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': f'{type(e).__name__}: {e}'}
-
-
-def _task_template(task_mode: str, evidence_kind: str | None = None) -> str:
-    if evidence_kind == 'director_final':
-        return _load_prompt('director_final_task.txt')
-    if evidence_kind == 'text_with_music':
-        return _load_prompt('text_with_music_task.txt')
-    if evidence_kind == 'fusion' and task_mode == 'production':
-        return _load_prompt('fusion_production_task.txt')
-    mapping = {
-        'teaching': 'music_teaching_task.txt',
-        'production': 'production_task.txt',
-        'concise': 'concise_task.txt',
-    }
-    return _load_prompt(mapping.get(task_mode, 'production_task.txt'))
+            with urllib.request.urlopen(req, timeout=settings.llm_timeout_sec) as resp:
+                raw = resp.read().decode('utf-8')
+                data = json.loads(raw)
+                content = data['choices'][0]['message']['content'].strip()
+                elapsed = int((time.perf_counter() - t0) * 1000)
+                print(f'[LLM OK] req={req_id} elapsed_ms={elapsed} chars={len(content)}', file=sys.stderr)
+                return content, {'status': 'ok', 'request_id': req_id, 'elapsed_ms': elapsed, 'attempt': attempt}
+        except urllib.error.HTTPError as e:
+            try:
+                err_body = e.read().decode('utf-8', errors='ignore')
+            except Exception:
+                err_body = ''
+            elapsed = int((time.perf_counter() - t0) * 1000)
+            print(f'[LLM HTTPError] req={req_id} elapsed_ms={elapsed} code={e.code} reason={e.reason} body={err_body[:500]}', file=sys.stderr)
+            retryable = e.code in {408, 429, 500, 502, 503, 504}
+            if retryable and attempt < max_attempts:
+                time.sleep(0.8)
+                continue
+            return None, {'status': 'http_error', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': f'{e.code} {e.reason}', 'body': err_body[:500], 'attempt': attempt}
+        except urllib.error.URLError as e:
+            elapsed = int((time.perf_counter() - t0) * 1000)
+            print(f'[LLM URLError] req={req_id} elapsed_ms={elapsed} reason={e.reason}', file=sys.stderr)
+            if attempt < max_attempts:
+                time.sleep(0.8)
+                continue
+            return None, {'status': 'url_error', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': str(e.reason), 'attempt': attempt}
+        except TimeoutError:
+            elapsed = int((time.perf_counter() - t0) * 1000)
+            print(f'[LLM TimeoutError] req={req_id} elapsed_ms={elapsed} request timed out', file=sys.stderr)
+            if attempt < max_attempts:
+                time.sleep(0.8)
+                continue
+            return None, {'status': 'timeout', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': 'request timed out', 'attempt': attempt}
+        except http.client.IncompleteRead:
+            elapsed = int((time.perf_counter() - t0) * 1000)
+            print(f'[LLM IncompleteRead] req={req_id} elapsed_ms={elapsed} upstream connection closed unexpectedly', file=sys.stderr)
+            if attempt < max_attempts:
+                time.sleep(0.8)
+                continue
+            return None, {'status': 'incomplete_read', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': 'upstream connection closed unexpectedly', 'attempt': attempt}
+        except (KeyError, IndexError, json.JSONDecodeError) as e:
+            elapsed = int((time.perf_counter() - t0) * 1000)
+            print(f'[LLM ParseError] req={req_id} elapsed_ms={elapsed} {type(e).__name__}: {e}', file=sys.stderr)
+            return None, {'status': 'parse_error', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': f'{type(e).__name__}: {e}', 'attempt': attempt}
+    return None, {'status': 'unknown_error', 'error': 'llm call failed unexpectedly'}
 
 
 def _compact_evidence(evidence_payload: dict) -> dict:
@@ -293,51 +390,93 @@ def _compact_evidence(evidence_payload: dict) -> dict:
     return data
 
 
-def _mode_chain(task_mode: str) -> list[str]:
-    mode = (task_mode or 'production').strip().lower()
+def _resolve_prompt_chain(evidence_kind: str, task_mode: str) -> list[str]:
+    kind = (evidence_kind or '').strip().lower()
+    if kind in PROMPT_CHAIN_BY_KIND:
+        return list(PROMPT_CHAIN_BY_KIND[kind])
+    mode = (task_mode or '').strip().lower()
     if mode == 'teaching':
-        return ['teaching', 'production', 'concise']
-    if mode == 'production':
-        return ['production', 'concise']
-    if mode == 'concise':
-        return ['concise']
-    return [mode, 'production', 'concise']
+        return ['music_teaching_task.txt']
+    return ['production_task.txt']
+
+
+def _output_limits_by_kind(evidence_kind: str) -> str:
+    kind = (evidence_kind or '').strip().lower()
+    if kind == 'audio':
+        return (
+            '长度硬约束（必须执行）：\n'
+            '- sections 最多 6 段；hit_points 最多 6 个。\n'
+            '- key_points 最多 6 条，每条 <= 32 个汉字。\n'
+            '- mix_notes 最多 6 条，每条 <= 38 个汉字。\n'
+            '- summary <= 60 个汉字。\n'
+            '- markdown 控制在 450-700 个汉字。\n'
+            '- 整体输出禁止冗长重复，避免截断。'
+        )
+    if kind == 'text_analysis':
+        return (
+            '长度硬约束（必须执行）：\n'
+            '- scene_units<=10，clause_timeline<=18，sfx_requirements<=16。\n'
+            '- key_points<=5（每条<=28字），risks<=5（每条<=32字）。\n'
+            '- markdown 控制在 280-520 字，避免冗长。\n'
+            '- 若长度受限，优先保证 JSON 字段完整，再精简 markdown。'
+        )
+    if kind == 'fusion':
+        return (
+            '长度硬约束（必须执行）：\n'
+            '- music_entry_plan<=10，sections<=8，hit_points<=8。\n'
+            '- key_points/risks/export_hints 各<=6，单条尽量短句。\n'
+            '- markdown 控制在 500-800 字，避免重复。'
+        )
+    return (
+        '长度控制要求：\n'
+        '- 关键列表项避免冗长，每条尽量一句话。\n'
+        '- markdown 保持精炼，避免重复展开。'
+    )
 
 
 def generate_report(task_mode: str, evidence_payload: dict, debug_prompt: bool = False) -> tuple[dict | None, str | None, dict]:
-    system_prompt = _load_prompt('core_system.txt')
+    system_prompt, system_prompt_file = _load_system_prompt()
     compact = _compact_evidence(evidence_payload)
     evidence_kind = str(compact.get('kind') or '').strip().lower()
     attempts: list[str] = []
     trace: list[dict] = []
     first_unstructured_raw: str | None = None
-    first_unstructured_mode: str | None = None
+    first_unstructured_prompt_file: str | None = None
+    _ = debug_prompt  # 保持接口兼容，当前固定开启追踪
 
-    for mode in _mode_chain(task_mode):
-        attempts.append(mode)
-        print(f'[LLM MODE] requested={task_mode} trying={mode}', file=sys.stderr)
-        task_prompt = _task_template(mode, evidence_kind=evidence_kind)
+    custom_prompt_files = compact.get('prompt_files')
+    if isinstance(custom_prompt_files, list) and custom_prompt_files:
+        prompt_chain = [str(x).strip() for x in custom_prompt_files if str(x).strip()]
+    else:
+        prompt_chain = _resolve_prompt_chain(evidence_kind=evidence_kind, task_mode=task_mode)
+    output_limits = _output_limits_by_kind(evidence_kind=evidence_kind)
+    for prompt_file in prompt_chain:
+        attempts.append(prompt_file)
+        print(f'[LLM MODE] requested={task_mode} trying_prompt={prompt_file}', file=sys.stderr)
+        task_prompt = _load_prompt(prompt_file)
         user_prompt = (
             f'{task_prompt}\n\n'
             '输出要求：\n'
             '1) 先输出 JSON（可直接解析）。\n'
             '2) 再输出 markdown 字段对应的完整内容。\n\n'
+            f'{output_limits}\n\n'
             f'证据 JSON:\n{json.dumps(compact, ensure_ascii=False, indent=2)}'
         )
 
         raw, call_meta = _chat_completion(system_prompt, user_prompt)
-        if debug_prompt:
-            trace.append(
-                {
-                    'mode': mode,
-                    'evidence_kind': evidence_kind,
-                    'task_prompt': task_prompt,
-                    'system_prompt': system_prompt,
-                    'user_prompt': user_prompt,
-                    'raw_response': raw,
-                    'call_meta': call_meta,
-                }
-            )
+        trace.append(
+            {
+                'mode': 'core_prompt_chain',
+                'prompt_file': prompt_file,
+                'system_prompt_file': system_prompt_file,
+                'evidence_kind': evidence_kind,
+                'task_prompt': task_prompt,
+                'system_prompt': system_prompt,
+                'user_prompt': user_prompt,
+                'raw_response': raw,
+                'call_meta': call_meta,
+            }
+        )
         if not raw:
             continue
 
@@ -345,35 +484,39 @@ def generate_report(task_mode: str, evidence_payload: dict, debug_prompt: bool =
         if parsed and isinstance(parsed, dict):
             ok, reason = _validate_contract(parsed, evidence_kind=evidence_kind)
             if not ok:
-                print(f'[LLM CONTRACT INVALID] mode={mode} reason={reason}', file=sys.stderr)
-                if debug_prompt and trace:
+                print(f'[LLM CONTRACT INVALID] prompt={prompt_file} reason={reason}', file=sys.stderr)
+                if trace:
                     trace[-1]['contract_valid'] = False
                     trace[-1]['contract_reason'] = reason
                 continue
-            if debug_prompt and trace:
+            if trace:
                 trace[-1]['contract_valid'] = True
                 trace[-1]['contract_reason'] = ''
             markdown = parsed.get('markdown') if isinstance(parsed.get('markdown'), str) else raw
             return parsed, markdown, {
                 'requested_mode': task_mode,
-                'effective_mode': mode,
+                'effective_mode': prompt_file,
                 'attempted_modes': attempts,
-                'fallback_applied': mode != task_mode,
-                'llm_trace': trace if debug_prompt else None,
+                'fallback_applied': len(attempts) > 1,
+                'custom_prompt_chain': prompt_chain,
+                'system_prompt_file': system_prompt_file,
+                'llm_trace': trace,
             }
 
         if first_unstructured_raw is None:
             first_unstructured_raw = raw
-            first_unstructured_mode = mode
-            print(f'[LLM WARN] mode={mode} returned non-JSON, fallback continues', file=sys.stderr)
+            first_unstructured_prompt_file = prompt_file
+            print(f'[LLM WARN] prompt={prompt_file} returned non-JSON, fallback continues', file=sys.stderr)
 
     if first_unstructured_raw is not None:
         return None, first_unstructured_raw, {
             'requested_mode': task_mode,
-            'effective_mode': first_unstructured_mode,
+            'effective_mode': first_unstructured_prompt_file,
             'attempted_modes': attempts,
-            'fallback_applied': (first_unstructured_mode or task_mode) != task_mode,
-            'llm_trace': trace if debug_prompt else None,
+            'fallback_applied': True,
+            'custom_prompt_chain': prompt_chain,
+            'system_prompt_file': system_prompt_file,
+            'llm_trace': trace,
         }
 
     return None, None, {
@@ -381,5 +524,7 @@ def generate_report(task_mode: str, evidence_payload: dict, debug_prompt: bool =
         'effective_mode': None,
         'attempted_modes': attempts,
         'fallback_applied': False,
-        'llm_trace': trace if debug_prompt else None,
+        'custom_prompt_chain': prompt_chain,
+        'system_prompt_file': system_prompt_file,
+        'llm_trace': trace,
     }

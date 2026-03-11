@@ -7,6 +7,8 @@ from mutagen import File as MutagenFile
 from app.config import settings
 from app.services.llm import generate_report, llm_enabled
 
+EXPECTED_AUDIO_PROMPT = 'V3-music_analysis_task.txt'
+
 
 def _duration_by_mutagen(file_path: str) -> float:
     try:
@@ -73,7 +75,11 @@ def _build_rule_report(features: dict) -> str:
     return '\n'.join(lines)
 
 
-def analyze_audio_for_audiobook(file_path: str, report_mode: str | None = None, debug_prompt: bool = False) -> dict:
+def analyze_audio_for_audiobook(
+    file_path: str,
+    report_mode: str | None = None,
+    debug_prompt: bool = True,
+) -> dict:
     file_path = str(Path(file_path).resolve())
     mode = report_mode or settings.report_mode_default
 
@@ -93,9 +99,18 @@ def analyze_audio_for_audiobook(file_path: str, report_mode: str | None = None, 
         },
     }
 
-    report_json, report_markdown, llm_meta = generate_report(
-        mode, {'kind': 'audio', 'mode': mode, 'audio_features': features}, debug_prompt=debug_prompt
-    )
+    payload = {
+        'kind': 'audio',
+        'audio_features': features,
+        # 仅使用 V3 音乐分析 Prompt（不回退）
+        'prompt_files': ['V3-music_analysis_task.txt'],
+    }
+    report_json, report_markdown, llm_meta = generate_report(mode, payload, debug_prompt=debug_prompt)
+    trace = llm_meta.get('llm_trace') or []
+    actual_prompt = None
+    if isinstance(trace, list) and trace:
+        actual_prompt = trace[0].get('prompt_file')
+    prompt_guard_passed = actual_prompt == EXPECTED_AUDIO_PROMPT if actual_prompt else False
 
     if not report_markdown:
         report_markdown = _build_rule_report(
@@ -122,7 +137,13 @@ def analyze_audio_for_audiobook(file_path: str, report_mode: str | None = None, 
         'effective_report_mode': llm_meta.get('effective_mode'),
         'llm_fallback_applied': llm_meta.get('fallback_applied', False),
         'llm_attempted_modes': llm_meta.get('attempted_modes', []),
-        'llm_trace': llm_meta.get('llm_trace') if debug_prompt else None,
+        'custom_prompt_chain': llm_meta.get('custom_prompt_chain'),
+        'llm_trace': trace,
+        'prompt_guard': {
+            'expected': EXPECTED_AUDIO_PROMPT,
+            'actual': actual_prompt,
+            'passed': prompt_guard_passed,
+        },
     }
 
     json.dumps(result, ensure_ascii=False)

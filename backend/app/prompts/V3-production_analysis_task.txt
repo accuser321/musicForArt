@@ -1,0 +1,36 @@
+任务：融合 music_analysis + text_analysis + narration_timeline，输出可直接落地的导演执行单。
+
+输入：
+- music_analysis（来自音乐分析）
+- text_analysis（来自文本分析）
+- narration_timeline（演绎音频时间证据，scene/clause）
+- audio_markers/scenes/cues/fit（补充证据）
+
+核心业务逻辑：
+1) B 结果（text_analysis）必须消费 A 的关键证据（music_analysis_text/audio_context）；
+2) C（本任务）必须同时消费 A+B，并优先使用 narration_timeline 做秒级对齐；
+3) 输出必须能指导实际剪辑，而不是抽象建议。
+
+输出 JSON（必须完整）：
+- title
+- fit_verdict: {verdict, score, reasons[]}
+- key_points: [string]
+- sections: [{section_no,section_type,label,start_sec,end_sec,instruments[],new_instruments_vs_prev[],energy_level,layer_progression}]
+- structure_logic: {pattern_guess,repeat_groups[],evidence[]}
+- music_entry_plan: [{scene_no,text_start_char,text_end_char,text_excerpt,music_start_sec,music_end_sec,entry_reason,dialogue_music_ratio,sfx[]}]
+- hit_points: [{time_sec,event,why}]
+- risks: [string]
+- export_hints: [string]
+- markdown
+
+硬约束：
+1) 必须先输出 JSON，再输出 markdown。
+2) 所有值使用中文。
+3) 每个主要场景都要有“文字区间 -> 音乐区间”建议。
+4) 若 narration_timeline 存在，优先据此给时间。
+5) dialogue_music_ratio 必须是明确比例（如70/30）。
+
+长度约束：
+1) sections<=8，music_entry_plan<=12，hit_points<=10。
+2) key_points<=8（每条<=34字），risks<=8（每条<=40字），export_hints<=8（每条<=40字）。
+3) markdown 600-1000字。

@@ -2,14 +2,32 @@ import json
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from time import perf_counter
+import re
+from urllib.parse import quote
+import random
+import secrets
+from functools import wraps
 
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, request, send_file, g
 from flask_cors import CORS
 from sqlalchemy import select
 
 from app.config import settings
 from app.db import SessionLocal, engine
-from app.models import AudioAnalysis, Base, DraftReview, FusionPlan, NarrationAnalysis, Project, TextAnalysis
+from app.models import (
+    AudioAnalysis,
+    AuthCode,
+    AuthSession,
+    Base,
+    DailyUsage,
+    DraftReview,
+    FusionPlan,
+    NarrationAnalysis,
+    Project,
+    TextAnalysis,
+    UserAccount,
+    UserOperationLog,
+)
 from app.services.audio_analysis import analyze_audio_for_audiobook
 from app.services.narration import analyze_narration_for_audiobook
 from app.services.semantic_graph import expand_term, graph_status, reason_term, upsert_relation
@@ -23,12 +41,273 @@ from app.services.reasoning_observability import get_reason_cache, log_reason_ev
 from app.services.ops_draft import generate_lexicon_draft
 from app.services.rollout import resolve_semantic_backend
 from app.models import ReasoningLog
+from app.services.prompt_graph import (
+    remove_prompt_field,
+    remove_prompt_edge,
+    prompt_field_detail,
+    prompt_graph_overview,
+    prompt_graph_status,
+    sync_prompt_graph_to_neo4j,
+    upsert_prompt_edge,
+    upsert_prompt_field,
+)
 
 app = Flask(settings.app_name)
 CORS(app)
 
 
+def _normalize_phone(raw: str) -> str:
+    return re.sub(r'[^0-9+]', '', raw or '')
+
+
+def _get_bearer_token() -> str:
+    auth = (request.headers.get('Authorization') or '').strip()
+    if auth.lower().startswith('bearer '):
+        return auth[7:].strip()
+    return ''
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _ensure_user(db, phone: str) -> UserAccount:
+    row = db.execute(select(UserAccount).where(UserAccount.phone == phone)).scalar_one_or_none()
+    if row is None:
+        row = UserAccount(phone=phone, is_authorized=0, is_admin=0, daily_limit=3)
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    return row
+
+
+def _get_session_user(db) -> UserAccount | None:
+    token = _get_bearer_token()
+    if not token:
+        return None
+    s = db.execute(select(AuthSession).where(AuthSession.token == token)).scalar_one_or_none()
+    if s is None:
+        return None
+    if s.expires_at < _utc_now():
+        db.delete(s)
+        db.commit()
+        return None
+    u = db.execute(select(UserAccount).where(UserAccount.phone == s.phone)).scalar_one_or_none()
+    return u
+
+
+def _ensure_bootstrap_admins(db) -> None:
+    phones = [x.strip() for x in (settings.bootstrap_admin_phones or '').split(',') if x.strip()]
+    for p in phones:
+        phone = _normalize_phone(p)
+        if not phone:
+            continue
+        u = _ensure_user(db, phone)
+        changed = False
+        if int(u.is_admin or 0) != 1:
+            u.is_admin = 1
+            changed = True
+        if int(u.is_authorized or 0) != 1:
+            u.is_authorized = 1
+            changed = True
+        if changed:
+            db.commit()
+
+
+def _get_user_phone_from_context() -> str:
+    u = getattr(g, 'current_user', None)
+    if u and getattr(u, 'phone', None):
+        return str(u.phone)
+    return _normalize_phone(_extract_user_phone())
+
+
+def _require_login(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        with SessionLocal() as db:
+            u = _get_session_user(db)
+            if u is None:
+                return jsonify({'detail': '请先手机号登录'}), 401
+            g.current_user = u
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
+def _require_admin(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        with SessionLocal() as db:
+            _ensure_bootstrap_admins(db)
+            u = _get_session_user(db)
+            if u is None:
+                return jsonify({'detail': '请先手机号登录'}), 401
+            if int(u.is_admin or 0) != 1:
+                return jsonify({'detail': '需要管理员权限'}), 403
+            g.current_user = u
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
+def _check_feature_access(action: str) -> tuple[UserAccount | None, dict | None, tuple | None]:
+    with SessionLocal() as db:
+        u = _get_session_user(db)
+        if u is None:
+            return None, None, (jsonify({'detail': '请先手机号登录后再使用功能'}), 401)
+
+        # 授权用户不限次；非授权用户按日限额
+        if int(u.is_authorized or 0) == 1:
+            info = {'authorized': True, 'daily_limit': None, 'used_today': None, 'remaining': None}
+            return u, info, None
+
+        today = datetime.now().strftime('%Y-%m-%d')
+        action_key = 'core_feature'
+        row = (
+            db.execute(
+                select(DailyUsage)
+                .where(DailyUsage.phone == u.phone)
+                .where(DailyUsage.action == action_key)
+                .where(DailyUsage.ymd == today)
+            ).scalar_one_or_none()
+        )
+        if row is None:
+            row = DailyUsage(phone=u.phone, action=action_key, ymd=today, used_count=0)
+            db.add(row)
+            db.commit()
+            db.refresh(row)
+
+        limit = int(u.daily_limit or 3)
+        if row.used_count >= limit:
+            return (
+                None,
+                None,
+                (
+                    jsonify(
+                        {
+                            'detail': '今日调用次数已达上限，请联系管理员授权',
+                            'usage': {
+                                'authorized': False,
+                                'daily_limit': limit,
+                                'used_today': int(row.used_count),
+                                'remaining': 0,
+                            },
+                        }
+                    ),
+                    403,
+                ),
+            )
+
+        row.used_count += 1
+        db.commit()
+        info = {
+            'authorized': False,
+            'daily_limit': limit,
+            'used_today': int(row.used_count),
+            'remaining': max(0, limit - int(row.used_count)),
+        }
+        return u, info, None
+
+
+def _enforce_feature_access(action: str):
+    def deco(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            u, usage, err = _check_feature_access(action)
+            if err is not None:
+                return err
+            g.current_user = u
+            g.usage_info = usage
+            return fn(*args, **kwargs)
+
+        return wrapper
+
+    return deco
+
+
+def _extract_user_phone() -> str:
+    phone = (request.headers.get('X-User-Phone') or '').strip()
+    if phone:
+        return phone
+    for src in (request.args, request.form):
+        p = (src.get('user_phone') or '').strip()
+        if p:
+            return p
+    payload = request.get_json(silent=True) or {}
+    return (payload.get('user_phone') or '').strip()
+
+
+def _llm_trace_digest(trace: list | None) -> list[dict]:
+    out = []
+    for x in (trace or []):
+        if not isinstance(x, dict):
+            continue
+        cm = x.get('call_meta') or {}
+        out.append(
+            {
+                'prompt_file': x.get('prompt_file'),
+                'status': cm.get('status'),
+                'request_id': cm.get('request_id'),
+                'contract_valid': x.get('contract_valid'),
+            }
+        )
+    return out
+
+
+def _log_user_operation(
+    db,
+    action: str,
+    project_id: int | None,
+    req: dict | None = None,
+    resp: dict | None = None,
+    file_refs: list[str] | None = None,
+) -> None:
+    row = UserOperationLog(
+        project_id=project_id,
+        user_phone=_get_user_phone_from_context(),
+        action=action,
+        input_json=json.dumps(req or {}, ensure_ascii=False),
+        output_json=json.dumps(resp or {}, ensure_ascii=False),
+        file_refs_json=json.dumps(file_refs or [], ensure_ascii=False),
+    )
+    db.add(row)
+    db.commit()
+
+
+def _normalize_phone_for_path(phone: str) -> str:
+    p = re.sub(r'[^0-9+]', '', phone or '')
+    return p or 'anonymous'
+
+
+def _build_local_storage_path(
+    action: str,
+    project_id: int,
+    original_name: str,
+    *,
+    suffix_fallback: str = '.bin',
+) -> Path:
+    root = Path(settings.upload_dir).resolve()
+    phone = _normalize_phone_for_path(_extract_user_phone())
+    now = datetime.now()
+    ext = Path(original_name or '').suffix or suffix_fallback
+    safe_action = re.sub(r'[^a-zA-Z0-9_-]', '_', action or 'unknown')
+    safe_ext = re.sub(r'[^a-zA-Z0-9.]', '', ext) or suffix_fallback
+    out_dir = root / phone / f'{now.year:04d}' / f'{now.month:02d}' / f'{now.day:02d}' / safe_action
+    out_dir.mkdir(parents=True, exist_ok=True)
+    return out_dir / f'project_{project_id}{safe_ext}'
+
+
+def _is_under_upload_root(abs_path: Path) -> bool:
+    root = Path(settings.upload_dir).resolve()
+    try:
+        abs_path.resolve().relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
 def _fallback_audio_result_on_error(err: Exception) -> dict:
+    err_msg = f'{type(err).__name__}: {err}'
     return {
         'duration_sec': 180.0,
         'bpm': 120.0,
@@ -45,7 +324,7 @@ def _fallback_audio_result_on_error(err: Exception) -> dict:
             '# 音乐分析报告（降级版）\n\n'
             '- 音频元数据解析异常，系统已自动降级为可执行分析。\n'
             '- 你仍可继续进行文本分析与融合执行单生成。\n'
-            f'- 异常信息：{type(err).__name__}: {err}\n'
+            f'- 异常信息：{err_msg}\n'
         ),
         'report_json': None,
         'analysis_mode': 'rules-only',
@@ -55,6 +334,21 @@ def _fallback_audio_result_on_error(err: Exception) -> dict:
         'effective_report_mode': None,
         'llm_fallback_applied': True,
         'llm_attempted_modes': [],
+        'custom_prompt_chain': ['V1-music_analysis_task.txt'],
+        'llm_trace': [
+            {
+                'mode': 'core_prompt_chain',
+                'prompt_file': None,
+                'evidence_kind': 'audio',
+                'task_prompt': '',
+                'system_prompt': '',
+                'user_prompt': '',
+                'raw_response': None,
+                'call_meta': {'status': 'exception', 'error': err_msg},
+                'contract_valid': False,
+                'contract_reason': err_msg,
+            }
+        ],
         'degraded': True,
     }
 
@@ -76,6 +370,173 @@ def health():
             'llm_model': settings.llm_model,
             'llm_key_tail': key_tail,
             'semantic_backend': settings.semantic_backend,
+        }
+    )
+
+
+@app.post(f'{settings.api_prefix}/auth/request-code')
+def auth_request_code():
+    payload = request.get_json(force=True, silent=True) or {}
+    phone = _normalize_phone(payload.get('phone') or '')
+    if not phone:
+        return jsonify({'detail': 'phone is required'}), 400
+
+    with SessionLocal() as db:
+        _ensure_bootstrap_admins(db)
+        _ensure_user(db, phone)
+        code = f'{random.randint(0, 999999):06d}'
+        row = AuthCode(
+            phone=phone,
+            code=code,
+            expires_at=_utc_now() + timedelta(seconds=settings.auth_code_ttl_sec),
+            used=0,
+        )
+        db.add(row)
+        db.commit()
+    # 当前为MVP，本地直接返回验证码，正式上线改短信网关
+    return jsonify({'ok': True, 'phone': phone, 'code': code, 'ttl_sec': settings.auth_code_ttl_sec})
+
+
+@app.post(f'{settings.api_prefix}/auth/login')
+def auth_login():
+    payload = request.get_json(force=True, silent=True) or {}
+    phone = _normalize_phone(payload.get('phone') or '')
+    code = str(payload.get('code') or '').strip()
+    if not phone or not code:
+        return jsonify({'detail': 'phone and code are required'}), 400
+
+    with SessionLocal() as db:
+        _ensure_bootstrap_admins(db)
+        c = (
+            db.execute(
+                select(AuthCode)
+                .where(AuthCode.phone == phone)
+                .where(AuthCode.code == code)
+                .where(AuthCode.used == 0)
+                .order_by(AuthCode.id.desc())
+            ).scalar_one_or_none()
+        )
+        if c is None or c.expires_at < _utc_now():
+            return jsonify({'detail': '验证码无效或已过期'}), 400
+        c.used = 1
+
+        u = _ensure_user(db, phone)
+        token = secrets.token_urlsafe(32)
+        s = AuthSession(
+            phone=phone,
+            token=token,
+            expires_at=_utc_now() + timedelta(seconds=settings.auth_session_ttl_sec),
+        )
+        db.add(s)
+        db.commit()
+
+        return jsonify(
+            {
+                'ok': True,
+                'token': token,
+                'expires_in_sec': settings.auth_session_ttl_sec,
+                'user': {
+                    'phone': u.phone,
+                    'is_admin': bool(int(u.is_admin or 0)),
+                    'is_authorized': bool(int(u.is_authorized or 0)),
+                    'daily_limit': int(u.daily_limit or 3),
+                },
+            }
+        )
+
+
+@app.get(f'{settings.api_prefix}/auth/me')
+@_require_login
+def auth_me():
+    u = g.current_user
+    usage = None
+    if int(u.is_authorized or 0) != 1:
+        today = datetime.now().strftime('%Y-%m-%d')
+        with SessionLocal() as db:
+            row = db.execute(
+                select(DailyUsage)
+                .where(DailyUsage.phone == u.phone)
+                .where(DailyUsage.action == 'core_feature')
+                .where(DailyUsage.ymd == today)
+            ).scalar_one_or_none()
+            used = int(row.used_count or 0) if row else 0
+        limit = int(u.daily_limit or 3)
+        usage = {'used_today': used, 'remaining': max(0, limit - used), 'daily_limit': limit}
+    return jsonify(
+        {
+            'phone': u.phone,
+            'is_admin': bool(int(u.is_admin or 0)),
+            'is_authorized': bool(int(u.is_authorized or 0)),
+            'daily_limit': int(u.daily_limit or 3),
+            'usage': usage,
+        }
+    )
+
+
+@app.post(f'{settings.api_prefix}/auth/logout')
+@_require_login
+def auth_logout():
+    token = _get_bearer_token()
+    with SessionLocal() as db:
+        s = db.execute(select(AuthSession).where(AuthSession.token == token)).scalar_one_or_none()
+        if s is not None:
+            db.delete(s)
+            db.commit()
+    return jsonify({'ok': True})
+
+
+@app.get(f'{settings.api_prefix}/admin/users')
+@_require_admin
+def admin_list_users():
+    with SessionLocal() as db:
+        rows = db.execute(select(UserAccount).order_by(UserAccount.id.desc()).limit(1000)).scalars().all()
+    data = [
+        {
+            'id': r.id,
+            'phone': r.phone,
+            'is_authorized': bool(int(r.is_authorized or 0)),
+            'is_admin': bool(int(r.is_admin or 0)),
+            'daily_limit': int(r.daily_limit or 3),
+            'created_at': r.created_at.isoformat() if r.created_at else None,
+            'updated_at': r.updated_at.isoformat() if r.updated_at else None,
+        }
+        for r in rows
+    ]
+    return jsonify({'count': len(data), 'items': data})
+
+
+@app.post(f'{settings.api_prefix}/admin/users')
+@_require_admin
+def admin_upsert_user():
+    payload = request.get_json(force=True, silent=True) or {}
+    phone = _normalize_phone(payload.get('phone') or '')
+    if not phone:
+        return jsonify({'detail': 'phone is required'}), 400
+
+    is_authorized = 1 if bool(payload.get('is_authorized', False)) else 0
+    is_admin = 1 if bool(payload.get('is_admin', False)) else 0
+    try:
+        daily_limit = int(payload.get('daily_limit', 3))
+    except (TypeError, ValueError):
+        return jsonify({'detail': 'daily_limit must be integer'}), 400
+    daily_limit = max(1, min(100, daily_limit))
+
+    with SessionLocal() as db:
+        row = _ensure_user(db, phone)
+        row.is_authorized = is_authorized
+        row.is_admin = is_admin
+        row.daily_limit = daily_limit
+        db.commit()
+        db.refresh(row)
+    return jsonify(
+        {
+            'ok': True,
+            'item': {
+                'phone': row.phone,
+                'is_authorized': bool(int(row.is_authorized or 0)),
+                'is_admin': bool(int(row.is_admin or 0)),
+                'daily_limit': int(row.daily_limit or 3),
+            },
         }
     )
 
@@ -123,6 +584,72 @@ def semantic_graph_status():
     return jsonify(graph_status())
 
 
+@app.get(f'{settings.api_prefix}/prompt-graph/status')
+def api_prompt_graph_status():
+    return jsonify(prompt_graph_status())
+
+
+@app.get(f'{settings.api_prefix}/prompt-graph/overview')
+def api_prompt_graph_overview():
+    return jsonify(prompt_graph_overview())
+
+
+@app.get(f'{settings.api_prefix}/prompt-graph/field')
+def api_prompt_graph_field():
+    fid = (request.args.get('field_id') or '').strip()
+    if not fid:
+        return jsonify({'detail': 'field_id is required'}), 400
+    out = prompt_field_detail(fid)
+    if out.get('detail') == 'field not found':
+        return jsonify(out), 404
+    return jsonify(out)
+
+
+@app.post(f'{settings.api_prefix}/prompt-graph/rebuild')
+@_require_admin
+def api_prompt_graph_rebuild():
+    out = sync_prompt_graph_to_neo4j()
+    code = 200 if out.get('ok') else 400
+    return jsonify(out), code
+
+
+@app.post(f'{settings.api_prefix}/prompt-graph/field')
+@_require_admin
+def api_prompt_graph_upsert_field():
+    payload = request.get_json(force=True) or {}
+    out = upsert_prompt_field(payload)
+    code = 200 if out.get('ok') else 400
+    return jsonify(out), code
+
+
+@app.delete(f'{settings.api_prefix}/prompt-graph/field')
+@_require_admin
+def api_prompt_graph_delete_field():
+    fid = (request.args.get('field_id') or '').strip()
+    out = remove_prompt_field(fid)
+    code = 200 if out.get('ok') else 400
+    return jsonify(out), code
+
+
+@app.post(f'{settings.api_prefix}/prompt-graph/edge')
+@_require_admin
+def api_prompt_graph_upsert_edge():
+    payload = request.get_json(force=True) or {}
+    out = upsert_prompt_edge(payload)
+    code = 200 if out.get('ok') else 400
+    return jsonify(out), code
+
+
+@app.delete(f'{settings.api_prefix}/prompt-graph/edge')
+@_require_admin
+def api_prompt_graph_delete_edge():
+    src = (request.args.get('from') or '').strip()
+    dst = (request.args.get('to') or '').strip()
+    out = remove_prompt_edge(src, dst)
+    code = 200 if out.get('ok') else 400
+    return jsonify(out), code
+
+
 @app.post(f'{settings.api_prefix}/graph/edge')
 def semantic_graph_upsert_edge():
     payload = request.get_json(force=True)
@@ -133,6 +660,7 @@ def semantic_graph_upsert_edge():
 
     try:
         result = upsert_relation(head=head, relation=relation, tail=tail, bidirectional=bidirectional)
+        result['usage'] = getattr(g, 'usage_info', None)
         return jsonify(result)
     except ValueError as e:
         return jsonify({'detail': str(e)}), 400
@@ -286,6 +814,7 @@ def semantic_merge_lexicon():
 
 
 @app.post(f'{settings.api_prefix}/projects')
+@_enforce_feature_access('create_project')
 def create_project():
     payload = request.get_json(force=True)
     title = (payload.get('title') or '').strip()
@@ -297,7 +826,22 @@ def create_project():
         db.add(project)
         db.commit()
         db.refresh(project)
-        return jsonify({'id': project.id, 'title': project.title, 'created_at': project.created_at.isoformat()})
+        _log_user_operation(
+            db=db,
+            action='create_project',
+            project_id=project.id,
+            req={'title': title},
+            resp={'project_id': project.id},
+            file_refs=[],
+        )
+        return jsonify(
+            {
+                'id': project.id,
+                'title': project.title,
+                'created_at': project.created_at.isoformat(),
+                'usage': getattr(g, 'usage_info', None),
+            }
+        )
 
 
 @app.get(f'{settings.api_prefix}/projects/<int:project_id>')
@@ -310,6 +854,7 @@ def get_project(project_id: int):
 
 
 @app.post(f'{settings.api_prefix}/analysis/<int:project_id>/audio')
+@_enforce_feature_access('audio_analysis')
 def upload_audio(project_id: int):
     file = request.files.get('file')
     if file is None:
@@ -320,10 +865,12 @@ def upload_audio(project_id: int):
         if not project:
             return jsonify({'detail': 'Project not found'}), 404
 
-        upload_dir = Path(settings.upload_dir).resolve()
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        ext = Path(file.filename or 'audio.bin').suffix
-        save_path = upload_dir / f'project_{project_id}{ext}'
+        save_path = _build_local_storage_path(
+            action='audio_analysis',
+            project_id=project_id,
+            original_name=file.filename or 'audio.bin',
+            suffix_fallback='.bin',
+        )
 
         file_bytes = file.read()
         max_bytes = settings.max_upload_mb * 1024 * 1024
@@ -332,9 +879,12 @@ def upload_audio(project_id: int):
         save_path.write_bytes(file_bytes)
 
         report_mode = (request.args.get('report_mode') or settings.report_mode_default).strip().lower()
-        debug_prompt = (request.args.get('debug_prompt') or '0').strip() in {'1', 'true', 'yes'}
         try:
-            result = analyze_audio_for_audiobook(str(save_path), report_mode=report_mode, debug_prompt=debug_prompt)
+            result = analyze_audio_for_audiobook(
+                str(save_path),
+                report_mode=report_mode,
+                debug_prompt=True,
+            )
         except Exception as e:
             app.logger.exception('audio analyze failed; fallback enabled')
             result = _fallback_audio_result_on_error(e)
@@ -362,15 +912,30 @@ def upload_audio(project_id: int):
             row.tags_json = json.dumps(result['tags'], ensure_ascii=False)
 
         db.commit()
+        _log_user_operation(
+            db=db,
+            action='audio_analysis',
+            project_id=project_id,
+            req={'report_mode': report_mode, 'file_name': file.filename or save_path.name},
+            resp={
+                'analysis_mode': result.get('analysis_mode'),
+                'duration_sec': result.get('duration_sec'),
+                'marker_count': len(result.get('markers') or []),
+                'llm_trace_digest': _llm_trace_digest(result.get('llm_trace')),
+            },
+            file_refs=[str(save_path)],
+        )
+        result['usage'] = getattr(g, 'usage_info', None)
         return jsonify(result)
 
 
 @app.post(f'{settings.api_prefix}/analysis/<int:project_id>/text')
+@_enforce_feature_access('text_analysis')
 def analyze_text(project_id: int):
     payload = request.get_json(force=True)
     text = (payload.get('text') or '').strip()
     report_mode = (payload.get('report_mode') or request.args.get('report_mode') or settings.report_mode_default).strip().lower()
-    debug_prompt = bool(payload.get('debug_prompt', False))
+    debug_prompt = True
     if not text:
         return jsonify({'detail': 'text is required'}), 400
 
@@ -409,10 +974,24 @@ def analyze_text(project_id: int):
             row.scenes_json = json.dumps(result['scenes'], ensure_ascii=False)
 
         db.commit()
+        _log_user_operation(
+            db=db,
+            action='text_analysis',
+            project_id=project_id,
+            req={'report_mode': report_mode, 'text_len': len(text)},
+            resp={
+                'analysis_mode': result.get('analysis_mode'),
+                'scene_count': len(result.get('scenes') or []),
+                'llm_trace_digest': _llm_trace_digest(result.get('llm_trace')),
+            },
+            file_refs=[],
+        )
+        result['usage'] = getattr(g, 'usage_info', None)
         return jsonify(result)
 
 
 @app.post(f'{settings.api_prefix}/analysis/<int:project_id>/narration')
+@_enforce_feature_access('narration_analysis')
 def analyze_narration(project_id: int):
     file = request.files.get('file')
     if file is None:
@@ -427,10 +1006,12 @@ def analyze_narration(project_id: int):
         if not text:
             return jsonify({'detail': 'Text analysis is required before narration analysis'}), 400
 
-        upload_dir = Path(settings.upload_dir).resolve()
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        ext = Path(file.filename or 'narration.bin').suffix
-        save_path = upload_dir / f'project_{project_id}_narration{ext}'
+        save_path = _build_local_storage_path(
+            action='narration_analysis',
+            project_id=project_id,
+            original_name=file.filename or 'narration.bin',
+            suffix_fallback='.bin',
+        )
         save_path.write_bytes(file.read())
 
         scenes = json.loads(text.scenes_json)
@@ -455,13 +1036,135 @@ def analyze_narration(project_id: int):
             row.report_markdown = result['report_markdown']
 
         db.commit()
+        _log_user_operation(
+            db=db,
+            action='narration_analysis',
+            project_id=project_id,
+            req={'file_name': file.filename or save_path.name},
+            resp={
+                'duration_sec': result.get('duration_sec'),
+                'scene_timeline_count': len(result.get('timeline') or []),
+                'clause_timeline_count': len(result.get('clause_timeline') or []),
+            },
+            file_refs=[str(save_path)],
+        )
+        result['usage'] = getattr(g, 'usage_info', None)
         return jsonify(result)
 
 
+@app.post(f'{settings.api_prefix}/analysis/<int:project_id>/text-narration')
+@_enforce_feature_access('text_narration_analysis')
+def analyze_text_narration(project_id: int):
+    text = (request.form.get('text') or '').strip()
+    file = request.files.get('file')
+    report_mode = (request.form.get('report_mode') or request.args.get('report_mode') or settings.report_mode_default).strip().lower()
+    debug_prompt = True
+    if not text:
+        return jsonify({'detail': 'text is required'}), 400
+    if file is None:
+        return jsonify({'detail': 'narration file is required'}), 400
+
+    with SessionLocal() as db:
+        project = db.get(Project, project_id)
+        if not project:
+            return jsonify({'detail': 'Project not found'}), 404
+
+        audio = db.execute(select(AudioAnalysis).where(AudioAnalysis.project_id == project_id)).scalar_one_or_none()
+        audio_context = None
+        if audio is not None:
+            audio_context = {
+                'duration_sec': audio.duration_sec,
+                'bpm': audio.bpm,
+                'tags': json.loads(audio.tags_json),
+                'markers': json.loads(audio.markers_json),
+                'report_markdown': audio.report_markdown,
+            }
+
+        text_result = analyze_text_for_audiobook(
+            text, report_mode=report_mode, audio_context=audio_context, debug_prompt=debug_prompt
+        )
+        text_row = db.execute(select(TextAnalysis).where(TextAnalysis.project_id == project_id)).scalar_one_or_none()
+        if text_row is None:
+            text_row = TextAnalysis(
+                project_id=project_id,
+                raw_text=text,
+                report_markdown=text_result['report_markdown'],
+                scenes_json=json.dumps(text_result['scenes'], ensure_ascii=False),
+            )
+            db.add(text_row)
+        else:
+            text_row.raw_text = text
+            text_row.report_markdown = text_result['report_markdown']
+            text_row.scenes_json = json.dumps(text_result['scenes'], ensure_ascii=False)
+
+        save_path = _build_local_storage_path(
+            action='text_narration_analysis',
+            project_id=project_id,
+            original_name=file.filename or 'narration.bin',
+            suffix_fallback='.bin',
+        )
+        file_bytes = file.read()
+        max_bytes = settings.max_upload_mb * 1024 * 1024
+        if len(file_bytes) > max_bytes:
+            return jsonify({'detail': f'File too large. Max {settings.max_upload_mb}MB'}), 413
+        save_path.write_bytes(file_bytes)
+
+        narration_result = analyze_narration_for_audiobook(str(save_path), scenes=text_result['scenes'], raw_text=text)
+        timeline_payload = {
+            'scene_timeline': narration_result['timeline'],
+            'clause_timeline': narration_result.get('clause_timeline', []),
+        }
+        narration_row = db.execute(select(NarrationAnalysis).where(NarrationAnalysis.project_id == project_id)).scalar_one_or_none()
+        if narration_row is None:
+            narration_row = NarrationAnalysis(
+                project_id=project_id,
+                file_name=file.filename or save_path.name,
+                file_path=str(save_path),
+                duration_sec=narration_result['duration_sec'],
+                timeline_json=json.dumps(timeline_payload, ensure_ascii=False),
+                report_markdown=narration_result['report_markdown'],
+            )
+            db.add(narration_row)
+        else:
+            narration_row.file_name = file.filename or save_path.name
+            narration_row.file_path = str(save_path)
+            narration_row.duration_sec = narration_result['duration_sec']
+            narration_row.timeline_json = json.dumps(timeline_payload, ensure_ascii=False)
+            narration_row.report_markdown = narration_result['report_markdown']
+
+        db.commit()
+        response_payload = {
+            'analysis_mode': 'text+narration-combined',
+            'text': text_result,
+            'narration': narration_result,
+            'llm_trace': text_result.get('llm_trace') or [],
+            'prompt_guard': text_result.get('prompt_guard'),
+            'llm_attempted_modes': text_result.get('llm_attempted_modes') or [],
+            'effective_report_mode': text_result.get('effective_report_mode'),
+        }
+        _log_user_operation(
+            db=db,
+            action='text_narration_analysis',
+            project_id=project_id,
+            req={'report_mode': report_mode, 'text_len': len(text), 'file_name': file.filename or save_path.name},
+            resp={
+                'analysis_mode': response_payload['analysis_mode'],
+                'text_scene_count': len((text_result or {}).get('scenes') or []),
+                'narration_scene_timeline_count': len((narration_result or {}).get('timeline') or []),
+                'narration_clause_timeline_count': len((narration_result or {}).get('clause_timeline') or []),
+                'llm_trace_digest': _llm_trace_digest((text_result or {}).get('llm_trace')),
+            },
+            file_refs=[str(save_path)],
+        )
+        response_payload['usage'] = getattr(g, 'usage_info', None)
+        return jsonify(response_payload)
+
+
 @app.post(f'{settings.api_prefix}/analysis/<int:project_id>/fusion')
+@_enforce_feature_access('fusion_execution')
 def build_fusion(project_id: int):
     report_mode = (request.args.get('report_mode') or settings.report_mode_default).strip().lower()
-    debug_prompt = (request.args.get('debug_prompt') or '0').strip() in {'1', 'true', 'yes'}
+    debug_prompt = True
     with SessionLocal() as db:
         project = db.get(Project, project_id)
         if not project:
@@ -489,20 +1192,62 @@ def build_fusion(project_id: int):
             )
 
         narration_payload = None
+        narration_raw_timeline = None
         if narration:
             parsed_timeline = json.loads(narration.timeline_json)
+            narration_raw_timeline = parsed_timeline
             if isinstance(parsed_timeline, dict):
-                narration_payload = parsed_timeline.get('scene_timeline') or []
+                narration_payload = {
+                    'scene_timeline': parsed_timeline.get('scene_timeline') or [],
+                    'clause_timeline': parsed_timeline.get('clause_timeline') or [],
+                }
             elif isinstance(parsed_timeline, list):
-                narration_payload = parsed_timeline
+                narration_payload = {'scene_timeline': parsed_timeline, 'clause_timeline': []}
+
+        music_context = {
+            'duration_sec': audio.duration_sec,
+            'bpm': audio.bpm,
+            'tags': json.loads(audio.tags_json),
+            'markers': json.loads(audio.markers_json),
+            'report_markdown': audio.report_markdown,
+        }
+        text_context = {
+            'raw_text': text.raw_text,
+            'scenes': json.loads(text.scenes_json),
+            'report_markdown': text.report_markdown,
+        }
+        if narration_raw_timeline is not None:
+            text_context['narration_timeline'] = narration_raw_timeline
 
         result = build_fusion_plan(
-            json.loads(audio.markers_json),
-            json.loads(text.scenes_json),
+            music_context['markers'],
+            text_context['scenes'],
             narration_timeline=narration_payload,
+            music_context=music_context,
+            text_context=text_context,
             report_mode=report_mode,
             debug_prompt=debug_prompt,
         )
+        result['evidence_summary'] = {
+            'chain': 'music+text+narration',
+            'music': {
+                'has_data': True,
+                'duration_sec': music_context['duration_sec'],
+                'bpm': music_context['bpm'],
+                'tag_count': len(music_context['tags']),
+                'marker_count': len(music_context['markers']),
+            },
+            'text': {
+                'has_data': True,
+                'text_len': len(text_context['raw_text'] or ''),
+                'scene_count': len(text_context['scenes']),
+            },
+            'narration': {
+                'has_data': bool(narration),
+                'scene_timeline_count': len((narration_payload or {}).get('scene_timeline') or []),
+                'clause_timeline_count': len((narration_payload or {}).get('clause_timeline') or []),
+            },
+        }
         row = db.execute(select(FusionPlan).where(FusionPlan.project_id == project_id)).scalar_one_or_none()
 
         if row is None:
@@ -523,17 +1268,69 @@ def build_fusion(project_id: int):
             term='fusion',
             backend='n/a',
             project_id=project_id,
-            req={'report_mode': report_mode},
-            resp={'success': True, 'cue_count': len(result.get('cues', [])), 'analysis_mode': result.get('analysis_mode')},
+            req={
+                'report_mode': report_mode,
+                'evidence_sources': {
+                    'has_music_analysis': True,
+                    'has_text_analysis': True,
+                    'has_narration_analysis': bool(narration),
+                },
+                'music_snapshot': {
+                    'duration_sec': music_context['duration_sec'],
+                    'bpm': music_context['bpm'],
+                    'tags': music_context['tags'],
+                    'marker_count': len(music_context['markers']),
+                    'report_excerpt': (music_context['report_markdown'] or '')[:600],
+                },
+                'text_snapshot': {
+                    'text_len': len(text_context['raw_text'] or ''),
+                    'scene_count': len(text_context['scenes']),
+                    'report_excerpt': (text_context['report_markdown'] or '')[:600],
+                },
+                'narration_snapshot': {
+                    'scene_timeline_count': len((narration_payload or {}).get('scene_timeline') or []),
+                    'clause_timeline_count': len((narration_payload or {}).get('clause_timeline') or []),
+                },
+            },
+            resp={
+                'success': True,
+                'cue_count': len(result.get('cues', [])),
+                'analysis_mode': result.get('analysis_mode'),
+                'effective_report_mode': result.get('effective_report_mode'),
+                'llm_attempted_modes': result.get('llm_attempted_modes'),
+                'llm_trace_digest': [
+                    {
+                        'prompt_file': x.get('prompt_file'),
+                        'status': (x.get('call_meta') or {}).get('status'),
+                        'request_id': (x.get('call_meta') or {}).get('request_id'),
+                        'contract_valid': x.get('contract_valid'),
+                    }
+                    for x in (result.get('llm_trace') or [])
+                ],
+            },
         )
+        _log_user_operation(
+            db=db,
+            action='fusion_execution',
+            project_id=project_id,
+            req={'report_mode': report_mode, 'evidence_summary': result.get('evidence_summary') or {}},
+            resp={
+                'analysis_mode': result.get('analysis_mode'),
+                'cue_count': len(result.get('cues') or []),
+                'llm_trace_digest': _llm_trace_digest(result.get('llm_trace')),
+            },
+            file_refs=[],
+        )
+        result['usage'] = getattr(g, 'usage_info', None)
         return jsonify(result)
 
 
 @app.post(f'{settings.api_prefix}/analysis/<int:project_id>/director')
+@_enforce_feature_access('director_advise')
 def director_advise(project_id: int):
     payload = request.get_json(force=True, silent=True) or {}
     report_mode = (payload.get('report_mode') or request.args.get('report_mode') or 'production').strip().lower()
-    debug_prompt = bool(payload.get('debug_prompt', False))
+    debug_prompt = True
 
     with SessionLocal() as db:
         project = db.get(Project, project_id)
@@ -561,7 +1358,6 @@ def director_advise(project_id: int):
 
         evidence = {
             'kind': 'director_final',
-            'mode': report_mode,
             'project_title': project.title,
             'audio_analysis_text': audio.report_markdown,
             'audio_markers': json.loads(audio.markers_json),
@@ -578,12 +1374,13 @@ def director_advise(project_id: int):
                 'report_markdown': out_md,
                 'llm_attempted_modes': meta.get('attempted_modes', []),
                 'effective_report_mode': meta.get('effective_mode'),
-                'llm_trace': meta.get('llm_trace') if debug_prompt else None,
+                'llm_trace': meta.get('llm_trace'),
             }
         )
 
 
 @app.get(f'{settings.api_prefix}/analysis/<int:project_id>/report')
+@_enforce_feature_access('view_report')
 def get_report(project_id: int):
     with SessionLocal() as db:
         project = db.get(Project, project_id)
@@ -594,6 +1391,12 @@ def get_report(project_id: int):
         text = db.execute(select(TextAnalysis).where(TextAnalysis.project_id == project_id)).scalar_one_or_none()
         fusion = db.execute(select(FusionPlan).where(FusionPlan.project_id == project_id)).scalar_one_or_none()
         narration = db.execute(select(NarrationAnalysis).where(NarrationAnalysis.project_id == project_id)).scalar_one_or_none()
+        narration_json = None
+        if narration:
+            try:
+                narration_json = json.loads(narration.timeline_json)
+            except json.JSONDecodeError:
+                narration_json = None
 
         return jsonify(
             {
@@ -634,6 +1437,7 @@ def get_report(project_id: int):
 
 
 @app.get(f'{settings.api_prefix}/analysis/<int:project_id>/export')
+@_enforce_feature_access('export_assets')
 def export_report_assets(project_id: int):
     export_type = (request.args.get('type') or '').strip().lower()
     if export_type not in {'cue_csv', 'sfx_zip'}:
@@ -688,6 +1492,7 @@ def export_report_assets(project_id: int):
 
 
 @app.get(f'{settings.api_prefix}/ops/funnel')
+@_require_admin
 def ops_funnel():
     days = int((request.args.get('days') or '7').strip())
     days = max(1, min(90, days))
@@ -732,6 +1537,7 @@ def ops_funnel():
 
 
 @app.get(f'{settings.api_prefix}/ops/recommendations')
+@_require_admin
 def ops_recommendations():
     days = int((request.args.get('days') or '7').strip())
     days = max(1, min(90, days))
@@ -777,6 +1583,7 @@ def ops_recommendations():
 
 
 @app.get(f'{settings.api_prefix}/ops/lexicon-draft')
+@_require_admin
 def ops_lexicon_draft():
     try:
         days = int((request.args.get('days') or '7').strip())
@@ -788,6 +1595,7 @@ def ops_lexicon_draft():
 
 
 @app.get(f'{settings.api_prefix}/ops/lexicon-review')
+@_require_admin
 def ops_lexicon_review_list():
     with SessionLocal() as db:
         rows = db.execute(
@@ -807,6 +1615,7 @@ def ops_lexicon_review_list():
 
 
 @app.post(f'{settings.api_prefix}/ops/lexicon-review')
+@_require_admin
 def ops_lexicon_review_upsert():
     payload = request.get_json(force=True)
     items = payload.get('items')
@@ -844,6 +1653,7 @@ def ops_lexicon_review_upsert():
 
 
 @app.post(f'{settings.api_prefix}/ops/lexicon-draft/apply')
+@_require_admin
 def ops_lexicon_draft_apply():
     payload = request.get_json(force=True)
     draft_lexicon = payload.get('draft_lexicon')
@@ -972,7 +1782,154 @@ def ops_lexicon_draft_apply():
     )
 
 
+@app.get(f'{settings.api_prefix}/ops/user-events')
+@_require_admin
+def ops_user_events():
+    phone = (request.args.get('phone') or '').strip()
+    action = (request.args.get('action') or '').strip()
+    project_id = request.args.get('project_id', type=int)
+    limit = int((request.args.get('limit') or '200').strip())
+    limit = max(1, min(1000, limit))
+    date_from = (request.args.get('date_from') or '').strip()
+    date_to = (request.args.get('date_to') or '').strip()
+
+    with SessionLocal() as db:
+        stmt = select(UserOperationLog)
+        if phone:
+            stmt = stmt.where(UserOperationLog.user_phone == phone)
+        if action:
+            stmt = stmt.where(UserOperationLog.action == action)
+        if project_id is not None:
+            stmt = stmt.where(UserOperationLog.project_id == project_id)
+        if date_from:
+            try:
+                stmt = stmt.where(UserOperationLog.created_at >= datetime.fromisoformat(date_from))
+            except ValueError:
+                return jsonify({'detail': 'date_from must be ISO format'}), 400
+        if date_to:
+            try:
+                stmt = stmt.where(UserOperationLog.created_at <= datetime.fromisoformat(date_to))
+            except ValueError:
+                return jsonify({'detail': 'date_to must be ISO format'}), 400
+        rows = db.execute(stmt.order_by(UserOperationLog.id.desc()).limit(limit)).scalars().all()
+
+    items = []
+    for r in rows:
+        try:
+            input_json = json.loads(r.input_json or '{}')
+        except json.JSONDecodeError:
+            input_json = {}
+        try:
+            output_json = json.loads(r.output_json or '{}')
+        except json.JSONDecodeError:
+            output_json = {}
+        try:
+            file_refs = json.loads(r.file_refs_json or '[]')
+        except json.JSONDecodeError:
+            file_refs = []
+        items.append(
+            {
+                'id': r.id,
+                'project_id': r.project_id,
+                'user_phone': r.user_phone,
+                'action': r.action,
+                'created_at': r.created_at.isoformat() if r.created_at else None,
+                'input': input_json,
+                'output': output_json,
+                'file_refs': file_refs,
+            }
+        )
+    return jsonify({'count': len(items), 'items': items})
+
+
+@app.get(f'{settings.api_prefix}/ops/project/<int:project_id>/flow-bundle')
+@_require_admin
+def ops_project_flow_bundle(project_id: int):
+    with SessionLocal() as db:
+        project = db.get(Project, project_id)
+        if not project:
+            return jsonify({'detail': 'Project not found'}), 404
+        audio = db.execute(select(AudioAnalysis).where(AudioAnalysis.project_id == project_id)).scalar_one_or_none()
+        text = db.execute(select(TextAnalysis).where(TextAnalysis.project_id == project_id)).scalar_one_or_none()
+        narration = db.execute(select(NarrationAnalysis).where(NarrationAnalysis.project_id == project_id)).scalar_one_or_none()
+        fusion = db.execute(select(FusionPlan).where(FusionPlan.project_id == project_id)).scalar_one_or_none()
+        events = db.execute(
+            select(UserOperationLog)
+            .where(UserOperationLog.project_id == project_id)
+            .order_by(UserOperationLog.id.desc())
+            .limit(1000)
+        ).scalars().all()
+
+    event_items = []
+    for e in events:
+        try:
+            e_in = json.loads(e.input_json or '{}')
+        except json.JSONDecodeError:
+            e_in = {}
+        try:
+            e_out = json.loads(e.output_json or '{}')
+        except json.JSONDecodeError:
+            e_out = {}
+        try:
+            e_files = json.loads(e.file_refs_json or '[]')
+        except json.JSONDecodeError:
+            e_files = []
+        event_items.append(
+            {
+                'id': e.id,
+                'user_phone': e.user_phone,
+                'action': e.action,
+                'created_at': e.created_at.isoformat() if e.created_at else None,
+                'input_json': e_in,
+                'output_json': e_out,
+                'file_refs': e_files,
+            }
+        )
+
+    return jsonify(
+        {
+            'project': {
+                'id': project.id,
+                'title': project.title,
+                'created_at': project.created_at.isoformat() if project.created_at else None,
+            },
+            'assets': {
+                'audio_file': audio.file_path if audio else None,
+                'text_raw': text.raw_text if text else None,
+                'narration_file': narration.file_path if narration else None,
+                'audio_download_api': (
+                    f"{settings.api_prefix}/ops/file?path={quote(audio.file_path, safe='')}" if audio and audio.file_path else None
+                ),
+                'narration_download_api': (
+                    f"{settings.api_prefix}/ops/file?path={quote(narration.file_path, safe='')}" if narration and narration.file_path else None
+                ),
+            },
+            'analysis': {
+                'audio_report': audio.report_markdown if audio else None,
+                'text_report': text.report_markdown if text else None,
+                'narration_report': narration.report_markdown if narration else None,
+                'fusion_report': fusion.report_markdown if fusion else None,
+            },
+            'events': event_items,
+        }
+    )
+
+
+@app.get(f'{settings.api_prefix}/ops/file')
+@_require_admin
+def ops_download_local_file():
+    raw_path = (request.args.get('path') or '').strip()
+    if not raw_path:
+        return jsonify({'detail': 'path is required'}), 400
+    p = Path(raw_path).expanduser()
+    abs_p = p.resolve() if p.is_absolute() else (Path(settings.upload_dir).resolve() / p).resolve()
+    if not _is_under_upload_root(abs_p):
+        return jsonify({'detail': 'path must be under UPLOAD_DIR'}), 400
+    if not abs_p.exists() or not abs_p.is_file():
+        return jsonify({'detail': 'file not found'}), 404
+    return send_file(abs_p, as_attachment=True, download_name=abs_p.name)
+
+
 if __name__ == '__main__':
     Base.metadata.create_all(bind=engine)
     app.run(host='0.0.0.0', port=8090, debug=False, use_reloader=False)
-    debug_prompt = bool(payload.get('debug_prompt', False))

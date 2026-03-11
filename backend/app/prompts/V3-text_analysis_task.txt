@@ -1,0 +1,77 @@
+任务：基于 raw_text（可选结合 music_analysis_text/audio_context）输出“可映射到演绎时间轴”的文本证据。
+
+输入：
+- raw_text（必选）
+- scenes（可选，系统预切分）
+- music_analysis_text（可选，来自音乐分析）
+- audio_context（可选，音乐结构化上下文）
+
+输出目标（业务优先）：
+1) 形成 scene_units（给执行单使用）；
+2) 形成 clause_timeline（给演绎时间轴映射使用）；
+3) 给出文本与音乐适配判断（供执行单汇总）。
+4) 输出要“短、准、可执行”，优先保证 JSON 完整可解析。
+
+输出 JSON（必须完整）：
+{
+  "title": "字符串",
+  "text_theme": "文本主情绪与叙事方向",
+  "fit_with_music": {
+    "verdict": "适配/部分适配/不建议",
+    "score": 0,
+    "reasons": ["理由1","理由2","理由3"]
+  },
+  "scene_units": [
+    {
+      "scene_no": 1,
+      "text_start_char": 0,
+      "text_end_char": 52,
+      "text_excerpt": "原文片段",
+      "emotion": "主情绪",
+      "emotion_change": "平稳/渐变/突变",
+      "action_tags": ["动作标签"],
+      "intensity": 65,
+      "music_need": "无/弱/中/强",
+      "entry_hint": "渐入/突入/不入",
+      "exit_hint": "淡出/硬切/转场",
+      "sfx_terms": ["音效词"]
+    }
+  ],
+  "clause_timeline": [
+    {
+      "clause_no": 1,
+      "text_start_char": 0,
+      "text_end_char": 22,
+      "text": "语句内容",
+      "punct": "。",
+      "start_sec": 0.0,
+      "end_sec": 1.8
+    }
+  ],
+  "emotion_curve": [{"scene_no": 1, "level": 30}],
+  "sfx_requirements": [
+    {
+      "term": "脚步声",
+      "scene_nos": [2,3],
+      "reason": "对应人物行动",
+      "priority": "高/中/低"
+    }
+  ],
+  "key_points": ["关键摘要"],
+  "risks": ["风险"],
+  "markdown": "完整可读分析"
+}
+
+硬约束：
+1) 必须先输出 JSON，再输出 markdown。
+2) 所有值使用中文。
+3) scene_units 字符区间必须可供后续对齐。
+4) clause_timeline 是后续时间证据核心；无法计算时返回 [] 并在 risks 解释原因。
+5) 禁止在 JSON 之外输出额外前后缀说明。
+6) 若输出长度受限，优先保全 JSON 字段完整，再精简 markdown。
+
+长度约束：
+1) scene_units<=10，emotion_curve<=10，sfx_requirements<=16，clause_timeline<=18。
+2) key_points<=5（每条<=28字），risks<=5（每条<=32字）。
+3) text_theme<=70字，markdown 450-800字。
+4) 推荐 markdown 280-520字，避免冗长重复。

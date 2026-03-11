@@ -101,3 +101,64 @@ class DraftReview(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class UserOperationLog(Base):
+    __tablename__ = 'user_operation_log'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(Integer, index=True, nullable=True)
+    user_phone: Mapped[str] = mapped_column(String(32), index=True, nullable=True, default='')
+    action: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    input_json: Mapped[str] = mapped_column(Text, nullable=False, default='{}')
+    output_json: Mapped[str] = mapped_column(Text, nullable=False, default='{}')
+    file_refs_json: Mapped[str] = mapped_column(Text, nullable=False, default='[]')
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class UserAccount(Base):
+    __tablename__ = 'user_account'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    phone: Mapped[str] = mapped_column(String(32), unique=True, index=True, nullable=False)
+    is_authorized: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # 0/1
+    is_admin: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # 0/1
+    daily_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class AuthCode(Base):
+    __tablename__ = 'auth_code'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    phone: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
+    code: Mapped[str] = mapped_column(String(16), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # 0/1
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class AuthSession(Base):
+    __tablename__ = 'auth_session'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    phone: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
+    token: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class DailyUsage(Base):
+    __tablename__ = 'daily_usage'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    phone: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
+    action: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    ymd: Mapped[str] = mapped_column(String(10), index=True, nullable=False)  # YYYY-MM-DD
+    used_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )

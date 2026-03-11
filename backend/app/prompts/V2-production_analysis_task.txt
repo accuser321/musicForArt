@@ -1,0 +1,27 @@
+任务：融合音乐分析 + 文本分析 + 演绎时间轴，输出可直接执行的制作单。
+
+输入证据范围：music_analysis、text_analysis、narration_timeline、audio_markers、scenes、cues、fit。
+
+输出JSON字段（必须完整）：
+- title
+- fit_verdict: {verdict, score, reasons[]}
+- key_points: [string]
+- sections: [{section_no,section_type,label,start_sec,end_sec,instruments[],new_instruments_vs_prev[],energy_level,layer_progression}]
+- structure_logic: {pattern_guess,repeat_groups[],evidence[]}
+- music_entry_plan: [{scene_no,text_start_char,text_end_char,text_excerpt,music_start_sec,music_end_sec,entry_reason,dialogue_music_ratio,sfx[]}]
+- hit_points: [{time_sec,event,why}]
+- risks: [string]
+- export_hints: [string]
+- markdown
+
+业务规则：
+1) 必须显式给出“是否适配”与评分。
+2) 每个主要场景都要给“文字区间 -> 音乐区间”建议。
+3) 若存在narration_timeline（scene/clause），优先用其时间证据。
+4) dialogue_music_ratio必须为明确比例（如70/30）。
+5) 重点是执行单可落地，不做无用鉴赏扩展。
+
+长度约束：
+1) sections<=8，music_entry_plan<=12，hit_points<=10。
+2) key_points<=8（每条<=34字），risks<=8（每条<=40字），export_hints<=8（每条<=40字）。
+3) markdown 600-1000字。

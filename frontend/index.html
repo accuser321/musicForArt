@@ -87,6 +87,33 @@
         padding: 8px;
         font-size: 14px;
       }
+      .ok {
+        border: 1px solid #2e7d32;
+        background: #ebfff0;
+        color: #1b5e20;
+        border-radius: 8px;
+        padding: 8px;
+        font-size: 14px;
+      }
+      .panel {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px;
+        margin-bottom: 10px;
+      }
+      .panel h4 {
+        margin: 0 0 8px;
+      }
+      .pill {
+        display: inline-block;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 12px;
+        background: #fffdf7;
+        margin-right: 6px;
+      }
       .review {
         margin-top: 12px;
         background: #fff;
@@ -135,6 +162,15 @@
           <label>API 地址</label>
           <input id="apiBase" value="http://127.0.0.1:8090/api" />
 
+          <label>手机号登录</label>
+          <input id="loginPhone" placeholder="请输入手机号" />
+          <div style="display:flex; gap:8px; margin-top:6px;">
+            <button onclick="requestCode()" style="width:auto;">发送验证码</button>
+            <input id="loginCode" placeholder="验证码" />
+            <button onclick="loginByCode()" style="width:auto;">登录</button>
+          </div>
+          <p class="hint">当前登录：<span id="loginState">未登录</span></p>
+
           <label>项目标题</label>
           <input id="projectTitle" value="玄武战役教学样例" />
           <button onclick="createProject()">1) 创建项目</button>
@@ -146,7 +182,7 @@
             <option value="teaching">teaching（教学版）</option>
             <option value="concise">concise（简版）</option>
           </select>
-          <label><input id="debugPrompt" type="checkbox" style="width:auto; margin-right:6px;" /> 调试模式（显示Prompt输入/输出）</label>
+          <div class="hint">当前版本：LLM 调用已强制使用核心 Prompt 对（text_with_music + fusion_production），并默认返回 Prompt I/O 调试追踪。</div>
 
           <label>上传音乐</label>
           <input id="audioFile" type="file" accept="audio/*" />
@@ -154,11 +190,10 @@
 
           <label>输入文本</label>
           <textarea id="textInput" rows="8" placeholder="输入章节片段，系统会识别动作和音效建议"></textarea>
-          <button onclick="analyzeText()">3) 文本分析</button>
 
-          <label>上传演绎音频（可选但推荐）</label>
+          <label>上传演绎音频（第3步必传）</label>
           <input id="narrationFile" type="file" accept="audio/*" />
-          <button onclick="analyzeNarration()">3.5) 演绎音频时间轴</button>
+          <button onclick="analyzeTextNarration()">3) 文本分析+演绎时间轴</button>
 
           <button onclick="buildFusion()">4) 生成融合执行单</button>
           <button onclick="directorAdvise()">4.5) 导演建议（统一汇总）</button>
@@ -191,7 +226,7 @@
           <div id="busyTip" class="busy" style="display:none;">处理中，请稍候...</div>
           <div class="review">
             <h4>LLM 调试窗口（Prompt I/O）</h4>
-            <div id="llmDebugBox" class="hint">开启“调试模式”后执行分析，可查看调用输入与输出。</div>
+            <div id="llmDebugBox" class="hint">执行分析后可查看调用输入与输出。</div>
           </div>
           <div class="review" id="draftReview">
             <h4>词典草稿审核区</h4>
@@ -210,28 +245,141 @@
       let projectId = null;
       let latestLexiconDraft = null;
       let uiBusy = false;
+      let authToken = localStorage.getItem('mfa_auth_token') || '';
+      let authPhone = localStorage.getItem('mfa_auth_phone') || '';
+
+      function sanitizeText(s) {
+        return String(s ?? '')
+          .replace(/\u0000/g, '')
+          .replace(/\r\n/g, '\n')
+          .trim();
+      }
+
+      function parseJsonLoose(v) {
+        if (typeof v !== 'string') return null;
+        const text = sanitizeText(v);
+        if (!text) return null;
+        try {
+          return JSON.parse(text);
+        } catch (_) {}
+        const match = text.match(/```json\s*([\s\S]*?)```/i) || text.match(/\{[\s\S]*\}$/);
+        if (!match) return null;
+        const raw = sanitizeText(match[1] || match[0]);
+        try {
+          return JSON.parse(raw);
+        } catch (_) {
+          return null;
+        }
+      }
+
+      function deepClean(value) {
+        if (Array.isArray(value)) {
+          return value
+            .map(deepClean)
+            .filter(v => v !== null && v !== undefined && !(typeof v === 'string' && !v.trim()));
+        }
+        if (value && typeof value === 'object') {
+          const out = {};
+          for (const [k, v] of Object.entries(value)) {
+            const next = deepClean(v);
+            if (next === null || next === undefined) continue;
+            if (typeof next === 'string' && !next.trim()) continue;
+            if (Array.isArray(next) && next.length === 0) continue;
+            out[k] = next;
+          }
+          return out;
+        }
+        if (typeof value === 'string') return sanitizeText(value);
+        return value;
+      }
+
+      function normalizePayload(input) {
+        if (!input || typeof input !== 'object') return input;
+        const data = deepClean({ ...input });
+        const collectTraces = (obj, path = 'root', out = []) => {
+          if (!obj || typeof obj !== 'object') return out;
+          if (Array.isArray(obj.llm_trace) && obj.llm_trace.length) {
+            obj.llm_trace.forEach(t => out.push({ ...(t || {}), _source_path: path }));
+          }
+          for (const [k, v] of Object.entries(obj)) {
+            if (!v || typeof v !== 'object') continue;
+            if (k === 'llm_trace') continue;
+            collectTraces(v, `${path}.${k}`, out);
+          }
+          return out;
+        };
+        if (typeof data.report_json === 'string') {
+          const parsed = parseJsonLoose(data.report_json);
+          if (parsed && typeof parsed === 'object') data.report_json = parsed;
+        }
+        if ((!data.report_json || typeof data.report_json !== 'object') && typeof data.report_markdown === 'string') {
+          const parsedFromMd = parseJsonLoose(data.report_markdown);
+          if (parsedFromMd && typeof parsedFromMd === 'object') data.report_json = parsedFromMd;
+        }
+        if (!Array.isArray(data.llm_trace) && data.debug && Array.isArray(data.debug.llm_trace)) {
+          data.llm_trace = data.debug.llm_trace;
+        }
+        if ((!Array.isArray(data.llm_trace) || !data.llm_trace.length) && data.text && typeof data.text === 'object') {
+          data.scenes = data.scenes || data.text.scenes;
+          data.sfx_requirements = data.sfx_requirements || data.text.sfx_requirements;
+          data.quick_download_list = data.quick_download_list || data.text.quick_download_list;
+          data.report_json = data.report_json || data.text.report_json;
+          data.report_markdown = data.report_markdown || data.text.report_markdown;
+          data.prompt_guard = data.prompt_guard || data.text.prompt_guard;
+        }
+        if (data.narration && typeof data.narration === 'object') {
+          data.clause_timeline = data.clause_timeline || data.narration.clause_timeline;
+        }
+        if (!Array.isArray(data.llm_trace) || !data.llm_trace.length) {
+          const mergedTraces = collectTraces(data);
+          if (mergedTraces.length) data.llm_trace = mergedTraces;
+        }
+        if (data.report_json && typeof data.report_json === 'object') {
+          if (!Array.isArray(data.report_json.key_points) && typeof data.report_json.key_points === 'string') {
+            data.report_json.key_points = data.report_json.key_points
+              .split(/\n+/)
+              .map(x => x.replace(/^[-*]\s*/, '').trim())
+              .filter(Boolean);
+          }
+          if ((!Array.isArray(data.clause_timeline) || !data.clause_timeline.length) && Array.isArray(data.report_json.clause_timeline)) {
+            data.clause_timeline = data.report_json.clause_timeline;
+          }
+        }
+        return data;
+      }
 
       function show(data) {
-        document.getElementById('output').textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-        renderPretty(data);
+        const normalized = normalizePayload(data);
+        document.getElementById('output').textContent = typeof normalized === 'string' ? normalized : JSON.stringify(normalized, null, 2);
+        renderPretty(normalized);
       }
 
       function renderLlmDebug(data) {
         const box = document.getElementById('llmDebugBox');
         const trace = data && data.llm_trace;
         if (!Array.isArray(trace) || !trace.length) {
-          box.textContent = '本次没有LLM调试追踪（可开启调试模式后重试）。';
+          box.textContent = '本次没有LLM调试追踪（可能命中规则降级或LLM未启用）。';
           return;
         }
         box.innerHTML = trace.map((t, idx) => {
           const cm = t.call_meta || {};
+          const contractText = t.contract_valid === true
+            ? '通过'
+            : (t.contract_valid === false ? `不通过：${escHtml(t.contract_reason || '')}` : '未校验');
+          const rawTxt = (t.raw_response || '');
+          const rawBlock = rawTxt
+            ? `<div><strong>Raw Response</strong><pre>${escHtml(rawTxt)}</pre></div>`
+            : `<div class="error"><strong>Raw Response 为空</strong><div>status=${escHtml(cm.status || '')} ${cm.error ? `| error=${escHtml(cm.error)}` : ''}</div>${cm.body ? `<details><summary>错误体</summary><pre>${escHtml(cm.body)}</pre></details>` : ''}</div>`;
+          const srcPath = t._source_path ? `<div><strong>来源</strong> ${escHtml(t._source_path)}</div>` : '';
           return `
             <details style="margin-bottom:8px;">
-              <summary>调用${idx + 1} | mode=${escHtml(t.mode || '')} | status=${escHtml(cm.status || '')} | request_id=${escHtml(cm.request_id || '')}</summary>
+              <summary>调用${idx + 1} | status=${escHtml(cm.status || '')} | request_id=${escHtml(cm.request_id || '')}</summary>
+              ${srcPath}
               <div><strong>Task Prompt</strong><pre>${escHtml(t.task_prompt || '')}</pre></div>
+              <div><strong>System Prompt</strong><pre>${escHtml(t.system_prompt || '')}</pre></div>
               <div><strong>User Prompt</strong><pre>${escHtml(t.user_prompt || '')}</pre></div>
-              <div><strong>Raw Response</strong><pre>${escHtml(t.raw_response || '')}</pre></div>
-              <div><strong>Contract</strong> ${t.contract_valid === false ? `不通过：${escHtml(t.contract_reason || '')}` : '通过或未校验'}</div>
+              ${rawBlock}
+              <div><strong>Contract</strong> ${contractText}</div>
             </details>
           `;
         }).join('');
@@ -279,45 +427,111 @@
           return;
         }
         const blocks = [];
-        const fitFromReport = data.report_json && typeof data.report_json === 'object' ? data.report_json.fit_verdict : null;
+        const panel = (title, inner) => `<section class="panel"><h4>${escHtml(title)}</h4>${inner}</section>`;
+        if (data.text && data.narration) {
+          const sceneCount = Array.isArray(data.text.scenes) ? data.text.scenes.length : 0;
+          const clauseCount = Array.isArray(data.narration.clause_timeline) ? data.narration.clause_timeline.length : 0;
+          const narrSec = Number(data.narration.duration_sec || 0);
+          blocks.push(panel('文本+演绎联合分析', `
+            <div class="kv"><div>场景数</div><div>${sceneCount}</div></div>
+            <div class="kv"><div>语句时间线</div><div>${clauseCount} 条</div></div>
+            <div class="kv"><div>演绎音频时长</div><div>${narrSec ? narrSec.toFixed(2) : '-'} 秒</div></div>
+          `));
+        }
+        if (data.evidence_summary && typeof data.evidence_summary === 'object') {
+          const es = data.evidence_summary;
+          const m = es.music || {};
+          const t = es.text || {};
+          const n = es.narration || {};
+          blocks.push(panel('执行单证据来源', `
+            <div class="kv"><div>证据链</div><div>${escHtml(es.chain || '未标注')}</div></div>
+            <div class="kv"><div>音乐证据</div><div>${m.has_data ? '已加载' : '缺失'}（锚点${m.marker_count ?? 0}个，标签${m.tag_count ?? 0}个）</div></div>
+            <div class="kv"><div>文本证据</div><div>${t.has_data ? '已加载' : '缺失'}（场景${t.scene_count ?? 0}条，文本${t.text_len ?? 0}字）</div></div>
+            <div class="kv"><div>演绎证据</div><div>${n.has_data ? '已加载' : '缺失'}（场景时间线${n.scene_timeline_count ?? 0}条，语句时间线${n.clause_timeline_count ?? 0}条）</div></div>
+          `));
+        }
+        if (data.prompt_guard && typeof data.prompt_guard === 'object') {
+          const ok = !!data.prompt_guard.passed;
+          blocks.push(`
+            <div class="${ok ? 'ok' : 'error'}">
+              Prompt校验：${ok ? '通过' : '未通过'}
+              （expected=${escHtml(data.prompt_guard.expected || '')} / actual=${escHtml(data.prompt_guard.actual || '空')}）
+            </div>
+          `);
+        }
+        const report = data.report_json && typeof data.report_json === 'object' ? data.report_json : null;
+        const userView = (report && Object.keys(report).length) ? report : null;
+        if (userView && userView.title) {
+          blocks.push(panel('文本分析标题', `<div class="kv"><div>标题</div><div>${escHtml(userView.title)}</div></div>`));
+        }
+        if (userView && userView.text_theme) {
+          blocks.push(panel('文本主情绪与叙事方向', `<div>${escHtml(userView.text_theme)}</div>`));
+        }
+        const fitTextFromReport = userView && typeof userView.fit_with_music === 'object' ? userView.fit_with_music : null;
+        if (fitTextFromReport) {
+          const score = Number(fitTextFromReport.score || 0);
+          const verdict = fitTextFromReport.verdict || '未判定';
+          const reasons = Array.isArray(fitTextFromReport.reasons) ? fitTextFromReport.reasons.map(x => `<li>${escHtml(x)}</li>`).join('') : '';
+          blocks.push(panel('文本与音乐适配结论', `
+            <div class="kv"><div>结论</div><div><strong>${escHtml(verdict)}</strong></div></div>
+            <div class="kv"><div>适配评分</div><div>${score}/100</div></div>
+            ${reasons ? `<ul>${reasons}</ul>` : ''}
+          `));
+        }
+        const fitFromReport = userView ? userView.fit_verdict : null;
         if (fitFromReport && typeof fitFromReport === 'object') {
           const score = Number(fitFromReport.score || 0);
           const verdict = fitFromReport.verdict || '未判定';
           const reasons = Array.isArray(fitFromReport.reasons) ? fitFromReport.reasons.map(x => `<li>${escHtml(x)}</li>`).join('') : '';
-          blocks.push(`
-            <h4>音乐与文本适配结论</h4>
+          blocks.push(panel('音乐与文本适配结论', `
             <div class="kv"><div>结论</div><div><strong>${escHtml(verdict)}</strong></div></div>
             <div class="kv"><div>适配评分</div><div>${score}/100</div></div>
             ${reasons ? `<ul>${reasons}</ul>` : ''}
-          `);
+          `));
         }
         if (data.fit && typeof data.fit === 'object') {
           const score = Number(data.fit.fit_score || 0);
           const verdict = data.fit.verdict || '未判定';
           const reasons = Array.isArray(data.fit.reasons) ? data.fit.reasons.map(x => `<li>${escHtml(x)}</li>`).join('') : '';
-          blocks.push(`
-            <h4>音乐与文本适配结论</h4>
+          blocks.push(panel('音乐与文本适配结论', `
             <div class="kv"><div>结论</div><div><strong>${escHtml(verdict)}</strong></div></div>
             <div class="kv"><div>适配评分</div><div>${score}/100</div></div>
             ${reasons ? `<ul>${reasons}</ul>` : ''}
-          `);
+          `));
         }
 
-        const keyPoints = (data.report_json && Array.isArray(data.report_json.key_points)) ? data.report_json.key_points : [];
-        if (keyPoints.length) {
-          blocks.push(`<h4>关键结论</h4><ul>${keyPoints.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`);
+        const sceneUnits = userView && Array.isArray(userView.scene_units) ? userView.scene_units : [];
+        if (sceneUnits.length) {
+          const rows = sceneUnits.map(s => `<tr>
+            <td>${s.scene_no ?? '-'}</td>
+            <td>${s.text_start_char ?? '-'} ~ ${s.text_end_char ?? '-'}</td>
+            <td>${escHtml(s.text_excerpt || '')}</td>
+            <td>${escHtml(s.emotion || '')}</td>
+            <td>${escHtml(s.emotion_change || '')}</td>
+            <td>${escHtml((s.action_tags || []).join('、') || '无')}</td>
+            <td>${s.intensity ?? '-'}</td>
+            <td>${escHtml(s.music_need || '')}</td>
+            <td>${escHtml(s.entry_hint || '')}</td>
+            <td>${escHtml(s.exit_hint || '')}</td>
+            <td>${escHtml((s.sfx_terms || []).join('、') || '无')}</td>
+          </tr>`).join('');
+          blocks.push(panel('场景分析（面向创作）', `<table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>原文片段</th><th>主情绪</th><th>情绪变化</th><th>动作标签</th><th>强度</th><th>音乐需求</th><th>进入建议</th><th>退出建议</th><th>音效词</th></tr></thead><tbody>${rows}</tbody></table>`));
         }
-        if (data.report_json && data.report_json.structure_logic && typeof data.report_json.structure_logic === 'object') {
-          const sl = data.report_json.structure_logic;
-          blocks.push(`
-            <h4>乐段结构规律</h4>
+
+        const keyPoints = (userView && Array.isArray(userView.key_points)) ? userView.key_points : [];
+        if (keyPoints.length) {
+          blocks.push(panel('关键结论', `<ul>${keyPoints.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`));
+        }
+        if (userView && userView.structure_logic && typeof userView.structure_logic === 'object') {
+          const sl = userView.structure_logic;
+          blocks.push(panel('乐段结构规律', `
             <div class="kv"><div>结构猜测</div><div>${escHtml(sl.pattern_guess || '未识别')}</div></div>
             <div class="kv"><div>重复组</div><div>${escHtml((sl.repeat_groups || []).join('；') || '无')}</div></div>
             <div class="kv"><div>证据</div><div>${escHtml((sl.evidence || []).join('；') || '无')}</div></div>
-          `);
+          `));
         }
-        if (data.report_json && Array.isArray(data.report_json.sections) && data.report_json.sections.length) {
-          const rows = data.report_json.sections.map(s => `<tr>
+        if (userView && Array.isArray(userView.sections) && userView.sections.length) {
+          const rows = userView.sections.map(s => `<tr>
             <td>${s.section_no ?? '-'}</td>
             <td>${escHtml(s.section_type || '')}</td>
             <td>${escHtml(s.label || '')}</td>
@@ -327,19 +541,19 @@
             <td>${s.energy_level ?? '-'}</td>
             <td>${escHtml(s.layer_progression || '')}</td>
           </tr>`).join('');
-          blocks.push(`<h4>乐段与配器递进</h4><table class="table-lite"><thead><tr><th>序号</th><th>类型</th><th>标签</th><th>时间(秒)</th><th>配器</th><th>新增配器</th><th>能量级</th><th>递进说明</th></tr></thead><tbody>${rows}</tbody></table>`);
+          blocks.push(panel('乐段与配器递进', `<table class="table-lite"><thead><tr><th>序号</th><th>类型</th><th>标签</th><th>时间(秒)</th><th>配器</th><th>新增配器</th><th>能量级</th><th>递进说明</th></tr></thead><tbody>${rows}</tbody></table>`));
         }
 
         if (typeof data.duration_sec === 'number') {
-          blocks.push(`
+          blocks.push(panel('音频基本信息', `
             <div class="kv"><div>时长</div><div>${data.duration_sec.toFixed(2)} 秒</div></div>
             <div class="kv"><div>估计节奏</div><div>${Number(data.bpm || 0).toFixed(1)} BPM</div></div>
             <div class="kv"><div>标签</div><div>${(data.tags || []).map(escHtml).join(' / ')}</div></div>
-          `);
+          `));
         }
         if (Array.isArray(data.scenes) && data.scenes.length) {
           const rows = data.scenes.map(s => `<tr><td>${s.scene_no}</td><td>${escHtml(s.text || '')}</td><td>${escHtml((s.actions || []).join('、') || '无')}</td><td>${escHtml((s.sfx || []).join('、') || '无')}</td><td>${s.intensity ?? ''}</td></tr>`).join('');
-          blocks.push(`<h4>文本场景分析</h4><table class="table-lite"><thead><tr><th>场景</th><th>文本</th><th>动作</th><th>建议音效</th><th>强度</th></tr></thead><tbody>${rows}</tbody></table>`);
+          blocks.push(panel('文本场景分析', `<table class="table-lite"><thead><tr><th>场景</th><th>文本</th><th>动作</th><th>建议音效</th><th>强度</th></tr></thead><tbody>${rows}</tbody></table>`));
         }
         if (Array.isArray(data.sfx_requirements) && data.sfx_requirements.length) {
           const rows = data.sfx_requirements.map(r => {
@@ -351,20 +565,23 @@
               <td>${r.download_ready ? '可下载' : '待补素材'}</td>
             </tr>`;
           }).join('');
-          blocks.push(`<h4>音效需求清单（可直接找素材）</h4><table class="table-lite"><thead><tr><th>需求词</th><th>涉及场景</th><th>候选文件</th><th>状态</th></tr></thead><tbody>${rows}</tbody></table>`);
+          blocks.push(panel('音效需求清单（可直接找素材）', `<table class="table-lite"><thead><tr><th>需求词</th><th>涉及场景</th><th>候选文件</th><th>状态</th></tr></thead><tbody>${rows}</tbody></table>`));
         }
-        if (Array.isArray(data.clause_timeline) && data.clause_timeline.length) {
-          const rows = data.clause_timeline.map(c => `<tr>
+        const clauseTimeline = (Array.isArray(data.clause_timeline) && data.clause_timeline.length)
+          ? data.clause_timeline
+          : (userView && Array.isArray(userView.clause_timeline) ? userView.clause_timeline : []);
+        if (Array.isArray(clauseTimeline) && clauseTimeline.length) {
+          const rows = clauseTimeline.map(c => `<tr>
             <td>${c.clause_no ?? '-'}</td>
             <td>${c.text_start_char ?? '-'} ~ ${c.text_end_char ?? '-'}</td>
             <td>${escHtml(c.text || '')}</td>
             <td>${escHtml(c.punct || '无')}</td>
             <td>${c.start_sec ?? '-'} ~ ${c.end_sec ?? '-'}</td>
           </tr>`).join('');
-          blocks.push(`<h4>标点级语句时间线（核心时间证据）</h4><table class="table-lite"><thead><tr><th>语句</th><th>字符区间</th><th>内容</th><th>标点</th><th>时间(秒)</th></tr></thead><tbody>${rows}</tbody></table>`);
+          blocks.push(panel('标点级语句时间线（核心时间证据）', `<table class="table-lite"><thead><tr><th>语句</th><th>字符区间</th><th>内容</th><th>标点</th><th>时间(秒)</th></tr></thead><tbody>${rows}</tbody></table>`));
         }
         if (Array.isArray(data.quick_download_list) && data.quick_download_list.length) {
-          blocks.push(`<h4>快速下载清单</h4><div>${data.quick_download_list.map(escHtml).join('、')}</div>`);
+          blocks.push(panel('快速下载清单', `<div>${data.quick_download_list.map(x => `<span class="pill">${escHtml(x)}</span>`).join('')}</div>`));
         }
         if (Array.isArray(data.cues) && data.cues.length) {
           const rows = data.cues.map(c => `<tr>
@@ -377,10 +594,10 @@
             <td>${escHtml(c.dialogue_music_ratio || '')}</td>
             <td>${escHtml((c.recommended_sfx || []).join('、') || '无')}</td>
           </tr>`).join('');
-          blocks.push(`<h4>文字-旁白-音乐对位执行单</h4><table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>旁白区间(秒)</th><th>音乐区间(秒)</th><th>锚点</th><th>对白/音乐</th><th>推荐音效</th></tr></thead><tbody>${rows}</tbody></table>`);
+          blocks.push(panel('文字-旁白-音乐对位执行单', `<table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>旁白区间(秒)</th><th>音乐区间(秒)</th><th>锚点</th><th>对白/音乐</th><th>推荐音效</th></tr></thead><tbody>${rows}</tbody></table>`));
         }
-        if (data.report_json && Array.isArray(data.report_json.scene_alignment) && data.report_json.scene_alignment.length) {
-          const rows = data.report_json.scene_alignment.map(r => `<tr>
+        if (userView && Array.isArray(userView.scene_alignment) && userView.scene_alignment.length) {
+          const rows = userView.scene_alignment.map(r => `<tr>
             <td>${r.scene_no ?? '-'}</td>
             <td>${r.text_start_char ?? '-'} ~ ${r.text_end_char ?? '-'}</td>
             <td>${escHtml(r.text_excerpt || '')}</td>
@@ -389,10 +606,10 @@
             <td>${escHtml(r.dialogue_music_ratio || '')}</td>
             <td>${escHtml((r.sfx || []).join('、') || '无')}</td>
           </tr>`).join('');
-          blocks.push(`<h4>文本分析阶段的对位建议</h4><table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>音乐区间(秒)</th><th>进入理由</th><th>对白/音乐</th><th>音效</th></tr></thead><tbody>${rows}</tbody></table>`);
+          blocks.push(panel('文本分析阶段的对位建议', `<table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>音乐区间(秒)</th><th>进入理由</th><th>对白/音乐</th><th>音效</th></tr></thead><tbody>${rows}</tbody></table>`));
         }
-        if (data.report_json && Array.isArray(data.report_json.music_entry_plan) && data.report_json.music_entry_plan.length) {
-          const rows = data.report_json.music_entry_plan.map(r => `<tr>
+        if (userView && Array.isArray(userView.music_entry_plan) && userView.music_entry_plan.length) {
+          const rows = userView.music_entry_plan.map(r => `<tr>
             <td>${r.scene_no ?? '-'}</td>
             <td>${r.text_start_char ?? '-'} ~ ${r.text_end_char ?? '-'}</td>
             <td>${escHtml(r.text_excerpt || '')}</td>
@@ -401,10 +618,10 @@
             <td>${escHtml(r.dialogue_music_ratio || '')}</td>
             <td>${escHtml((r.sfx || []).join('、') || '无')}</td>
           </tr>`).join('');
-          blocks.push(`<h4>融合阶段对位计划（模型输出）</h4><table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>音乐区间(秒)</th><th>进入理由</th><th>对白/音乐</th><th>音效</th></tr></thead><tbody>${rows}</tbody></table>`);
+          blocks.push(panel('融合阶段对位计划（模型输出）', `<table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>音乐区间(秒)</th><th>进入理由</th><th>对白/音乐</th><th>音效</th></tr></thead><tbody>${rows}</tbody></table>`));
         }
         if (data.report_markdown) {
-          blocks.push(`<div class="md">${mdToHtml(data.report_markdown)}</div>`);
+          blocks.push(panel('补充说明', `<div class="md">${mdToHtml(data.report_markdown)}</div>`));
         }
         if (!blocks.length) {
           blocks.push(`<div>${escHtml(JSON.stringify(data, null, 2))}</div>`);
@@ -457,12 +674,27 @@
         return document.getElementById('apiBase').value.replace(/\/$/, '');
       }
 
-      function reportMode() {
-        return document.getElementById('reportMode').value;
+      function updateLoginState() {
+        const box = document.getElementById('loginState');
+        if (!box) return;
+        box.textContent = authPhone ? `${authPhone}（已登录）` : '未登录';
       }
 
-      function debugPromptEnabled() {
-        return !!document.getElementById('debugPrompt').checked;
+      function authHeaders(extra = {}) {
+        const h = { ...(extra || {}) };
+        if (authToken) h.Authorization = `Bearer ${authToken}`;
+        if (authPhone) h['X-User-Phone'] = authPhone;
+        return h;
+      }
+
+      async function apiFetch(url, options = {}) {
+        const opts = { ...(options || {}) };
+        opts.headers = authHeaders(opts.headers || {});
+        return window.fetch(url, opts);
+      }
+
+      function reportMode() {
+        return document.getElementById('reportMode').value;
       }
 
       function escHtml(s) {
@@ -472,6 +704,43 @@
           .replaceAll('>', '&gt;')
           .replaceAll('"', '&quot;')
           .replaceAll("'", '&#39;');
+      }
+
+      async function requestCode() {
+        const phone = (document.getElementById('loginPhone').value || '').trim();
+        if (!phone) return show('请先输入手机号');
+        await runAction('发送验证码', async () => {
+          const res = await apiFetch(`${apiBase()}/auth/request-code`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone }),
+          });
+          const data = await readApiResponse(res);
+          if (data && data.code) {
+            document.getElementById('loginCode').value = data.code;
+          }
+          show(data);
+        });
+      }
+
+      async function loginByCode() {
+        const phone = (document.getElementById('loginPhone').value || '').trim();
+        const code = (document.getElementById('loginCode').value || '').trim();
+        if (!phone || !code) return show('请输入手机号和验证码');
+        await runAction('手机号登录', async () => {
+          const res = await apiFetch(`${apiBase()}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone, code }),
+          });
+          const data = await readApiResponse(res);
+          authToken = data.token || '';
+          authPhone = data.user?.phone || phone;
+          localStorage.setItem('mfa_auth_token', authToken);
+          localStorage.setItem('mfa_auth_phone', authPhone);
+          updateLoginState();
+          show(data);
+        });
       }
 
       function renderDraftReview(data) {
@@ -517,7 +786,7 @@
       async function createProject() {
         await runAction('创建项目', async () => {
           const title = document.getElementById('projectTitle').value;
-          const res = await fetch(`${apiBase()}/projects`, {
+          const res = await apiFetch(`${apiBase()}/projects`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title }),
@@ -536,33 +805,23 @@
         await runAction('音乐分析', async () => {
           const form = new FormData();
           form.append('file', f);
-          const dbg = debugPromptEnabled() ? '&debug_prompt=1' : '';
-          const res = await fetch(`${apiBase()}/analysis/${projectId}/audio?report_mode=${encodeURIComponent(reportMode())}${dbg}`, { method: 'POST', body: form });
+          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/audio?report_mode=${encodeURIComponent(reportMode())}`, { method: 'POST', body: form });
           show(await readApiResponse(res));
         });
       }
 
-      async function analyzeText() {
+      async function analyzeTextNarration() {
         if (!projectId) return show('请先创建项目');
-        await runAction('文本分析', async () => {
-          const text = document.getElementById('textInput').value;
-          const res = await fetch(`${apiBase()}/analysis/${projectId}/text`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text, report_mode: reportMode(), debug_prompt: debugPromptEnabled() }),
-          });
-          show(await readApiResponse(res));
-        });
-      }
-
-      async function analyzeNarration() {
-        if (!projectId) return show('请先创建项目');
+        const text = (document.getElementById('textInput').value || '').trim();
         const f = document.getElementById('narrationFile').files[0];
+        if (!text) return show('请先输入文本');
         if (!f) return show('请先选择演绎音频');
-        await runAction('演绎音频时间轴', async () => {
+        await runAction('文本分析+演绎时间轴', async () => {
           const form = new FormData();
+          form.append('text', text);
+          form.append('report_mode', reportMode());
           form.append('file', f);
-          const res = await fetch(`${apiBase()}/analysis/${projectId}/narration`, { method: 'POST', body: form });
+          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/text-narration`, { method: 'POST', body: form });
           show(await readApiResponse(res));
         });
       }
@@ -570,26 +829,29 @@
       async function buildFusion() {
         if (!projectId) return show('请先创建项目');
         await runAction('生成融合执行单', async () => {
-          const pre = await fetch(`${apiBase()}/analysis/${projectId}/report`);
+          const pre = await apiFetch(`${apiBase()}/analysis/${projectId}/report`);
           const report = await readApiResponse(pre);
           if (!report.audio) {
             throw new Error('请先执行第2步：音乐分析');
           }
           if (!report.text) {
             const textVal = (document.getElementById('textInput').value || '').trim();
-            if (textVal) {
-              const autoText = await fetch(`${apiBase()}/analysis/${projectId}/text`, {
+            const narrFile = document.getElementById('narrationFile').files[0];
+            if (textVal && narrFile) {
+              const form = new FormData();
+              form.append('text', textVal);
+              form.append('report_mode', reportMode());
+              form.append('file', narrFile);
+              const autoCombined = await apiFetch(`${apiBase()}/analysis/${projectId}/text-narration`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: textVal, report_mode: reportMode() }),
+                body: form,
               });
-              await readApiResponse(autoText);
+              await readApiResponse(autoCombined);
             } else {
-              throw new Error('请先执行第3步：文本分析（或先输入文本）');
+              throw new Error('请先执行第3步：文本分析+演绎时间轴（需同时提供文本和演绎音频）');
             }
           }
-          const dbg = debugPromptEnabled() ? '&debug_prompt=1' : '';
-          const res = await fetch(`${apiBase()}/analysis/${projectId}/fusion?report_mode=${encodeURIComponent(reportMode())}${dbg}`, { method: 'POST' });
+          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/fusion?report_mode=${encodeURIComponent(reportMode())}`, { method: 'POST' });
           show(await readApiResponse(res));
         });
       }
@@ -597,10 +859,10 @@
       async function directorAdvise() {
         if (!projectId) return show('请先创建项目');
         await runAction('导演建议（统一汇总）', async () => {
-          const res = await fetch(`${apiBase()}/analysis/${projectId}/director`, {
+          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/director`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ report_mode: reportMode(), debug_prompt: debugPromptEnabled() }),
+            body: JSON.stringify({ report_mode: reportMode() }),
           });
           show(await readApiResponse(res));
         });
@@ -609,14 +871,14 @@
       async function fetchReport() {
         if (!projectId) return show('请先创建项目');
         await runAction('拉取完整报告', async () => {
-          const res = await fetch(`${apiBase()}/analysis/${projectId}/report`);
+          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/report`);
           show(await readApiResponse(res));
         });
       }
 
       async function _download(url, fallbackName) {
         await runAction(`下载 ${fallbackName}`, async () => {
-          const res = await fetch(url);
+          const res = await apiFetch(url);
           if (!res.ok) {
             const err = await readApiResponse(res);
             show(err);
@@ -652,14 +914,14 @@
         if (!term) return show('请输入图谱推理词');
         await runAction('图谱推理', async () => {
           const pidPart = projectId ? `&project_id=${projectId}` : '';
-          const res = await fetch(`${apiBase()}/graph/reason?term=${encodeURIComponent(term)}&limit=12&max_hops=2${pidPart}`);
+          const res = await apiFetch(`${apiBase()}/graph/reason?term=${encodeURIComponent(term)}&limit=12&max_hops=2${pidPart}`);
           show(await readApiResponse(res));
         });
       }
 
       async function graphStatus() {
         await runAction('图谱状态', async () => {
-          const res = await fetch(`${apiBase()}/graph/status`);
+          const res = await apiFetch(`${apiBase()}/graph/status`);
           show(await readApiResponse(res));
         });
       }
@@ -667,9 +929,9 @@
       async function graphDashboard() {
         await runAction('图谱看板', async () => {
           const [healthRes, statusRes, metricsRes] = await Promise.all([
-            fetch(`${apiBase().replace(/\/api$/, '')}/health`),
-            fetch(`${apiBase()}/graph/status`),
-            fetch(`${apiBase()}/graph/metrics?days=7`),
+            apiFetch(`${apiBase().replace(/\/api$/, '')}/health`),
+            apiFetch(`${apiBase()}/graph/status`),
+            apiFetch(`${apiBase()}/graph/metrics?days=7`),
           ]);
           const health = await readApiResponse(healthRes);
           const status = await readApiResponse(statusRes);
@@ -680,21 +942,21 @@
 
       async function opsFunnel() {
         await runAction('漏斗指标', async () => {
-          const res = await fetch(`${apiBase()}/ops/funnel?days=7`);
+          const res = await apiFetch(`${apiBase()}/ops/funnel?days=7`);
           show(await readApiResponse(res));
         });
       }
 
       async function opsRecommend() {
         await runAction('优化建议', async () => {
-          const res = await fetch(`${apiBase()}/ops/recommendations?days=7`);
+          const res = await apiFetch(`${apiBase()}/ops/recommendations?days=7`);
           show(await readApiResponse(res));
         });
       }
 
       async function opsLexiconDraft() {
         await runAction('生成词典草稿', async () => {
-          const res = await fetch(`${apiBase()}/ops/lexicon-draft?days=7`);
+          const res = await apiFetch(`${apiBase()}/ops/lexicon-draft?days=7`);
           const data = await readApiResponse(res);
           latestLexiconDraft = data;
           renderDraftReview(data);
@@ -707,7 +969,7 @@
           return show('请先执行“生成词典草稿”');
         }
         await runAction('应用词典草稿(merge)', async () => {
-          const res = await fetch(`${apiBase()}/ops/lexicon-draft/apply`, {
+          const res = await apiFetch(`${apiBase()}/ops/lexicon-draft/apply`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -725,7 +987,7 @@
           return show('请先执行“生成词典草稿”');
         }
         await runAction('应用高置信草稿', async () => {
-          const res = await fetch(`${apiBase()}/ops/lexicon-draft/apply`, {
+          const res = await apiFetch(`${apiBase()}/ops/lexicon-draft/apply`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -757,7 +1019,7 @@
           return show('请至少勾选一个候选词');
         }
         await runAction('按勾选候选应用', async () => {
-          const res = await fetch(`${apiBase()}/ops/lexicon-draft/apply`, {
+          const res = await apiFetch(`${apiBase()}/ops/lexicon-draft/apply`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -792,7 +1054,7 @@
         const items = _buildSelectedReviewItems('rejected');
         if (!items.length) return show('请至少勾选一个候选词');
         await runAction('标记候选为拒绝', async () => {
-          const res = await fetch(`${apiBase()}/ops/lexicon-review`, {
+          const res = await apiFetch(`${apiBase()}/ops/lexicon-review`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ items }),
@@ -806,7 +1068,7 @@
         const items = _buildSelectedReviewItems('approved');
         if (!items.length) return show('请至少勾选一个候选词');
         await runAction('标记候选为通过', async () => {
-          const res = await fetch(`${apiBase()}/ops/lexicon-review`, {
+          const res = await apiFetch(`${apiBase()}/ops/lexicon-review`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ items }),
@@ -814,6 +1076,8 @@
           show(await readApiResponse(res));
         });
       }
+
+      updateLoginState();
     </script>
   </body>
 </html>

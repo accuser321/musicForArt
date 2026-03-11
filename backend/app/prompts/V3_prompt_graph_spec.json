@@ -1,0 +1,70 @@
+{
+  "version": "v3.0",
+  "tasks": [
+    {
+      "id": "music_analysis",
+      "name": "音乐分析",
+      "prompt_file": "V3-music_analysis_task.txt",
+      "summary": "输出音乐结构证据，供执行单消费。"
+    },
+    {
+      "id": "text_analysis",
+      "name": "文本分析+演绎时间轴",
+      "prompt_file": "V3-text_analysis_task.txt",
+      "summary": "输出场景区间与语句时间证据，供执行单消费。"
+    },
+    {
+      "id": "production_analysis",
+      "name": "执行单生成",
+      "prompt_file": "V3-production_analysis_task.txt",
+      "summary": "融合音乐+文本+演绎时间轴，输出可落地执行单。"
+    }
+  ],
+  "fields": [
+    {"id": "audio_features", "name": "audio_features", "task": "music_analysis", "role": "input", "description": "音乐原始特征输入。"},
+    {"id": "music_analysis.sections", "name": "sections", "task": "music_analysis", "role": "output", "description": "乐段结构与时间区间。"},
+    {"id": "music_analysis.structure_logic", "name": "structure_logic", "task": "music_analysis", "role": "output", "description": "结构规律与重复关系。"},
+    {"id": "music_analysis.hit_points", "name": "hit_points", "task": "music_analysis", "role": "output", "description": "动作/台词命中点。"},
+    {"id": "music_analysis.key_points", "name": "key_points", "task": "music_analysis", "role": "output", "description": "音乐分析关键摘要。"},
+    {"id": "music_analysis.markdown", "name": "markdown", "task": "music_analysis", "role": "output", "description": "音乐分析完整报告。"},
+
+    {"id": "raw_text", "name": "raw_text", "task": "text_analysis", "role": "input", "description": "文本原文输入。"},
+    {"id": "music_analysis_text", "name": "music_analysis_text", "task": "text_analysis", "role": "input", "description": "来自音乐分析的文本证据（A->B核心输入）。"},
+    {"id": "audio_context", "name": "audio_context", "task": "text_analysis", "role": "input", "description": "来自音乐分析的结构化上下文（A->B核心输入）。"},
+    {"id": "text_analysis.scene_units", "name": "scene_units", "task": "text_analysis", "role": "output", "description": "场景单元（字符区间/情绪/动作）。"},
+    {"id": "text_analysis.clause_timeline", "name": "clause_timeline", "task": "text_analysis", "role": "output", "description": "语句级时间证据。"},
+    {"id": "text_analysis.fit_with_music", "name": "fit_with_music", "task": "text_analysis", "role": "output", "description": "文本与音乐适配判断。"},
+    {"id": "text_analysis.key_points", "name": "key_points", "task": "text_analysis", "role": "output", "description": "文本分析关键摘要。"},
+    {"id": "text_analysis.risks", "name": "risks", "task": "text_analysis", "role": "output", "description": "文本阶段风险。"},
+    {"id": "text_analysis.markdown", "name": "markdown", "task": "text_analysis", "role": "output", "description": "文本分析完整报告。"},
+
+    {"id": "music_analysis", "name": "music_analysis", "task": "production_analysis", "role": "input", "description": "执行单输入：音乐分析完整证据（A->C）。"},
+    {"id": "text_analysis", "name": "text_analysis", "task": "production_analysis", "role": "input", "description": "执行单输入：文本分析完整证据（B->C）。"},
+    {"id": "narration_timeline", "name": "narration_timeline", "task": "production_analysis", "role": "input", "description": "执行单输入：演绎音频时间证据。"},
+    {"id": "production_analysis.music_entry_plan", "name": "music_entry_plan", "task": "production_analysis", "role": "output", "description": "文字区间到音乐区间映射。"},
+    {"id": "production_analysis.fit_verdict", "name": "fit_verdict", "task": "production_analysis", "role": "output", "description": "最终适配结论。"},
+    {"id": "production_analysis.key_points", "name": "key_points", "task": "production_analysis", "role": "output", "description": "执行单关键摘要。"},
+    {"id": "production_analysis.risks", "name": "risks", "task": "production_analysis", "role": "output", "description": "执行单风险。"},
+    {"id": "production_analysis.markdown", "name": "markdown", "task": "production_analysis", "role": "output", "description": "执行单完整报告。"}
+  ],
+  "edges": [
+    {"from": "audio_features", "to": "music_analysis.sections", "reason": "音乐特征决定乐段切分。"},
+    {"from": "audio_features", "to": "music_analysis.hit_points", "reason": "音乐特征决定峰值与转折。"},
+    {"from": "music_analysis.sections", "to": "music_analysis", "reason": "乐段证据进入执行单输入。"},
+    {"from": "music_analysis.hit_points", "to": "music_analysis", "reason": "命中点证据进入执行单输入。"},
+
+    {"from": "music_analysis.markdown", "to": "music_analysis_text", "reason": "A输出文本证据供B输入。"},
+    {"from": "music_analysis.sections", "to": "audio_context", "reason": "A输出结构证据供B输入。"},
+    {"from": "raw_text", "to": "text_analysis.scene_units", "reason": "文本切分形成场景单元。"},
+    {"from": "raw_text", "to": "text_analysis.clause_timeline", "reason": "文本语句切分形成时间证据。"},
+    {"from": "music_analysis_text", "to": "text_analysis.fit_with_music", "reason": "B适配判断消费A文本证据。"},
+    {"from": "audio_context", "to": "text_analysis.fit_with_music", "reason": "B适配判断消费A结构证据。"},
+    {"from": "text_analysis.scene_units", "to": "text_analysis", "reason": "场景单元进入执行单输入。"},
+    {"from": "text_analysis.clause_timeline", "to": "narration_timeline", "reason": "语句级证据映射演绎时间轴。"},
+
+    {"from": "music_analysis", "to": "production_analysis.music_entry_plan", "reason": "A证据决定可用乐段。"},
+    {"from": "text_analysis", "to": "production_analysis.music_entry_plan", "reason": "B证据决定入退策略。"},
+    {"from": "narration_timeline", "to": "production_analysis.music_entry_plan", "reason": "演绎真实时间决定秒级对齐。"},
+    {"from": "production_analysis.music_entry_plan", "to": "production_analysis.fit_verdict", "reason": "执行单可落地性影响最终适配结论。"}
+  ]
+}

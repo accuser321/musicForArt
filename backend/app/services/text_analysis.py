@@ -5,6 +5,8 @@ from app.services.llm import generate_report, llm_enabled
 from app.services.nlp_zh import tokenize_cn
 from app.services.sfx_matcher import load_sfx_library, match_sfx_candidates
 
+EXPECTED_TEXT_PROMPT = 'V3-text_analysis_task.txt'
+
 ACTION_KEYWORDS = {
     '冲': '冲锋',
     '杀': '近战',
@@ -41,7 +43,8 @@ SFX_MAP = {
 def _split_sentences_with_span(text: str) -> list[dict]:
     out = []
     start = 0
-    for m in re.finditer(r'[。！？!?\n]+', text):
+    # 切分粒度按“句号”统一，忽略逗号、问号、顿号等细粒度标点
+    for m in re.finditer(r'[。]+', text):
         end = m.start()
         raw = text[start:end]
         stripped = raw.strip()
@@ -138,7 +141,7 @@ def analyze_text_for_audiobook(
     text: str,
     report_mode: str | None = None,
     audio_context: dict | None = None,
-    debug_prompt: bool = False,
+    debug_prompt: bool = True,
 ) -> dict:
     mode = report_mode or settings.report_mode_default
     sentence_items = _split_sentences_with_span(text)
@@ -198,30 +201,37 @@ def analyze_text_for_audiobook(
     llm_fallback = False
     llm_attempted_modes: list[str] = []
 
-    # 核心链路：音乐分析文本 + 系统证据 + 用户文本 联合调用 LLM
-    if audio_context:
-        payload = {
-            'kind': 'text_with_music',
-            'mode': mode,
-            'raw_text': text,
-            'music_analysis_text': str(audio_context.get('report_markdown') or ''),
-            'audio_context': audio_context,
-            'scenes': scenes,
-        }
-        llm_json, llm_md, llm_meta = generate_report(mode, payload, debug_prompt=debug_prompt)
-        if llm_md:
-            report_markdown = llm_md
-            analysis_mode = 'llm+rules+music'
-            llm_structured = bool(llm_json)
-            effective_mode = llm_meta.get('effective_mode')
-            llm_fallback = llm_meta.get('fallback_applied', False)
-            llm_attempted_modes = llm_meta.get('attempted_modes', [])
-            if isinstance(llm_json, dict):
-                report_json = dict(llm_json)
-                if not isinstance(report_json.get('key_points'), list):
-                    report_json['key_points'] = []
-        else:
-            llm_attempted_modes = llm_meta.get('attempted_modes', [])
+    # 核心链路：始终调用文本分析 Prompt，保证有稳定的 Prompt I/O 调试轨迹
+    llm_meta: dict = {}
+    payload = {
+        'kind': 'text_analysis',
+        'raw_text': text,
+        'music_analysis_text': str((audio_context or {}).get('report_markdown') or ''),
+        'audio_context': audio_context or {},
+        'scenes': scenes,
+        # 仅使用 V3 文本分析 Prompt（不回退）
+        'prompt_files': ['V3-text_analysis_task.txt'],
+    }
+    llm_json, llm_md, llm_meta = generate_report(mode, payload, debug_prompt=debug_prompt)
+    if llm_md:
+        report_markdown = llm_md
+        analysis_mode = 'llm+rules+music' if audio_context else 'llm+rules+text'
+        llm_structured = bool(llm_json)
+        effective_mode = llm_meta.get('effective_mode')
+        llm_fallback = llm_meta.get('fallback_applied', False)
+        llm_attempted_modes = llm_meta.get('attempted_modes', [])
+        if isinstance(llm_json, dict):
+            report_json = dict(llm_json)
+            if not isinstance(report_json.get('key_points'), list):
+                report_json['key_points'] = []
+    else:
+        llm_attempted_modes = llm_meta.get('attempted_modes', [])
+
+    trace = llm_meta.get('llm_trace') or []
+    actual_prompt = None
+    if isinstance(trace, list) and trace:
+        actual_prompt = trace[0].get('prompt_file')
+    prompt_guard_passed = actual_prompt == EXPECTED_TEXT_PROMPT if actual_prompt else False
 
     return {
         'scenes': scenes,
@@ -237,5 +247,10 @@ def analyze_text_for_audiobook(
         'llm_fallback_applied': llm_fallback,
         'llm_attempted_modes': llm_attempted_modes,
         'integration_mode': 'music+text+prompt' if audio_context else 'text-only',
-        'llm_trace': llm_meta.get('llm_trace') if (audio_context and debug_prompt) else None,
+        'llm_trace': trace,
+        'prompt_guard': {
+            'expected': EXPECTED_TEXT_PROMPT,
+            'actual': actual_prompt,
+            'passed': prompt_guard_passed,
+        },
     }

@@ -38,6 +38,9 @@ class Settings:
     semantic_rollout_percent: int = int(os.getenv('SEMANTIC_ROLLOUT_PERCENT', '20'))
     semantic_hybrid_project_ids: str = os.getenv('SEMANTIC_HYBRID_PROJECT_IDS', '')
     reason_cache_ttl_sec: int = int(os.getenv('REASON_CACHE_TTL_SEC', '900'))
+    auth_code_ttl_sec: int = int(os.getenv('AUTH_CODE_TTL_SEC', '300'))
+    auth_session_ttl_sec: int = int(os.getenv('AUTH_SESSION_TTL_SEC', str(7 * 24 * 3600)))
+    bootstrap_admin_phones: str = os.getenv('BOOTSTRAP_ADMIN_PHONES', '13800000000')
 
 
 settings = Settings()

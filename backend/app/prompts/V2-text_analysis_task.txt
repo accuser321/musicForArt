@@ -1,0 +1,63 @@
+任务：基于文本证据（及可选音乐证据）输出可用于“演绎时间轴映射”和“执行单生成”的文本分析结果。
+
+输入证据范围：raw_text、scenes、music_analysis_text、audio_context。
+
+输出JSON字段（必须完整）：
+{
+  "title": "字符串",
+  "text_theme": "文本主情绪与叙事方向",
+  "fit_with_music": {
+    "verdict": "适配/部分适配/不建议",
+    "score": 0,
+    "reasons": ["理由1", "理由2", "理由3"]
+  },
+  "scene_units": [
+    {
+      "scene_no": 1,
+      "text_start_char": 0,
+      "text_end_char": 52,
+      "text_excerpt": "原文片段",
+      "emotion": "主情绪",
+      "emotion_change": "平稳/渐变/突变",
+      "action_tags": ["动作标签1", "动作标签2"],
+      "intensity": 65,
+      "music_need": "无/弱/中/强",
+      "entry_hint": "渐入/突入/不入",
+      "exit_hint": "淡出/硬切/转场",
+      "sfx_terms": ["音效词1", "音效词2"]
+    }
+  ],
+  "clause_timeline": [
+    {
+      "clause_no": 1,
+      "text_start_char": 0,
+      "text_end_char": 22,
+      "text": "语句内容",
+      "punct": "。",
+      "start_sec": 0.0,
+      "end_sec": 1.8
+    }
+  ],
+  "emotion_curve": [{"scene_no": 1, "level": 30}],
+  "sfx_requirements": [
+    {
+      "term": "脚步声",
+      "scene_nos": [2, 3],
+      "reason": "对应人物行动",
+      "priority": "高/中/低"
+    }
+  ],
+  "key_points": ["要点1", "要点2"],
+  "risks": ["风险1", "风险2"],
+  "markdown": "完整文本分析报告"
+}
+
+业务规则：
+1) scene_units字符区间需可被后续时间轴映射消费。
+2) clause_timeline为核心时间证据；若输入无可计算依据返回[]。
+3) 结论必须服务后续执行单，不输出无消费价值字段。
+
+长度约束：
+1) scene_units<=12，emotion_curve<=12，sfx_requirements<=20，clause_timeline<=24。
+2) key_points<=6（每条<=32字），risks<=6（每条<=36字）。
+3) text_theme<=70字，markdown 450-800字。

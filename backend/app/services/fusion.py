@@ -2,6 +2,27 @@ from app.config import settings
 from app.services.llm import generate_report, llm_enabled
 
 
+def _estimate_narration_range(scene: dict, scene_map: dict[int, dict], clause_timeline: list[dict]) -> dict | None:
+    scene_no = int(scene.get('scene_no') or 0)
+    if scene_no and scene_no in scene_map:
+        row = scene_map[scene_no]
+        if row.get('start_sec') is not None and row.get('end_sec') is not None:
+            return {'start_sec': float(row['start_sec']), 'end_sec': float(row['end_sec']), 'source': 'scene_timeline'}
+
+    s0 = int(scene.get('char_start') or 0)
+    s1 = int(scene.get('char_end') or s0)
+    overlaps = []
+    for c in clause_timeline:
+        c0 = int(c.get('text_start_char') or 0)
+        c1 = int(c.get('text_end_char') or c0)
+        ov = min(s1, c1) - max(s0, c0)
+        if ov > 0:
+            overlaps.append((float(c.get('start_sec') or 0.0), float(c.get('end_sec') or 0.0), ov))
+    if overlaps:
+        return {'start_sec': min(x[0] for x in overlaps), 'end_sec': max(x[1] for x in overlaps), 'source': 'clause_overlap'}
+    return None
+
+
 def _assess_fit(audio_markers: list[dict], scenes: list[dict]) -> dict:
     peaks = sum(1 for m in audio_markers if str(m.get('type')) == 'peak')
     valleys = sum(1 for m in audio_markers if str(m.get('type')) == 'valley')
@@ -49,9 +70,11 @@ def _build_rule_report(cues: list[dict]) -> str:
 def build_fusion_plan(
     audio_markers: list[dict],
     scenes: list[dict],
-    narration_timeline: list[dict] | None = None,
+    narration_timeline: dict | list | None = None,
+    music_context: dict | None = None,
+    text_context: dict | None = None,
     report_mode: str | None = None,
-    debug_prompt: bool = False,
+    debug_prompt: bool = True,
 ) -> dict:
     mode = report_mode or settings.report_mode_default
     if not audio_markers or not scenes:
@@ -72,14 +95,21 @@ def build_fusion_plan(
     marker_len = len(audio_markers)
     fit = _assess_fit(audio_markers, scenes)
 
-    narration_map = {int(x.get('scene_no')): x for x in (narration_timeline or []) if isinstance(x, dict) and x.get('scene_no')}
+    scene_timeline: list[dict] = []
+    clause_timeline: list[dict] = []
+    if isinstance(narration_timeline, dict):
+        scene_timeline = narration_timeline.get('scene_timeline') or []
+        clause_timeline = narration_timeline.get('clause_timeline') or []
+    elif isinstance(narration_timeline, list):
+        scene_timeline = narration_timeline
+    narration_map = {int(x.get('scene_no')): x for x in scene_timeline if isinstance(x, dict) and x.get('scene_no')}
 
     for i, scene in enumerate(scenes):
         marker_idx = min(i, marker_len - 1)
         marker = audio_markers[marker_idx]
         next_marker = audio_markers[min(marker_idx + 1, marker_len - 1)]
         seg_start = float(marker['time_sec'])
-        narr = narration_map.get(int(scene.get('scene_no') or 0))
+        narr = _estimate_narration_range(scene, narration_map, clause_timeline)
         narr_len = None
         if narr and narr.get('start_sec') is not None and narr.get('end_sec') is not None:
             narr_len = max(1.5, float(narr['end_sec']) - float(narr['start_sec']))
@@ -101,6 +131,7 @@ def build_fusion_plan(
                 'text_excerpt': scene.get('text', ''),
                 'narration_start_sec': narr.get('start_sec') if narr else None,
                 'narration_end_sec': narr.get('end_sec') if narr else None,
+                'narration_source': narr.get('source') if narr else None,
             }
         )
 
@@ -108,10 +139,14 @@ def build_fusion_plan(
         mode,
         {
             'kind': 'fusion',
-            'mode': mode,
+            # 仅使用 V3 执行单 Prompt（不回退）
+            'prompt_files': ['V3-production_analysis_task.txt'],
+            # 三类核心证据：音乐分析、文本分析、演绎时间轴
+            'music_analysis': music_context or {},
+            'text_analysis': text_context or {},
             'audio_markers': audio_markers,
             'scenes': scenes,
-            'narration_timeline': narration_timeline or [],
+            'narration_timeline': {'scene_timeline': scene_timeline, 'clause_timeline': clause_timeline},
             'cues': cues,
             'fit': fit,
         },
@@ -153,5 +188,5 @@ def build_fusion_plan(
         'effective_report_mode': llm_meta.get('effective_mode'),
         'llm_fallback_applied': llm_meta.get('fallback_applied', False),
         'llm_attempted_modes': llm_meta.get('attempted_modes', []),
-        'llm_trace': llm_meta.get('llm_trace') if debug_prompt else None,
+        'llm_trace': llm_meta.get('llm_trace'),
     }
