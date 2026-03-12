@@ -114,6 +114,74 @@
         background: #fffdf7;
         margin-right: 6px;
       }
+      .music-hero {
+        background: linear-gradient(120deg, #fff8ee 0%, #fff2dc 100%);
+        border: 1px solid #d6b684;
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 10px;
+      }
+      .music-hero h4 {
+        margin: 0 0 8px;
+        font-size: 18px;
+      }
+      .music-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .music-stat {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 8px;
+      }
+      .music-stat .k {
+        font-size: 12px;
+        opacity: 0.75;
+      }
+      .music-stat .v {
+        font-weight: 700;
+        margin-top: 3px;
+      }
+      .section-cards {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .section-card {
+        background: #fffdfa;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px;
+      }
+      .section-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+      .badge {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 1px 8px;
+        font-size: 12px;
+        background: #fff;
+      }
+      .kv-lite {
+        font-size: 13px;
+        margin: 3px 0;
+      }
+      .map-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      .map-table th, .map-table td {
+        border: 1px solid var(--line);
+        padding: 6px;
+        text-align: left;
+      }
       .review {
         margin-top: 12px;
         background: #fff;
@@ -150,6 +218,10 @@
         border: 1px dashed var(--line);
         background: #fff;
         font-size: 13px;
+      }
+      @media (max-width: 900px) {
+        .music-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .section-cards { grid-template-columns: 1fr; }
       }
       @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
     </style>
@@ -219,6 +291,7 @@
         <section class="card">
           <h3>结果展示（中文）</h3>
           <div id="prettyOutput" class="pretty">等待操作...</div>
+          <div id="rawUserView" class="pretty" style="display:none;">等待操作...</div>
           <details>
             <summary>原始响应（调试）</summary>
             <pre id="output">等待操作...</pre>
@@ -270,6 +343,45 @@
         } catch (_) {
           return null;
         }
+      }
+
+      function extractFirstJsonObject(text) {
+        const s = sanitizeText(text);
+        if (!s) return null;
+        const n = s.length;
+        for (let i = 0; i < n; i += 1) {
+          if (s[i] !== '{') continue;
+          let depth = 0;
+          let inStr = false;
+          let esc = false;
+          for (let j = i; j < n; j += 1) {
+            const ch = s[j];
+            if (inStr) {
+              if (esc) {
+                esc = false;
+              } else if (ch === '\\') {
+                esc = true;
+              } else if (ch === '"') {
+                inStr = false;
+              }
+              continue;
+            }
+            if (ch === '"') { inStr = true; continue; }
+            if (ch === '{') depth += 1;
+            if (ch === '}') {
+              depth -= 1;
+              if (depth === 0) {
+                const cand = s.slice(i, j + 1);
+                try {
+                  const obj = JSON.parse(cand);
+                  if (obj && typeof obj === 'object' && !Array.isArray(obj)) return obj;
+                } catch (_) {}
+                break;
+              }
+            }
+          }
+        }
+        return null;
       }
 
       function deepClean(value) {
@@ -410,6 +522,189 @@
         return out.join('');
       }
 
+      function extractRawResponsePayload(data) {
+        const trace = Array.isArray(data && data.llm_trace) ? data.llm_trace : [];
+        for (let i = trace.length - 1; i >= 0; i -= 1) {
+          const t = trace[i] || {};
+          const raw = sanitizeText(t.raw_response || '');
+          const parsed = raw ? (parseJsonLoose(raw) || extractFirstJsonObject(raw)) : null;
+          return {
+            parsed: (parsed && typeof parsed === 'object') ? parsed : null,
+            raw,
+            prompt_file: t.prompt_file || '',
+            status: (t.call_meta || {}).status || '',
+          };
+        }
+        return { parsed: null, raw: '', prompt_file: '', status: '' };
+      }
+
+      function renderKvValue(v) {
+        if (v === null || v === undefined) return '<span class="hint">null</span>';
+        if (typeof v === 'string') return escHtml(v);
+        if (typeof v === 'number' || typeof v === 'boolean') return escHtml(String(v));
+        if (Array.isArray(v)) {
+          if (!v.length) return '<span class="hint">[]</span>';
+          const allPrimitive = v.every(x => x === null || ['string', 'number', 'boolean'].includes(typeof x));
+          if (allPrimitive) return escHtml(v.map(x => String(x)).join('、'));
+          return `<pre>${escHtml(JSON.stringify(v, null, 2))}</pre>`;
+        }
+        if (typeof v === 'object') {
+          return `<pre>${escHtml(JSON.stringify(v, null, 2))}</pre>`;
+        }
+        return escHtml(String(v));
+      }
+
+      function renderRawUserView(data) {
+        const box = document.getElementById('rawUserView');
+        if (!box) return;
+        const reportObj = (data && data.report_json && typeof data.report_json === 'object')
+          ? data.report_json
+          : (data && data.text && data.text.report_json && typeof data.text.report_json === 'object'
+              ? data.text.report_json
+              : null);
+        const payload = extractRawResponsePayload(data);
+        const hasCoreFromReport = !!(
+          reportObj
+          && (reportObj.title || reportObj.text_theme
+            || (reportObj.fit_with_music && typeof reportObj.fit_with_music === 'object' && Object.keys(reportObj.fit_with_music).length)
+            || (Array.isArray(reportObj.scene_units) && reportObj.scene_units.length))
+        );
+        const parsed = hasCoreFromReport ? reportObj : (payload && payload.parsed);
+        if (!parsed || typeof parsed !== 'object') {
+          const raw = sanitizeText((payload && payload.raw) || '');
+          if (!raw) {
+            box.innerHTML = '<div class="hint">当前没有可展示的 Raw Response（本次调用未返回文本）。</div>';
+            return;
+          }
+          box.innerHTML = `
+            <div class="hint" style="margin-bottom:8px;">本次未解析为 JSON，以下为模型原始返回文本（用于排查）。</div>
+            <div class="hint" style="margin-bottom:8px;">status=${escHtml(payload.status || '')} / prompt=${escHtml(payload.prompt_file || '')}</div>
+            <pre style="white-space:pre-wrap;max-height:460px;overflow:auto;">${escHtml(raw)}</pre>
+          `;
+          return;
+        }
+        const picked = {
+          title: parsed.title ?? '',
+          text_theme: parsed.text_theme ?? '',
+          fit_with_music: parsed.fit_with_music ?? {},
+          scene_units: Array.isArray(parsed.scene_units) ? parsed.scene_units : [],
+        };
+        const rows = Object.entries(picked).map(([k, v]) => `
+          <tr>
+            <td style="white-space:nowrap;"><strong>${escHtml(k)}</strong></td>
+            <td>${renderKvValue(v)}</td>
+          </tr>
+        `).join('');
+        box.innerHTML = `
+          <div class="hint" style="margin-bottom:8px;">展示字段：title / text_theme / fit_with_music / scene_units（优先使用接口最终 report_json）</div>
+          <table class="table-lite"><thead><tr><th>JSON Key</th><th>Value（来自最终结构化结果）</th></tr></thead><tbody>${rows}</tbody></table>
+        `;
+      }
+
+      function fmtSec(v) {
+        const n = Number(v);
+        return Number.isFinite(n) ? `${n.toFixed(2)} 秒` : '-';
+      }
+
+      function renderPills(items) {
+        const arr = Array.isArray(items) ? items.filter(Boolean) : [];
+        if (!arr.length) return '<span class="hint">无</span>';
+        return arr.map(x => `<span class="pill">${escHtml(String(x))}</span>`).join('');
+      }
+
+      function renderMusicAnalysisPanels(data, report, panel) {
+        const blocks = [];
+        const safeReport = report && typeof report === 'object' ? report : {};
+        const title = safeReport.title || '音乐分析结果';
+        const summary = safeReport.summary || safeReport.markdown || '';
+        blocks.push(`
+          <section class="music-hero">
+            <h4>${escHtml(title)}</h4>
+            <div style="font-size:14px;line-height:1.6;">${escHtml(summary || '已生成音乐分析结论')}</div>
+            <div class="music-grid" style="margin-top:10px;">
+              <div class="music-stat"><div class="k">音频时长</div><div class="v">${fmtSec(data.duration_sec)}</div></div>
+              <div class="music-stat"><div class="k">估计节奏</div><div class="v">${Number(data.bpm || 0).toFixed(1)} BPM</div></div>
+              <div class="music-stat"><div class="k">乐段数量</div><div class="v">${Array.isArray(safeReport.sections) ? safeReport.sections.length : 0}</div></div>
+              <div class="music-stat"><div class="k">命中点数量</div><div class="v">${Array.isArray(safeReport.hit_points) ? safeReport.hit_points.length : 0}</div></div>
+            </div>
+          </section>
+        `);
+
+        blocks.push(panel('题材适配建议', `
+          <div class="kv"><div>适配题材</div><div>${renderPills(safeReport.fit_genres)}</div></div>
+          <div class="kv"><div>风险题材</div><div>${renderPills(safeReport.risk_genres)}</div></div>
+          <div class="kv"><div>基础标签</div><div>${renderPills(data.tags || [])}</div></div>
+        `));
+
+        const sections = Array.isArray(safeReport.sections) ? safeReport.sections : [];
+        if (sections.length) {
+          const cards = sections.map(s => `
+            <article class="section-card">
+              <div class="section-head">
+                <strong>${escHtml(s.label || `乐段${s.section_no ?? ''}`)}</strong>
+                <span class="badge">${escHtml(s.energy_level || '未标注')}</span>
+              </div>
+              <div class="kv-lite">时间区间：${fmtSec(s.start_sec)} - ${fmtSec(s.end_sec)}</div>
+              <div class="kv-lite">主层次：${escHtml((s.main_layers || []).join('、') || '无')}</div>
+              <div class="kv-lite">配器推测：${escHtml((s.instrument_guess || []).join('、') || '无')}</div>
+              <div class="kv-lite">进入建议：${escHtml(s.entry_suggestion || '无')}</div>
+              <div class="kv-lite">退出建议：${escHtml(s.exit_suggestion || '无')}</div>
+            </article>
+          `).join('');
+          blocks.push(panel('乐段拆解（导演可读）', `<div class="section-cards">${cards}</div>`));
+        }
+
+        const hitPoints = Array.isArray(safeReport.hit_points) ? safeReport.hit_points : [];
+        if (hitPoints.length) {
+          const rows = hitPoints.map((h, idx) => `<tr>
+            <td>${idx + 1}</td>
+            <td>${fmtSec(h.time_sec)}</td>
+            <td>${escHtml(h.type || '-')}</td>
+            <td>${escHtml(h.usage || '-')}</td>
+          </tr>`).join('');
+          blocks.push(panel('命中点（动作/台词对齐）', `
+            <table class="table-lite">
+              <thead><tr><th>#</th><th>时间点</th><th>类型</th><th>创作用法</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          `));
+        }
+
+        if (Array.isArray(safeReport.mix_notes) && safeReport.mix_notes.length) {
+          blocks.push(panel('混音与后期建议', `<ul>${safeReport.mix_notes.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`));
+        }
+        if (Array.isArray(safeReport.key_points) && safeReport.key_points.length) {
+          blocks.push(panel('关键结论', `<ul>${safeReport.key_points.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`));
+        }
+        if (safeReport.structure_logic && typeof safeReport.structure_logic === 'object') {
+          const sl = safeReport.structure_logic;
+          blocks.push(panel('结构规律', `
+            <div class="kv"><div>结构猜测</div><div>${escHtml(sl.pattern_guess || '未识别')}</div></div>
+            <div class="kv"><div>重复组</div><div>${escHtml((sl.repeat_groups || []).join('；') || '无')}</div></div>
+            <div class="kv"><div>递进说明</div><div>${escHtml(sl.progression_comment || '无')}</div></div>
+          `));
+        }
+
+        const mapping = [
+          ['title', '音乐标题/主题', safeReport.title || '-'],
+          ['summary', '一句话创作定位', safeReport.summary || '-'],
+          ['fit_genres', '适配题材', Array.isArray(safeReport.fit_genres) ? safeReport.fit_genres.join('、') : '-'],
+          ['risk_genres', '不建议题材', Array.isArray(safeReport.risk_genres) ? safeReport.risk_genres.join('、') : '-'],
+          ['sections', '乐段拆解', `${sections.length} 段`],
+          ['hit_points', '命中点', `${hitPoints.length} 个`],
+          ['mix_notes', '混音建议', `${Array.isArray(safeReport.mix_notes) ? safeReport.mix_notes.length : 0} 条`],
+          ['key_points', '关键结论', `${Array.isArray(safeReport.key_points) ? safeReport.key_points.length : 0} 条`],
+        ];
+        const rows = mapping.map(([k, name, val]) => `<tr><td>${escHtml(k)}</td><td>${escHtml(name)}</td><td>${escHtml(String(val))}</td></tr>`).join('');
+        blocks.push(panel('字段中文释义（便于创作者阅读）', `
+          <table class="map-table">
+            <thead><tr><th>原始 Key</th><th>中文含义</th><th>当前值摘要</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `));
+        return blocks;
+      }
+
       function renderPretty(data) {
         const box = document.getElementById('prettyOutput');
         if (typeof data === 'string') {
@@ -428,6 +723,33 @@
         }
         const blocks = [];
         const panel = (title, inner) => `<section class="panel"><h4>${escHtml(title)}</h4>${inner}</section>`;
+        const report = data.report_json && typeof data.report_json === 'object' ? data.report_json : null;
+        const userView = (report && Object.keys(report).length) ? report : null;
+        const fallbackMusicReport = {
+          title: '音乐分析结果',
+          summary: typeof data.report_markdown === 'string' ? data.report_markdown.split('\n').slice(0, 3).join(' ').trim() : '',
+          fit_genres: [],
+          risk_genres: [],
+          sections: [],
+          hit_points: Array.isArray(data.markers)
+            ? data.markers.map(m => ({
+                time_sec: m.time_sec,
+                type: m.type,
+                usage: m.label || '',
+              }))
+            : [],
+          mix_notes: [],
+          key_points: [],
+          structure_logic: null,
+        };
+        const isMusicResult = Boolean(
+          typeof data.duration_sec === 'number'
+          && Array.isArray(data.markers)
+        );
+
+        if (isMusicResult) {
+          blocks.push(...renderMusicAnalysisPanels(data, userView || fallbackMusicReport, panel));
+        }
         if (data.text && data.narration) {
           const sceneCount = Array.isArray(data.text.scenes) ? data.text.scenes.length : 0;
           const clauseCount = Array.isArray(data.narration.clause_timeline) ? data.narration.clause_timeline.length : 0;
@@ -459,15 +781,13 @@
             </div>
           `);
         }
-        const report = data.report_json && typeof data.report_json === 'object' ? data.report_json : null;
-        const userView = (report && Object.keys(report).length) ? report : null;
-        if (userView && userView.title) {
+        if (!isMusicResult && userView && userView.title) {
           blocks.push(panel('文本分析标题', `<div class="kv"><div>标题</div><div>${escHtml(userView.title)}</div></div>`));
         }
-        if (userView && userView.text_theme) {
+        if (!isMusicResult && userView && userView.text_theme) {
           blocks.push(panel('文本主情绪与叙事方向', `<div>${escHtml(userView.text_theme)}</div>`));
         }
-        const fitTextFromReport = userView && typeof userView.fit_with_music === 'object' ? userView.fit_with_music : null;
+        const fitTextFromReport = !isMusicResult && userView && typeof userView.fit_with_music === 'object' ? userView.fit_with_music : null;
         if (fitTextFromReport) {
           const score = Number(fitTextFromReport.score || 0);
           const verdict = fitTextFromReport.verdict || '未判定';
@@ -500,7 +820,7 @@
           `));
         }
 
-        const sceneUnits = userView && Array.isArray(userView.scene_units) ? userView.scene_units : [];
+        const sceneUnits = !isMusicResult && userView && Array.isArray(userView.scene_units) ? userView.scene_units : [];
         if (sceneUnits.length) {
           const rows = sceneUnits.map(s => `<tr>
             <td>${s.scene_no ?? '-'}</td>
@@ -518,11 +838,11 @@
           blocks.push(panel('场景分析（面向创作）', `<table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>原文片段</th><th>主情绪</th><th>情绪变化</th><th>动作标签</th><th>强度</th><th>音乐需求</th><th>进入建议</th><th>退出建议</th><th>音效词</th></tr></thead><tbody>${rows}</tbody></table>`));
         }
 
-        const keyPoints = (userView && Array.isArray(userView.key_points)) ? userView.key_points : [];
+        const keyPoints = (!isMusicResult && userView && Array.isArray(userView.key_points)) ? userView.key_points : [];
         if (keyPoints.length) {
           blocks.push(panel('关键结论', `<ul>${keyPoints.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`));
         }
-        if (userView && userView.structure_logic && typeof userView.structure_logic === 'object') {
+        if (!isMusicResult && userView && userView.structure_logic && typeof userView.structure_logic === 'object') {
           const sl = userView.structure_logic;
           blocks.push(panel('乐段结构规律', `
             <div class="kv"><div>结构猜测</div><div>${escHtml(sl.pattern_guess || '未识别')}</div></div>
@@ -530,7 +850,7 @@
             <div class="kv"><div>证据</div><div>${escHtml((sl.evidence || []).join('；') || '无')}</div></div>
           `));
         }
-        if (userView && Array.isArray(userView.sections) && userView.sections.length) {
+        if (!isMusicResult && userView && Array.isArray(userView.sections) && userView.sections.length) {
           const rows = userView.sections.map(s => `<tr>
             <td>${s.section_no ?? '-'}</td>
             <td>${escHtml(s.section_type || '')}</td>
@@ -544,7 +864,7 @@
           blocks.push(panel('乐段与配器递进', `<table class="table-lite"><thead><tr><th>序号</th><th>类型</th><th>标签</th><th>时间(秒)</th><th>配器</th><th>新增配器</th><th>能量级</th><th>递进说明</th></tr></thead><tbody>${rows}</tbody></table>`));
         }
 
-        if (typeof data.duration_sec === 'number') {
+        if (!isMusicResult && typeof data.duration_sec === 'number') {
           blocks.push(panel('音频基本信息', `
             <div class="kv"><div>时长</div><div>${data.duration_sec.toFixed(2)} 秒</div></div>
             <div class="kv"><div>估计节奏</div><div>${Number(data.bpm || 0).toFixed(1)} BPM</div></div>
@@ -627,6 +947,8 @@
           blocks.push(`<div>${escHtml(JSON.stringify(data, null, 2))}</div>`);
         }
         box.innerHTML = blocks.join('');
+        // 当前页面不向用户展示 Raw Response 用户观测区，保留能力供后续页面复用
+        renderRawUserView(data);
         renderLlmDebug(data);
       }
 

@@ -1,0 +1,25 @@
+任务：这是导演总建议“重试兜底版”。目标是确保最终 JSON 完整可执行。
+
+证据来源：
+- 音乐分析、文本分析、演绎时间轴、融合执行单
+
+输出要求：
+1) 先输出 JSON，再输出 markdown（可选简短）；
+2) 禁止冗长扩写，优先保证字段完整。
+
+输出 JSON 字段（必须）：
+- title
+- fit_verdict: {verdict, score, reasons[]}
+- sections: [{section_no,section_type,label,start_sec,end_sec,instruments[],new_instruments_vs_prev[],energy_level,layer_progression}]
+- structure_logic: {pattern_guess,repeat_groups[],evidence[]}
+- timeline_direction: [{scene_no,text_start_char,text_end_char,narration_start_sec,narration_end_sec,music_start_sec,music_end_sec,director_note}]
+- key_points: [string]
+- risks: [string]
+- action_list: [string]
+- markdown
+
+长度约束（严格）：
+1) sections<=6，timeline_direction<=8。
+2) key_points<=5，risks<=5，action_list<=6（单条<=26字）。
+3) fit_verdict.reasons<=3（单条<=22字）。
+4) markdown<=420字。

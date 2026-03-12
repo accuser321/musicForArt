@@ -12,7 +12,7 @@
 3) 给出文本与音乐适配判断（供执行单汇总）。
 4) 输出要“短、准、可执行”，优先保证 JSON 完整可解析。
 
-输出 JSON（必须完整）：
+输出 JSON（必须完整，且只输出 JSON，不要任何前后解释）：
 {
   "title": "字符串",
   "text_theme": "文本主情绪与叙事方向",
@@ -58,20 +58,21 @@
     }
   ],
   "key_points": ["关键摘要"],
-  "risks": ["风险"],
-  "markdown": "完整可读分析"
+  "risks": ["风险"]
 }
 
 硬约束：
-1) 必须先输出 JSON，再输出 markdown。
+1) 只能输出一个 JSON 对象，禁止代码块标记、禁止额外说明文字。
 2) 所有值使用中文。
 3) scene_units 字符区间必须可供后续对齐。
 4) clause_timeline 是后续时间证据核心；无法计算时返回 [] 并在 risks 解释原因。
 5) 禁止在 JSON 之外输出额外前后缀说明。
-6) 若输出长度受限，优先保全 JSON 字段完整，再精简 markdown。
+6) 若输出长度受限，优先保全 JSON 字段完整；字段值使用短句，不写长段落。
+7) scene_units 必须覆盖输入中的主要场景，不得随意漏场景；若场景过多，优先保留高强度场景并在 risks 说明压缩策略。
 
 长度约束：
-1) scene_units<=10，emotion_curve<=10，sfx_requirements<=16，clause_timeline<=18。
-2) key_points<=5（每条<=28字），risks<=5（每条<=32字）。
-3) text_theme<=70字，markdown 450-800字。
-4) 推荐 markdown 280-520字，避免冗长重复。
+1) scene_units<=8，emotion_curve<=8，sfx_requirements<=10，clause_timeline<=12。
+2) fit_with_music.reasons 固定 3 条，每条<=22字。
+3) key_points<=4（每条<=22字），risks<=4（每条<=24字）。
+4) title<=20字，text_theme<=50字，text_excerpt<=28字。
+5) action_tags/sfx_terms 每项<=3个词，单词<=8字。

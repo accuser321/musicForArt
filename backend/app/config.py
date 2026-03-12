@@ -23,6 +23,7 @@ class Settings:
     llm_timeout_sec: int = int(os.getenv('LLM_TIMEOUT_SEC', '120'))
     llm_temperature: float = float(os.getenv('LLM_TEMPERATURE', '0.3'))
     llm_max_tokens: int = int(os.getenv('LLM_MAX_TOKENS', '2600'))
+    llm_retry_attempts: int = int(os.getenv('LLM_RETRY_ATTEMPTS', '2'))
     report_mode_default: str = os.getenv('REPORT_MODE_DEFAULT', 'production')
 
     # Semantic matching backend

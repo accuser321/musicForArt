@@ -13,11 +13,11 @@ from app.config import settings
 PROMPT_DIR = Path(__file__).resolve().parent.parent / 'prompts'
 SYSTEM_PROMPT_FILE = ''
 PROMPT_CHAIN_BY_KIND = {
-    'audio': ['V3-music_analysis_task.txt'],
-    'text_analysis': ['V3-text_analysis_task.txt'],
-    'text_with_music': ['V3-text_analysis_task.txt'],
-    'fusion': ['V3-production_analysis_task.txt'],
-    'director_final': ['director_final_task.txt'],
+    'audio': ['V3-music_analysis_task.txt', 'V3-music_analysis_task_retry.txt'],
+    'text_analysis': ['V3-text_analysis_task.txt', 'V3-text_analysis_task_retry.txt'],
+    'text_with_music': ['V3-text_analysis_task.txt', 'V3-text_analysis_task_retry.txt'],
+    'fusion': ['V3-production_analysis_task.txt', 'V3-production_analysis_task_retry.txt'],
+    'director_final': ['director_final_task.txt', 'director_final_task_retry.txt'],
 }
 DEFAULT_SYSTEM_PROMPT_FALLBACK = (
     '你是有声书后期分析助手。请严格遵守任务提示词中的输入输出约束。'
@@ -48,18 +48,29 @@ def _extract_json_blob(text: str) -> dict | None:
     if not text:
         return None
 
-    fenced = re.search(r'```json\s*(\{.*?\})\s*```', text, flags=re.S)
-    candidate = fenced.group(1) if fenced else text
+    # 1) Prefer fenced JSON blocks
+    fenced = re.search(r'```json\s*([\s\S]*?)```', text, flags=re.I)
+    candidate = (fenced.group(1) if fenced else text).strip()
 
-    first = candidate.find('{')
-    last = candidate.rfind('}')
-    if first == -1 or last == -1 or last <= first:
-        return None
-
+    # 2) Fast path: whole text is JSON
     try:
-        return json.loads(candidate[first:last + 1])
+        obj = json.loads(candidate)
+        return obj if isinstance(obj, dict) else None
     except json.JSONDecodeError:
-        return None
+        pass
+
+    # 3) Robust path: scan from each '{' and let raw_decode find first valid object
+    decoder = json.JSONDecoder()
+    for i, ch in enumerate(candidate):
+        if ch != '{':
+            continue
+        try:
+            obj, _end = decoder.raw_decode(candidate[i:])
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            continue
+    return None
 
 
 def _is_num(v) -> bool:
@@ -71,6 +82,68 @@ def _validate_contract(payload: dict, evidence_kind: str | None) -> tuple[bool, 
         return False, 'payload is not object'
 
     kind = (evidence_kind or '').strip().lower()
+    if kind == 'audio':
+        required = [
+            'title',
+            'summary',
+            'fit_genres',
+            'risk_genres',
+            'sections',
+            'structure_logic',
+            'hit_points',
+            'mix_notes',
+            'key_points',
+        ]
+        for k in required:
+            if k not in payload:
+                return False, f'missing key: {k}'
+        if not isinstance(payload.get('title'), str):
+            return False, 'title must be string'
+        if not isinstance(payload.get('summary'), str):
+            return False, 'summary must be string'
+        if not isinstance(payload.get('fit_genres'), list):
+            return False, 'fit_genres must be list'
+        if not isinstance(payload.get('risk_genres'), list):
+            return False, 'risk_genres must be list'
+        if not isinstance(payload.get('sections'), list):
+            return False, 'sections must be list'
+        for i, row in enumerate(payload.get('sections') or []):
+            if not isinstance(row, dict):
+                return False, f'sections[{i}] must be object'
+            req = [
+                'section_no',
+                'label',
+                'start_sec',
+                'end_sec',
+                'energy_level',
+                'main_layers',
+                'instrument_guess',
+                'entry_suggestion',
+                'exit_suggestion',
+            ]
+            for rk in req:
+                if rk not in row:
+                    return False, f'sections[{i}] missing key: {rk}'
+        if not isinstance(payload.get('structure_logic'), dict):
+            return False, 'structure_logic must be object'
+        sl = payload.get('structure_logic') or {}
+        for rk in ['pattern_guess', 'repeat_groups', 'progression_comment']:
+            if rk not in sl:
+                return False, f'structure_logic missing key: {rk}'
+        if not isinstance(payload.get('hit_points'), list):
+            return False, 'hit_points must be list'
+        for i, row in enumerate(payload.get('hit_points') or []):
+            if not isinstance(row, dict):
+                return False, f'hit_points[{i}] must be object'
+            for rk in ['time_sec', 'type', 'usage']:
+                if rk not in row:
+                    return False, f'hit_points[{i}] missing key: {rk}'
+        if not isinstance(payload.get('mix_notes'), list):
+            return False, 'mix_notes must be list'
+        if not isinstance(payload.get('key_points'), list):
+            return False, 'key_points must be list'
+        return True, ''
+
     def _validate_sections_and_structure(obj: dict) -> tuple[bool, str]:
         if not isinstance(obj.get('sections'), list):
             return False, 'sections must be list'
@@ -159,7 +232,6 @@ def _validate_contract(payload: dict, evidence_kind: str | None) -> tuple[bool, 
             'sfx_requirements',
             'key_points',
             'risks',
-            'markdown',
         ]
         for k in required:
             if k not in payload:
@@ -296,14 +368,26 @@ def _validate_contract(payload: dict, evidence_kind: str | None) -> tuple[bool, 
     return True, ''
 
 
-def _chat_completion(system_prompt: str, user_prompt: str) -> tuple[str | None, dict]:
+def _max_tokens_for_kind(evidence_kind: str) -> int:
+    base = int(settings.llm_max_tokens or 1200)
+    kind = (evidence_kind or '').strip().lower()
+    if kind == 'audio':
+        return max(700, min(base, 1500))
+    if kind == 'text_analysis':
+        return max(700, min(base, 1300))
+    if kind == 'fusion':
+        return max(900, min(base, 1700))
+    return max(700, min(base, 1400))
+
+
+def _chat_completion(system_prompt: str, user_prompt: str, evidence_kind: str = '') -> tuple[str | None, dict]:
     if not llm_enabled():
         return None, {'status': 'disabled', 'error': 'llm not enabled'}
 
     payload = {
         'model': settings.llm_model,
         'temperature': settings.llm_temperature,
-        'max_tokens': settings.llm_max_tokens,
+        'max_tokens': _max_tokens_for_kind(evidence_kind),
         'messages': [
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': user_prompt},
@@ -321,12 +405,12 @@ def _chat_completion(system_prompt: str, user_prompt: str) -> tuple[str | None, 
         },
         method='POST',
     )
-    max_attempts = 2
+    max_attempts = max(1, int(getattr(settings, 'llm_retry_attempts', 2) or 2))
     for attempt in range(1, max_attempts + 1):
         req_id = uuid.uuid4().hex[:8]
         t0 = time.perf_counter()
         print(
-            f'[LLM START] req={req_id} attempt={attempt}/{max_attempts} provider={settings.llm_provider} model={settings.llm_model} timeout={settings.llm_timeout_sec}s',
+            f'[LLM START] req={req_id} attempt={attempt}/{max_attempts} provider={settings.llm_provider} model={settings.llm_model} timeout={settings.llm_timeout_sec}s max_tokens={payload["max_tokens"]}',
             file=sys.stderr,
         )
         try:
@@ -378,7 +462,14 @@ def _chat_completion(system_prompt: str, user_prompt: str) -> tuple[str | None, 
 
 
 def _compact_evidence(evidence_payload: dict) -> dict:
-    data = dict(evidence_payload)
+    def _strip_noise(v):
+        if isinstance(v, dict):
+            return {k: _strip_noise(val) for k, val in v.items() if k != 'tokens'}
+        if isinstance(v, list):
+            return [_strip_noise(x) for x in v]
+        return v
+
+    data = _strip_noise(dict(evidence_payload))
     if isinstance(data.get('raw_text'), str) and len(data['raw_text']) > 1500:
         data['raw_text'] = data['raw_text'][:1500] + '...'
     if isinstance(data.get('scenes'), list) and len(data['scenes']) > 20:
@@ -415,10 +506,11 @@ def _output_limits_by_kind(evidence_kind: str) -> str:
     if kind == 'text_analysis':
         return (
             '长度硬约束（必须执行）：\n'
-            '- scene_units<=10，clause_timeline<=18，sfx_requirements<=16。\n'
-            '- key_points<=5（每条<=28字），risks<=5（每条<=32字）。\n'
-            '- markdown 控制在 280-520 字，避免冗长。\n'
-            '- 若长度受限，优先保证 JSON 字段完整，再精简 markdown。'
+            '- scene_units<=8，clause_timeline<=12，sfx_requirements<=10，emotion_curve<=8。\n'
+            '- fit_with_music.reasons 固定 3 条且每条<=22字。\n'
+            '- key_points<=4（每条<=22字），risks<=4（每条<=24字）。\n'
+            '- title<=20字，text_theme<=50字，text_excerpt<=28字。\n'
+            '- 只输出 JSON，不输出额外解释文本。'
         )
     if kind == 'fusion':
         return (
@@ -454,16 +546,27 @@ def generate_report(task_mode: str, evidence_payload: dict, debug_prompt: bool =
         attempts.append(prompt_file)
         print(f'[LLM MODE] requested={task_mode} trying_prompt={prompt_file}', file=sys.stderr)
         task_prompt = _load_prompt(prompt_file)
+        if evidence_kind == 'text_analysis':
+            output_req = (
+                '输出要求：\n'
+                '1) 仅输出一个可解析 JSON 对象，不要输出代码块标记。\n'
+                '2) 不要在 JSON 前后添加解释性文字。\n'
+                '3) markdown 字段可选；如省略，系统会在本地自动生成可读摘要。\n\n'
+            )
+        else:
+            output_req = (
+                '输出要求：\n'
+                '1) 先输出 JSON（可直接解析）。\n'
+                '2) 再输出 markdown 字段对应的完整内容。\n\n'
+            )
         user_prompt = (
             f'{task_prompt}\n\n'
-            '输出要求：\n'
-            '1) 先输出 JSON（可直接解析）。\n'
-            '2) 再输出 markdown 字段对应的完整内容。\n\n'
+            f'{output_req}'
             f'{output_limits}\n\n'
             f'证据 JSON:\n{json.dumps(compact, ensure_ascii=False, indent=2)}'
         )
 
-        raw, call_meta = _chat_completion(system_prompt, user_prompt)
+        raw, call_meta = _chat_completion(system_prompt, user_prompt, evidence_kind=evidence_kind)
         trace.append(
             {
                 'mode': 'core_prompt_chain',
@@ -506,7 +609,7 @@ def generate_report(task_mode: str, evidence_payload: dict, debug_prompt: bool =
         if first_unstructured_raw is None:
             first_unstructured_raw = raw
             first_unstructured_prompt_file = prompt_file
-            print(f'[LLM WARN] prompt={prompt_file} returned non-JSON, fallback continues', file=sys.stderr)
+        print(f'[LLM WARN] prompt={prompt_file} returned non-JSON, fallback continues', file=sys.stderr)
 
     if first_unstructured_raw is not None:
         return None, first_unstructured_raw, {

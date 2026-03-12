@@ -1,0 +1,65 @@
+任务：这是文本分析“重试兜底版”提示词。目标是保证 JSON 完整，不做冗长解释。
+
+输入：
+- raw_text（必选）
+- scenes（可选）
+- music_analysis_text/audio_context（可选）
+
+输出要求：
+1) 只能输出一个 JSON 对象；
+2) 禁止代码块标记；
+3) 禁止任何 JSON 之外文本。
+
+JSON 字段（必须齐全）：
+{
+  "title": "字符串",
+  "text_theme": "文本主情绪与叙事方向",
+  "fit_with_music": {
+    "verdict": "适配/部分适配/不建议",
+    "score": 0,
+    "reasons": ["理由1","理由2","理由3"]
+  },
+  "scene_units": [
+    {
+      "scene_no": 1,
+      "text_start_char": 0,
+      "text_end_char": 52,
+      "text_excerpt": "原文片段",
+      "emotion": "主情绪",
+      "emotion_change": "平稳/渐变/突变",
+      "action_tags": ["动作标签"],
+      "intensity": 65,
+      "music_need": "无/弱/中/强",
+      "entry_hint": "渐入/突入/不入",
+      "exit_hint": "淡出/硬切/转场",
+      "sfx_terms": ["音效词"]
+    }
+  ],
+  "clause_timeline": [
+    {
+      "clause_no": 1,
+      "text_start_char": 0,
+      "text_end_char": 22,
+      "text": "语句内容",
+      "punct": "。",
+      "start_sec": 0.0,
+      "end_sec": 1.8
+    }
+  ],
+  "emotion_curve": [{"scene_no": 1, "level": 30}],
+  "sfx_requirements": [{"term": "脚步声", "scene_nos": [1], "reason": "对应动作", "priority": "中"}],
+  "key_points": ["关键摘要"],
+  "risks": ["风险"]
+}
+
+硬约束：
+1) 所有值使用中文。
+2) clause_timeline 必须保留时间证据字段；无法确定时可给保守区间，但字段必须在。
+3) fit_with_music.reasons 固定 3 条。
+4) scene_units 必须与输入场景对应，不允许空数组（除非输入为空）。
+
+长度约束（严格）：
+1) scene_units<=6，clause_timeline<=10，emotion_curve<=6，sfx_requirements<=8。
+2) reasons 固定3条且每条<=18字。
+3) key_points<=3，risks<=3（单条<=20字）。
+4) title<=18字，text_theme<=40字，text_excerpt<=24字。

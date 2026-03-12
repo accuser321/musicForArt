@@ -75,6 +75,126 @@ def _build_rule_report(features: dict) -> str:
     return '\n'.join(lines)
 
 
+def _clip_list(items, n: int) -> list:
+    if not isinstance(items, list):
+        return []
+    return items[: max(0, n)]
+
+
+def _to_float(v, default: float = 0.0) -> float:
+    try:
+        return float(v)
+    except Exception:
+        return default
+
+
+def _build_fallback_audio_json(features: dict, report_markdown: str) -> dict:
+    duration = float(features.get('duration_sec') or 0.0)
+    tags = list(features.get('tags') or [])
+    markers = list(features.get('markers') or [])
+    fit_genres = []
+    if any('战' in t for t in tags):
+        fit_genres.extend(['武侠战斗', '玄幻战场', '军事冲突'])
+    if not fit_genres:
+        fit_genres = ['剧情推进', '紧张冲突']
+
+    hit_points = [
+        {
+            'time_sec': _to_float(m.get('time_sec'), 0.0),
+            'type': str(m.get('type') or '转折'),
+            'usage': str(m.get('label') or '可用于动作或台词对齐'),
+        }
+        for m in markers
+    ][:6]
+
+    split = [0.0]
+    for h in hit_points[:3]:
+        t = _to_float(h.get('time_sec'), 0.0)
+        if 0 < t < duration:
+            split.append(t)
+    if duration > 0:
+        split.append(duration)
+    split = sorted(set(split))
+    sections = []
+    for i in range(len(split) - 1):
+        sections.append(
+            {
+                'section_no': i + 1,
+                'label': f'乐段{i + 1}',
+                'start_sec': round(split[i], 2),
+                'end_sec': round(split[i + 1], 2),
+                'energy_level': '中',
+                'main_layers': ['低频节奏层', '中频纹理层'],
+                'instrument_guess': ['战鼓', '短弦'],
+                'entry_suggestion': '渐入',
+                'exit_suggestion': '淡出',
+            }
+        )
+
+    summary = '节奏推进明显，适合冲突与战斗场景。'
+    if isinstance(report_markdown, str) and report_markdown.strip():
+        one_line = report_markdown.strip().splitlines()
+        if one_line:
+            summary = one_line[0].replace('#', '').strip()[:60] or summary
+
+    return {
+        'title': '音乐分析结果',
+        'summary': summary,
+        'fit_genres': _clip_list(fit_genres, 5),
+        'risk_genres': ['轻松日常', '温柔抒情'],
+        'sections': _clip_list(sections, 6),
+        'structure_logic': {
+            'pattern_guess': '分段推进',
+            'repeat_groups': ['按锚点分段'],
+            'progression_comment': '整体由低到高推进，峰值点适合命中动作。',
+        },
+        'hit_points': _clip_list(hit_points, 6),
+        'mix_notes': _clip_list(
+            [
+                '对白段压低低频，避免遮蔽人声。',
+                '命中点前后保留动态，突出动作打点。',
+                '转场段使用短淡入淡出，避免硬切突兀。',
+            ],
+            6,
+        ),
+        'key_points': _clip_list(
+            [
+                '先确定命中点，再对齐动作句。',
+                '乐段进入优先渐入，退出优先淡出。',
+                '避免全程高能，保留起伏与对比。',
+            ],
+            6,
+        ),
+        'markdown': report_markdown or '',
+    }
+
+
+def _normalize_audio_report_json(report_json: dict | None, features: dict, report_markdown: str) -> dict:
+    base = _build_fallback_audio_json(features, report_markdown)
+    if not isinstance(report_json, dict):
+        return base
+
+    merged = dict(base)
+    merged.update({k: v for k, v in report_json.items() if v is not None})
+
+    # 保留 LLM 的完整输出，不在此处裁剪；仅在缺失或类型错误时回退到基础值。
+    if not isinstance(merged.get('fit_genres'), list):
+        merged['fit_genres'] = base['fit_genres']
+    if not isinstance(merged.get('risk_genres'), list):
+        merged['risk_genres'] = base['risk_genres']
+    if not isinstance(merged.get('sections'), list):
+        merged['sections'] = base['sections']
+    if not isinstance(merged.get('hit_points'), list):
+        merged['hit_points'] = base['hit_points']
+    if not isinstance(merged.get('mix_notes'), list):
+        merged['mix_notes'] = base['mix_notes']
+    if not isinstance(merged.get('key_points'), list):
+        merged['key_points'] = base['key_points']
+    if not isinstance(merged.get('structure_logic'), dict):
+        merged['structure_logic'] = base['structure_logic']
+    return merged
+
+
 def analyze_audio_for_audiobook(
     file_path: str,
     report_mode: str | None = None,
@@ -102,8 +222,6 @@ def analyze_audio_for_audiobook(
     payload = {
         'kind': 'audio',
         'audio_features': features,
-        # 仅使用 V3 音乐分析 Prompt（不回退）
-        'prompt_files': ['V3-music_analysis_task.txt'],
     }
     report_json, report_markdown, llm_meta = generate_report(mode, payload, debug_prompt=debug_prompt)
     trace = llm_meta.get('llm_trace') or []
@@ -121,6 +239,7 @@ def analyze_audio_for_audiobook(
                 'markers': features['markers'],
             }
         )
+    report_json = _normalize_audio_report_json(report_json, features, report_markdown)
 
     llm_hit = bool(llm_meta.get('effective_mode')) and bool(report_markdown)
     result = {

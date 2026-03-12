@@ -2,7 +2,6 @@ import re
 
 from app.config import settings
 from app.services.llm import generate_report, llm_enabled
-from app.services.nlp_zh import tokenize_cn
 from app.services.sfx_matcher import load_sfx_library, match_sfx_candidates
 
 EXPECTED_TEXT_PROMPT = 'V3-text_analysis_task.txt'
@@ -91,6 +90,45 @@ def _build_rule_report(scenes: list[dict]) -> str:
     return '\n'.join(lines)
 
 
+def _markdown_from_llm_json(payload: dict) -> str:
+    if not isinstance(payload, dict):
+        return ''
+    lines: list[str] = ['# 文本分析报告（结构化摘要）', '']
+    title = str(payload.get('title') or '').strip()
+    if title:
+        lines.append(f'- 标题：{title}')
+    theme = str(payload.get('text_theme') or '').strip()
+    if theme:
+        lines.append(f'- 主情绪/叙事方向：{theme}')
+    fit = payload.get('fit_with_music')
+    if isinstance(fit, dict):
+        lines.append(f"- 适配结论：{fit.get('verdict', '未判定')}（{fit.get('score', '-')}）")
+        reasons = fit.get('reasons') if isinstance(fit.get('reasons'), list) else []
+        if reasons:
+            lines.append('- 结论依据：')
+            lines.extend([f'  - {str(r)}' for r in reasons[:5]])
+    scene_units = payload.get('scene_units') if isinstance(payload.get('scene_units'), list) else []
+    if scene_units:
+        lines.append('')
+        lines.append('## 场景单元')
+        for s in scene_units[:10]:
+            lines.append(
+                f"- Scene {s.get('scene_no','-')} | 字符 {s.get('text_start_char','-')}~{s.get('text_end_char','-')} | "
+                f"情绪 {s.get('emotion','-')} | 变化 {s.get('emotion_change','-')} | "
+                f"音乐 {s.get('music_need','-')} | 进 {s.get('entry_hint','-')} / 出 {s.get('exit_hint','-')}"
+            )
+    clause = payload.get('clause_timeline') if isinstance(payload.get('clause_timeline'), list) else []
+    if clause:
+        lines.append('')
+        lines.append('## 语句时间证据')
+        for c in clause[:12]:
+            lines.append(
+                f"- clause {c.get('clause_no','-')} | 字符 {c.get('text_start_char','-')}~{c.get('text_end_char','-')} | "
+                f"时间 {c.get('start_sec','-')}~{c.get('end_sec','-')} | {str(c.get('text',''))[:40]}"
+            )
+    return '\n'.join(lines).strip()
+
+
 def _build_sfx_requirements(scenes: list[dict]) -> tuple[list[dict], list[str]]:
     library = load_sfx_library()
     req_map: dict[str, dict] = {}
@@ -151,7 +189,6 @@ def analyze_text_for_audiobook(
         sentence = item['text']
         actions = []
         emotions = []
-        tokens = tokenize_cn(sentence)
 
         for k, v in ACTION_KEYWORDS.items():
             if k in sentence:
@@ -170,7 +207,6 @@ def analyze_text_for_audiobook(
                 'text': sentence,
                 'char_start': item['char_start'],
                 'char_end': item['char_end'],
-                'tokens': tokens,
                 'actions': sorted(set(actions)),
                 'emotions': sorted(set(emotions)),
                 'intensity': intensity,
@@ -209,8 +245,6 @@ def analyze_text_for_audiobook(
         'music_analysis_text': str((audio_context or {}).get('report_markdown') or ''),
         'audio_context': audio_context or {},
         'scenes': scenes,
-        # 仅使用 V3 文本分析 Prompt（不回退）
-        'prompt_files': ['V3-text_analysis_task.txt'],
     }
     llm_json, llm_md, llm_meta = generate_report(mode, payload, debug_prompt=debug_prompt)
     if llm_md:
@@ -224,6 +258,20 @@ def analyze_text_for_audiobook(
             report_json = dict(llm_json)
             if not isinstance(report_json.get('key_points'), list):
                 report_json['key_points'] = []
+            if not report_markdown.strip():
+                auto_md = _markdown_from_llm_json(report_json)
+                if auto_md:
+                    report_markdown = auto_md
+    elif isinstance(llm_json, dict):
+        report_json = dict(llm_json)
+        auto_md = _markdown_from_llm_json(report_json)
+        if auto_md:
+            report_markdown = auto_md
+        analysis_mode = 'llm+rules+music' if audio_context else 'llm+rules+text'
+        llm_structured = True
+        effective_mode = llm_meta.get('effective_mode')
+        llm_fallback = llm_meta.get('fallback_applied', False)
+        llm_attempted_modes = llm_meta.get('attempted_modes', [])
     else:
         llm_attempted_modes = llm_meta.get('attempted_modes', [])
 

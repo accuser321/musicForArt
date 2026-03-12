@@ -139,8 +139,6 @@ def build_fusion_plan(
         mode,
         {
             'kind': 'fusion',
-            # 仅使用 V3 执行单 Prompt（不回退）
-            'prompt_files': ['V3-production_analysis_task.txt'],
             # 三类核心证据：音乐分析、文本分析、演绎时间轴
             'music_analysis': music_context or {},
             'text_analysis': text_context or {},
