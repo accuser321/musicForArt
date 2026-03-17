@@ -10,11 +10,13 @@ from functools import wraps
 
 from flask import Flask, jsonify, request, send_file, g
 from flask_cors import CORS
-from sqlalchemy import select
+from sqlalchemy import inspect, select, text as sql_text
 
 from app.config import settings
 from app.db import SessionLocal, engine
 from app.models import (
+    ActionSupplementAsset,
+    ActionSupplementTask,
     AudioAnalysis,
     AuthCode,
     AuthSession,
@@ -36,9 +38,25 @@ from app.services.sfx_matcher import load_sfx_library, match_sfx_candidates
 from app.services.fusion import build_fusion_plan
 from app.services.llm import llm_enabled
 from app.services.text_analysis import analyze_text_for_audiobook
+from app.services.action_verbs import analyze_action_verbs
+from app.services.action_sfx_graph import (
+    build_action_node_key,
+    build_action_sfx_recommendation,
+    classify_sfx_terms,
+    load_global_sfx_label_coverage,
+    load_action_node_coverage,
+)
+from app.services.action_graph_draft import apply_action_graph_draft, generate_action_graph_draft
+from app.services.action_graph_neo4j import (
+    action_graph_neo4j_status,
+    list_action_graph_nodes,
+    query_action_graph_node,
+    sync_action_graph_to_neo4j,
+)
 from app.services.exporter import export_cue_csv, export_sfx_zip
 from app.services.reasoning_observability import get_reason_cache, log_reason_event, set_reason_cache
 from app.services.ops_draft import generate_lexicon_draft
+from app.services.nlp_zh import analyze_cn_tokens
 from app.services.rollout import resolve_semantic_backend
 from app.models import ReasoningLog
 from app.services.prompt_graph import (
@@ -55,9 +73,61 @@ from app.services.prompt_graph import (
 app = Flask(settings.app_name)
 CORS(app)
 
+SUPPORTED_GENRES = {'玄幻', '言情', '悬疑', '科幻'}
+
+
+def _is_composite_sfx_term(term: str, children: dict | None = None) -> bool:
+    value = str(term or '').strip()
+    if not value:
+        return False
+    child = children or {}
+    composite_terms = [str(x).strip() for x in (child.get('composite_sfx_terms') or []) if str(x).strip()]
+    if value in composite_terms:
+        return True
+    return not any(
+        hint in value for hint in (
+            '声', '音效', '响', '鸣', '啸', '吼',
+            '呼吸', '喘息', '脚步', '步伐', '摩擦', '碰撞',
+            '破风', '门轴', '门把', '拖拽', '爆裂', '碎裂',
+            '敲击', '拍击', '掌击', '拉拽', '推动', '抓取',
+        )
+    )
+
+
+def _sfx_mode_label(term: str, children: dict | None = None) -> str:
+    return '组合' if _is_composite_sfx_term(term, children) else '直达'
+
+
+def _build_sfx_display_name(term: str, genre: str, children: dict | None = None) -> str:
+    value = str(term or '').strip()
+    if not value:
+        return ''
+    mode = _sfx_mode_label(value, children)
+    genre_part = str(genre or '').strip()
+    return f'{value}（{mode}{("-" + genre_part) if genre_part else ""}）'
+
+
+def _ensure_schema_columns() -> None:
+    dialect = engine.dialect.name
+    cols = {col['name'] for col in inspect(engine).get_columns('projects')}
+    if 'genre' in cols:
+        return
+    with engine.begin() as conn:
+        if dialect == 'sqlite':
+            conn.execute(sql_text("ALTER TABLE projects ADD COLUMN genre VARCHAR(32) NOT NULL DEFAULT '玄幻'"))
+        else:
+            conn.execute(sql_text("ALTER TABLE projects ADD COLUMN genre VARCHAR(32) NOT NULL DEFAULT '玄幻'"))
+
 
 def _normalize_phone(raw: str) -> str:
-    return re.sub(r'[^0-9+]', '', raw or '')
+    phone = re.sub(r'[^0-9]', '', raw or '')
+    if phone.startswith('86') and len(phone) == 13:
+        phone = phone[2:]
+    return phone
+
+
+def _is_valid_phone(phone: str) -> bool:
+    return bool(re.fullmatch(r'1\d{10}', phone or ''))
 
 
 def _get_bearer_token() -> str:
@@ -115,9 +185,12 @@ def _ensure_bootstrap_admins(db) -> None:
 
 
 def _get_user_phone_from_context() -> str:
+    phone = getattr(g, 'current_user_phone', None)
+    if phone:
+        return str(phone)
     u = getattr(g, 'current_user', None)
-    if u and getattr(u, 'phone', None):
-        return str(u.phone)
+    if isinstance(u, str) and u:
+        return u
     return _normalize_phone(_extract_user_phone())
 
 
@@ -129,6 +202,7 @@ def _require_login(fn):
             if u is None:
                 return jsonify({'detail': '请先手机号登录'}), 401
             g.current_user = u
+            g.current_user_phone = u.phone
         return fn(*args, **kwargs)
 
     return wrapper
@@ -145,6 +219,7 @@ def _require_admin(fn):
             if int(u.is_admin or 0) != 1:
                 return jsonify({'detail': '需要管理员权限'}), 403
             g.current_user = u
+            g.current_user_phone = u.phone
         return fn(*args, **kwargs)
 
     return wrapper
@@ -217,6 +292,7 @@ def _enforce_feature_access(action: str):
             if err is not None:
                 return err
             g.current_user = u
+            g.current_user_phone = u.phone if u else ''
             g.usage_info = usage
             return fn(*args, **kwargs)
 
@@ -356,6 +432,7 @@ def _fallback_audio_result_on_error(err: Exception) -> dict:
 @app.before_request
 def ensure_tables():
     Base.metadata.create_all(bind=engine)
+    _ensure_schema_columns()
 
 
 @app.get('/health')
@@ -380,6 +457,8 @@ def auth_request_code():
     phone = _normalize_phone(payload.get('phone') or '')
     if not phone:
         return jsonify({'detail': 'phone is required'}), 400
+    if not _is_valid_phone(phone):
+        return jsonify({'detail': '请输入有效的11位手机号'}), 400
 
     with SessionLocal() as db:
         _ensure_bootstrap_admins(db)
@@ -404,6 +483,8 @@ def auth_login():
     code = str(payload.get('code') or '').strip()
     if not phone or not code:
         return jsonify({'detail': 'phone and code are required'}), 400
+    if not _is_valid_phone(phone):
+        return jsonify({'detail': '请输入有效的11位手机号'}), 400
 
     with SessionLocal() as db:
         _ensure_bootstrap_admins(db)
@@ -512,6 +593,8 @@ def admin_upsert_user():
     phone = _normalize_phone(payload.get('phone') or '')
     if not phone:
         return jsonify({'detail': 'phone is required'}), 400
+    if not _is_valid_phone(phone):
+        return jsonify({'detail': '请输入有效的11位手机号'}), 400
 
     is_authorized = 1 if bool(payload.get('is_authorized', False)) else 0
     is_admin = 1 if bool(payload.get('is_admin', False)) else 0
@@ -550,6 +633,14 @@ def semantic_expand():
     backend = resolve_semantic_backend(project_id=project_id, subject=term)
     ex = expand_term(term, backend_override=backend)
     return jsonify({'term': term, 'expanded_terms': sorted(ex.terms), 'sources': ex.sources, 'effective_backend': backend})
+
+
+@app.get(f'{settings.api_prefix}/semantic/tokenize')
+def semantic_tokenize():
+    text = (request.args.get('text') or '').strip()
+    if not text:
+        return jsonify({'detail': 'text is required'}), 400
+    return jsonify(analyze_cn_tokens(text))
 
 
 @app.get(f'{settings.api_prefix}/semantic/search-sfx')
@@ -611,6 +702,181 @@ def api_prompt_graph_rebuild():
     out = sync_prompt_graph_to_neo4j()
     code = 200 if out.get('ok') else 400
     return jsonify(out), code
+
+
+@app.get(f'{settings.api_prefix}/action-graph/neo4j-status')
+@_require_admin
+def api_action_graph_neo4j_status():
+    return jsonify(action_graph_neo4j_status())
+
+
+@app.post(f'{settings.api_prefix}/action-graph/neo4j-sync')
+@_require_admin
+def api_action_graph_neo4j_sync():
+    out = sync_action_graph_to_neo4j()
+    code = 200 if out.get('ok') else 400
+    return jsonify(out), code
+
+
+@app.get(f'{settings.api_prefix}/action-graph/node')
+@_require_admin
+def api_action_graph_node():
+    node_key = (request.args.get('node_key') or '').strip()
+    if not node_key:
+        return jsonify({'detail': 'node_key is required'}), 400
+    out = query_action_graph_node(node_key)
+    if not out.get('detail'):
+        genre = str(out.get('genre') or '').strip()
+        verb_head = str(out.get('verb_head') or '').strip()
+        with SessionLocal() as db:
+            rows = (
+                db.execute(
+                    select(ActionSupplementTask).where(
+                        ActionSupplementTask.genre == genre,
+                        ActionSupplementTask.target_head == verb_head,
+                    )
+                ).scalars().all()
+                if genre and verb_head
+                else []
+            )
+            row_ids = [row.id for row in rows]
+            asset_rows = (
+                db.execute(
+                    select(ActionSupplementAsset).where(ActionSupplementAsset.supplement_id.in_(row_ids))
+                ).scalars().all()
+                if row_ids
+                else []
+            )
+            assets_by_supp: dict[int, list[dict]] = {}
+            for asset in asset_rows:
+                asset_children = {'composite_sfx_terms': [str(x).strip() for x in (out.get('composite_sfx_terms') or []) if str(x).strip()]}
+                assets_by_supp.setdefault(int(asset.supplement_id), []).append(
+                    {
+                        'asset_label': str(asset.asset_label or '').strip(),
+                        'display_name': _build_sfx_display_name(str(asset.asset_label or '').strip(), genre, asset_children),
+                        'sfx_mode': _sfx_mode_label(str(asset.asset_label or '').strip(), asset_children),
+                        'asset_file_path': str(asset.asset_file_path or '').strip(),
+                        'file_name': Path(asset.asset_file_path or '').name if asset.asset_file_path else '',
+                        'created_at': asset.created_at.isoformat() if asset.created_at else '',
+                    }
+                )
+            status_counter: dict[str, int] = {}
+            latest_created_at = ''
+            target_terms = _merge_unique_list([str(x).strip() for x in (out.get('sfx_terms') or []) if str(x).strip()])
+            global_asset_labels = set()
+            for asset in asset_rows:
+                label = str(asset.asset_label or '').strip()
+                if label:
+                    global_asset_labels.add(label)
+            covered_terms_set = set()
+            supplement_items = []
+            for row in rows:
+                status_counter[row.status] = status_counter.get(row.status, 0) + 1
+                if row.created_at:
+                    ts = row.created_at.isoformat()
+                    if ts > latest_created_at:
+                        latest_created_at = ts
+                assets = assets_by_supp.get(int(row.id), [])
+                try:
+                    row_missing_terms = [str(x).strip() for x in json.loads(row.missing_sfx_terms_json or '[]') if str(x).strip()]
+                except json.JSONDecodeError:
+                    row_missing_terms = []
+                try:
+                    row_sfx_terms = [str(x).strip() for x in json.loads(row.sfx_terms_json or '[]') if str(x).strip()]
+                except json.JSONDecodeError:
+                    row_sfx_terms = []
+                row_target_terms = _merge_unique_list(row_sfx_terms or row_missing_terms or target_terms)
+                row_covered_terms = [term for term in row_target_terms if term in global_asset_labels]
+                row_pending_terms = [term for term in row_target_terms if term not in global_asset_labels]
+                row_completion_ratio = round((len(row_covered_terms) / len(row_target_terms)), 4) if row_target_terms else 1.0
+                ready_to_notify = (row.status == 'ready_to_notify' or not row_pending_terms) and not row.notified_at
+                supplement_items.append(
+                    {
+                        'id': row.id,
+                        'status': row.status,
+                        'notification_status': '已通知' if row.notified_at else '未通知',
+                        'notified_at': row.notified_at.isoformat() if row.notified_at else '',
+                        'user_phone': row.user_phone,
+                        'sentence_excerpt': row.sentence_excerpt,
+                        'created_at': row.created_at.isoformat() if row.created_at else '',
+                        'assets': assets,
+                        'target_terms': row_target_terms,
+                        'covered_terms': row_covered_terms,
+                        'pending_terms': row_pending_terms,
+                        'covered_count': len(row_covered_terms),
+                        'pending_count': len(row_pending_terms),
+                        'completion_ratio': row_completion_ratio,
+                        'ready_to_notify': ready_to_notify,
+                    }
+                )
+            for asset in asset_rows:
+                label = str(asset.asset_label or '').strip()
+                if label:
+                    covered_terms_set.add(label)
+            covered_terms = [term for term in target_terms if term in covered_terms_set]
+            pending_terms = [term for term in target_terms if term not in covered_terms_set]
+            ready_to_notify_count = sum(1 for item in supplement_items if item.get('ready_to_notify'))
+            notified_count = sum(1 for row in rows if row.notified_at)
+            incomplete_count = sum(1 for item in supplement_items if not item.get('ready_to_notify'))
+        out['supplement_summary'] = {
+            'item_count': len(rows),
+            'status_counter': status_counter,
+            'latest_created_at': latest_created_at,
+            'target_terms': target_terms,
+            'covered_terms': covered_terms,
+            'pending_terms': pending_terms,
+            'covered_count': len(covered_terms),
+            'pending_count': len(pending_terms),
+            'completion_ratio': round((len(covered_terms) / len(target_terms)), 4) if target_terms else 1.0,
+            'ready_to_notify_count': ready_to_notify_count,
+            'notified_count': notified_count,
+            'incomplete_count': incomplete_count,
+            'supplement_items': supplement_items[:20],
+        }
+        out['business_explanation'] = {
+            'display_name_rule': '{音效名}（{类型}-{赛道}）',
+            'semantic_edge_meaning': '语义子级用于扩展理解与召回，不等于必须上传素材。',
+            'direct_edge_meaning': '直达音效边表示可直接命中的素材标签，适合用户直接下载或运营直接补库。',
+            'composite_edge_meaning': '组合音效边表示整体动作音效，适合直接交付给用户作为成品动作音效使用。',
+            'operator_hint': '运营补库时，优先补待补音效词；如果节点含有（组合）标签，则说明该词可作为整体动作音效单独上传。',
+        }
+    code = 200 if not out.get('detail') else 404
+    return jsonify(out), code
+
+
+@app.get(f'{settings.api_prefix}/action-graph/nodes')
+@_require_admin
+def api_action_graph_nodes():
+    genre = (request.args.get('genre') or '').strip()
+    q = (request.args.get('q') or '').strip()
+    limit = int((request.args.get('limit') or '50').strip())
+    only_with_gap = (request.args.get('only_with_gap') or '').strip().lower() in {'1', 'true', 'yes'}
+    sort_by = (request.args.get('sort_by') or 'pending').strip()
+    status_filter = (request.args.get('status_filter') or 'all').strip()
+    out = list_action_graph_nodes(
+        genre=genre,
+        q=q,
+        limit=limit,
+        only_with_gap=only_with_gap,
+        sort_by=sort_by,
+        status_filter=status_filter,
+    )
+    code = 200 if not out.get('detail') else 400
+    return jsonify(out), code
+
+
+@app.get(f'{settings.api_prefix}/action-graph/explanation')
+def api_action_graph_explanation():
+    return jsonify(
+        {
+            'display_name_rule': '{音效名}（{类型}-{赛道}）',
+            'semantic_edge_meaning': '语义子级用于扩展理解与召回，不等于必须上传素材。',
+            'direct_edge_meaning': '直达音效边表示可直接命中的素材标签，适合用户直接下载或运营直接补库。',
+            'composite_edge_meaning': '组合音效边表示整体动作音效，适合直接交付给用户作为成品动作音效使用。',
+            'user_hint': '如果你想快速出结果，可优先选择组合音效；如果你想自己叠加设计层次，可优先选择直达音效。',
+            'operator_hint': '运营补库时，优先补待补音效词；如果节点含有（组合）标签，则说明该词可作为整体动作音效单独上传。',
+        }
+    )
 
 
 @app.post(f'{settings.api_prefix}/prompt-graph/field')
@@ -818,11 +1084,14 @@ def semantic_merge_lexicon():
 def create_project():
     payload = request.get_json(force=True)
     title = (payload.get('title') or '').strip()
+    genre = (payload.get('genre') or '玄幻').strip()
     if not title:
         return jsonify({'detail': 'title is required'}), 400
+    if genre not in SUPPORTED_GENRES:
+        return jsonify({'detail': 'genre must be one of: 玄幻, 言情, 悬疑, 科幻'}), 400
 
     with SessionLocal() as db:
-        project = Project(title=title)
+        project = Project(title=title, genre=genre)
         db.add(project)
         db.commit()
         db.refresh(project)
@@ -830,14 +1099,15 @@ def create_project():
             db=db,
             action='create_project',
             project_id=project.id,
-            req={'title': title},
-            resp={'project_id': project.id},
+            req={'title': title, 'genre': genre},
+            resp={'project_id': project.id, 'genre': genre},
             file_refs=[],
         )
         return jsonify(
             {
                 'id': project.id,
                 'title': project.title,
+                'genre': project.genre,
                 'created_at': project.created_at.isoformat(),
                 'usage': getattr(g, 'usage_info', None),
             }
@@ -850,7 +1120,7 @@ def get_project(project_id: int):
         project = db.get(Project, project_id)
         if not project:
             return jsonify({'detail': 'Project not found'}), 404
-        return jsonify({'id': project.id, 'title': project.title, 'created_at': project.created_at.isoformat()})
+        return jsonify({'id': project.id, 'title': project.title, 'genre': getattr(project, 'genre', '玄幻'), 'created_at': project.created_at.isoformat()})
 
 
 @app.post(f'{settings.api_prefix}/analysis/<int:project_id>/audio')
@@ -988,6 +1258,602 @@ def analyze_text(project_id: int):
         )
         result['usage'] = getattr(g, 'usage_info', None)
         return jsonify(result)
+
+
+@app.post(f'{settings.api_prefix}/analysis/<int:project_id>/action-verbs')
+@_enforce_feature_access('action_verb_analysis')
+def analyze_action_verbs_api(project_id: int):
+    payload = request.get_json(force=True)
+    text = (payload.get('text') or '').strip()
+    genre = (payload.get('genre') or '').strip()
+    prompt_file = (payload.get('prompt_file') or '').strip()
+    report_mode = (payload.get('report_mode') or request.args.get('report_mode') or settings.report_mode_default).strip().lower()
+    debug_prompt = True
+    if not text:
+        return jsonify({'detail': 'text is required'}), 400
+
+    with SessionLocal() as db:
+        project_row = db.execute(
+            sql_text('SELECT id, title FROM projects WHERE id = :pid'),
+            {'pid': project_id},
+        ).first()
+        if not project_row:
+            return jsonify({'detail': 'Project not found'}), 404
+
+        effective_genre = genre or '玄幻'
+        result = analyze_action_verbs(text, genre=effective_genre, prompt_file=prompt_file, report_mode=report_mode, debug_prompt=debug_prompt)
+        _log_user_operation(
+            db=db,
+            action='action_verb_analysis',
+            project_id=project_id,
+            req={'report_mode': report_mode, 'text_len': len(text), 'genre': effective_genre, 'prompt_file': prompt_file},
+            resp={
+                'analysis_mode': result.get('analysis_mode'),
+                'genre': result.get('genre'),
+                'qualified_count': len(((result.get('report_json') or {}).get('qualified_actions') or [])),
+                'candidate_count': len(((result.get('report_json') or {}).get('action_candidates') or [])),
+                'llm_trace_digest': _llm_trace_digest(result.get('llm_trace')),
+            },
+            file_refs=[],
+        )
+        result['usage'] = getattr(g, 'usage_info', None)
+        return jsonify(result)
+
+
+@app.post(f'{settings.api_prefix}/analysis/<int:project_id>/action-sfx')
+@_enforce_feature_access('action_sfx_graph')
+def analyze_action_sfx_api(project_id: int):
+    payload = request.get_json(force=True) or {}
+    action_report = payload.get('action_report')
+
+    if not isinstance(action_report, dict):
+        return jsonify({'detail': 'action_report is required and must be object'}), 400
+
+    with SessionLocal() as db:
+        project_row = db.execute(
+            sql_text('SELECT id, title FROM projects WHERE id = :pid'),
+            {'pid': project_id},
+        ).first()
+        if not project_row:
+            return jsonify({'detail': 'Project not found'}), 404
+
+        result = build_action_sfx_recommendation(project_id=project_id, action_report=action_report)
+        _log_user_operation(
+            db=db,
+            action='action_sfx_graph',
+            project_id=project_id,
+            req={
+                'genre': action_report.get('genre', ''),
+                'verb_count': len((action_report.get('action_candidates') or [])),
+            },
+            resp={
+                'graph_item_count': len(result.get('graph_items') or []),
+                'asset_count': (result.get('summary') or {}).get('asset_count', 0),
+            },
+            file_refs=[],
+        )
+        result['usage'] = getattr(g, 'usage_info', None)
+        return jsonify(result)
+
+
+@app.post(f'{settings.api_prefix}/analysis/<int:project_id>/action-graph-draft')
+@_enforce_feature_access('action_graph_draft')
+def analyze_action_graph_draft_api(project_id: int):
+    payload = request.get_json(force=True) or {}
+    action_sfx_result = payload.get('action_sfx_result')
+
+    if not isinstance(action_sfx_result, dict):
+        return jsonify({'detail': 'action_sfx_result is required and must be object'}), 400
+
+    with SessionLocal() as db:
+        project_row = db.execute(
+            sql_text('SELECT id, title FROM projects WHERE id = :pid'),
+            {'pid': project_id},
+        ).first()
+        if not project_row:
+            return jsonify({'detail': 'Project not found'}), 404
+
+        result = generate_action_graph_draft(action_sfx_result)
+        phone = _extract_user_phone()
+        draft_node_keys = {
+            build_action_node_key(str(item.get('target_genre') or result.get('genre') or '').strip(), str(item.get('target_head') or item.get('verb') or '').strip())
+            for item in (result.get('draft_items') or [])
+            if isinstance(item, dict) and str(item.get('target_head') or item.get('verb') or '').strip()
+        }
+        coverage_by_node = load_action_node_coverage(draft_node_keys)
+        global_label_coverage = load_global_sfx_label_coverage()
+        for item in result.get('draft_items') or []:
+            if not isinstance(item, dict):
+                continue
+            verb = str(item.get('verb') or '').strip()
+            target_head = str(item.get('target_head') or '').strip()
+            target_genre = str(item.get('target_genre') or '').strip()
+            if not verb:
+                continue
+            node_key = build_action_node_key(target_genre or str(result.get('genre') or '').strip(), target_head or verb)
+            covered_labels = set(str(x).strip() for x in ((coverage_by_node.get(node_key) or {}).get('covered_labels') or []) if str(x).strip())
+            covered_labels.update(str(x).strip() for x in (global_label_coverage.get('labels') or []) if str(x).strip())
+            sfx_terms = [str(x).strip() for x in (item.get('sfx_terms') or []) if str(x).strip()]
+            covered_count = len(set(sfx_terms) & covered_labels)
+            effective_status = 'ready_to_notify' if sfx_terms and covered_count >= len(set(sfx_terms)) else ('partial' if covered_count else 'pending')
+            existing_rows = db.execute(
+                select(ActionSupplementTask).where(
+                    ActionSupplementTask.project_id == project_id,
+                    ActionSupplementTask.user_phone == phone,
+                    ActionSupplementTask.verb == verb,
+                    ActionSupplementTask.target_head == target_head,
+                    ActionSupplementTask.target_genre == target_genre,
+                    ActionSupplementTask.status == 'pending',
+                )
+            ).scalars().all()
+            if existing_rows:
+                primary = existing_rows[0]
+                primary.sentence_excerpt = str(item.get('sentence_excerpt') or '').strip()
+                primary.semantic_terms_json = json.dumps(item.get('semantic_terms') or [], ensure_ascii=False)
+                primary.sfx_terms_json = json.dumps(item.get('sfx_terms') or [], ensure_ascii=False)
+                primary.missing_sfx_terms_json = json.dumps(item.get('missing_sfx_terms') or [], ensure_ascii=False)
+                primary.status = effective_status
+                for extra in existing_rows[1:]:
+                    extra.status = 'merged_duplicate'
+            else:
+                db.add(
+                    ActionSupplementTask(
+                        project_id=project_id,
+                        user_phone=phone,
+                        genre=str(result.get('genre') or ''),
+                        verb=verb,
+                        target_head=target_head or verb,
+                        target_genre=target_genre,
+                        sentence_excerpt=str(item.get('sentence_excerpt') or '').strip(),
+                        semantic_terms_json=json.dumps(item.get('semantic_terms') or [], ensure_ascii=False),
+                        sfx_terms_json=json.dumps(item.get('sfx_terms') or [], ensure_ascii=False),
+                        missing_sfx_terms_json=json.dumps(item.get('missing_sfx_terms') or [], ensure_ascii=False),
+                        status=effective_status,
+                    )
+                )
+        db.commit()
+        _log_user_operation(
+            db=db,
+            action='action_supplement_sheet',
+            project_id=project_id,
+            req={
+                'genre': action_sfx_result.get('genre', ''),
+                'graph_item_count': len(action_sfx_result.get('graph_items') or []),
+            },
+            resp={
+                'draft_count': result.get('draft_count', 0),
+                'draft_items': result.get('draft_items', []),
+            },
+            file_refs=[],
+        )
+        result['usage'] = getattr(g, 'usage_info', None)
+        return jsonify(result)
+
+
+@app.post(f'{settings.api_prefix}/analysis/<int:project_id>/action-graph-draft/apply')
+@_enforce_feature_access('action_graph_apply')
+def apply_action_graph_draft_api(project_id: int):
+    payload = request.get_json(force=True) or {}
+    draft_result = payload.get('draft_result')
+
+    if not isinstance(draft_result, dict):
+        return jsonify({'detail': 'draft_result is required and must be object'}), 400
+
+    with SessionLocal() as db:
+        project_row = db.execute(
+            sql_text('SELECT id, title FROM projects WHERE id = :pid'),
+            {'pid': project_id},
+        ).first()
+        if not project_row:
+            return jsonify({'detail': 'Project not found'}), 404
+
+        result = apply_action_graph_draft(draft_result)
+        neo4j_sync = sync_action_graph_to_neo4j()
+        _log_user_operation(
+            db=db,
+            action='action_graph_apply',
+            project_id=project_id,
+            req={
+                'genre': draft_result.get('genre', ''),
+                'draft_count': int(draft_result.get('draft_count') or 0),
+            },
+            resp={
+                'ok': bool(result.get('ok')),
+                'genre': result.get('genre', ''),
+                'neo4j_sync_ok': bool((neo4j_sync or {}).get('ok')),
+            },
+            file_refs=[],
+        )
+        result['neo4j_sync'] = neo4j_sync
+        result['usage'] = getattr(g, 'usage_info', None)
+        return jsonify(result)
+
+
+@app.get(f'{settings.api_prefix}/ops/action-supplements')
+@_require_admin
+def ops_action_supplements():
+    days = int((request.args.get('days') or '30').strip())
+    days = max(1, min(180, days))
+    status = (request.args.get('status') or '').strip()
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    with SessionLocal() as db:
+        stmt = select(ActionSupplementTask).where(ActionSupplementTask.created_at >= cutoff)
+        if status in {'pending', 'partial'}:
+            stmt = stmt.where(ActionSupplementTask.status == status)
+        elif status == 'ready_to_notify':
+            stmt = stmt.where(ActionSupplementTask.status == 'ready_to_notify')
+        rows = db.execute(stmt.order_by(ActionSupplementTask.created_at.desc()).limit(500)).scalars().all()
+        supp_ids = [r.id for r in rows]
+        asset_rows = (
+            db.execute(
+                select(ActionSupplementAsset).where(ActionSupplementAsset.supplement_id.in_(supp_ids))
+            ).scalars().all()
+            if supp_ids
+            else []
+        )
+    node_keys = {
+        build_action_node_key(str(r.target_genre or r.genre or '').strip(), str(r.target_head or r.verb or '').strip())
+        for r in rows
+        if str(r.target_head or r.verb or '').strip()
+    }
+    coverage_by_node = load_action_node_coverage(node_keys)
+    global_label_coverage = load_global_sfx_label_coverage()
+
+    assets_by_supp: dict[int, list[dict]] = {}
+    for a in asset_rows:
+        assets_by_supp.setdefault(a.supplement_id, []).append(
+            {
+                'id': a.id,
+                'asset_label': a.asset_label,
+                'asset_file_path': a.asset_file_path,
+                'file_name': Path(a.asset_file_path).name if a.asset_file_path else '',
+                'created_at': a.created_at.isoformat() if a.created_at else '',
+            }
+        )
+
+    items = []
+    status_counter: dict[str, int] = {}
+    notified_count = 0
+    total_pending_terms = 0
+    total_covered_terms = 0
+    merged_count = 0
+    unique_users = set()
+    for r in rows:
+        try:
+            semantic_terms = json.loads(r.semantic_terms_json or '[]')
+        except json.JSONDecodeError:
+            semantic_terms = []
+        try:
+            sfx_terms = json.loads(r.sfx_terms_json or '[]')
+        except json.JSONDecodeError:
+            sfx_terms = []
+        try:
+            missing_sfx_terms = json.loads(r.missing_sfx_terms_json or '[]')
+        except json.JSONDecodeError:
+            missing_sfx_terms = []
+        node_key = build_action_node_key(str(r.target_genre or r.genre or '').strip(), str(r.target_head or r.verb or '').strip())
+        coverage = coverage_by_node.get(node_key) or {}
+        merged_assets = [dict(x) for x in (coverage.get('assets') or assets_by_supp.get(r.id, []))]
+        for term in _merge_unique_list(sfx_terms or missing_sfx_terms):
+            merged_assets.extend(dict(x) for x in ((global_label_coverage.get('assets_by_label') or {}).get(term) or []))
+        dedup_asset_keys = set()
+        normalized_assets = []
+        for asset in merged_assets:
+            key = f"{str(asset.get('asset_label') or '').strip()}|{str(asset.get('asset_file_path') or asset.get('file_path') or '').strip()}"
+            if key in dedup_asset_keys:
+                continue
+            dedup_asset_keys.add(key)
+            normalized_assets.append(asset)
+        merged_assets = normalized_assets
+        merged_labels = _merge_unique_list(list(coverage.get('covered_labels') or []) + list(global_label_coverage.get('labels') or []))
+        target_terms = _merge_unique_list(sfx_terms or missing_sfx_terms)
+        target_terms_classified = classify_sfx_terms(target_terms)
+        pending_terms_classified = classify_sfx_terms([term for term in target_terms if term not in set(merged_labels)])
+        covered_terms = [term for term in target_terms if term in set(merged_labels)]
+        pending_terms = [term for term in target_terms if term not in set(merged_labels)]
+        completion_ratio = round((len(covered_terms) / len(target_terms)), 4) if target_terms else 1.0
+        is_merged = not pending_terms
+        effective_status = str(r.status or '').strip()
+        if effective_status != 'merged_duplicate':
+            if is_merged:
+                effective_status = 'ready_to_notify'
+            elif covered_terms:
+                effective_status = 'partial'
+            else:
+                effective_status = 'pending'
+        merged_assets_with_display = []
+        for asset in merged_assets:
+            if not isinstance(asset, dict):
+                continue
+            label = str(asset.get('asset_label') or '').strip()
+            merged_assets_with_display.append(
+                {
+                    **asset,
+                    'display_name': _build_sfx_display_name(label, r.genre, {'composite_sfx_terms': target_terms_classified['composite_terms']}),
+                    'sfx_mode': _sfx_mode_label(label, {'composite_sfx_terms': target_terms_classified['composite_terms']}),
+                }
+            )
+        unique_users.add(r.user_phone or '')
+        status_counter[effective_status] = status_counter.get(effective_status, 0) + 1
+        if r.notified_at:
+            notified_count += 1
+        if is_merged:
+            merged_count += 1
+        total_pending_terms += len(pending_terms)
+        total_covered_terms += len(covered_terms)
+
+        items.append(
+            {
+                'id': r.id,
+                'project_id': r.project_id,
+                'user_phone': r.user_phone,
+                'genre': r.genre,
+                'verb': r.verb,
+                'parent_node': {
+                    'genre': r.genre,
+                    'verb_head': r.verb,
+                    'node_key': f'{r.genre}::{r.verb}' if r.genre else r.verb,
+                },
+                'target_head': r.target_head,
+                'target_genre': r.target_genre,
+                'sentence_excerpt': r.sentence_excerpt,
+                'semantic_terms': semantic_terms,
+                'sfx_terms': sfx_terms,
+                'missing_sfx_terms': missing_sfx_terms,
+                'sfx_terms_classified': {
+                    'direct_terms': target_terms_classified['direct_terms'],
+                    'composite_terms': target_terms_classified['composite_terms'],
+                    'display_terms': target_terms_classified['display_terms'],
+                },
+                'missing_sfx_terms_classified': {
+                    'direct_terms': pending_terms_classified['direct_terms'],
+                    'composite_terms': pending_terms_classified['composite_terms'],
+                    'display_terms': pending_terms_classified['display_terms'],
+                },
+                'children': {
+                    'semantic_terms': semantic_terms,
+                    'sfx_terms': target_terms,
+                    'missing_sfx_terms': pending_terms,
+                    'covered_sfx_terms': covered_terms,
+                    'direct_sfx_terms': target_terms_classified['direct_terms'],
+                    'composite_sfx_terms': target_terms_classified['composite_terms'],
+                    'display_sfx_terms': target_terms_classified['display_terms'],
+                    'missing_direct_sfx_terms': pending_terms_classified['direct_terms'],
+                    'missing_composite_sfx_terms': pending_terms_classified['composite_terms'],
+                    'display_missing_sfx_terms': pending_terms_classified['display_terms'],
+                },
+                'progress': {
+                    'target_count': len(target_terms),
+                    'covered_count': len(covered_terms),
+                    'pending_count': len(pending_terms),
+                    'completion_ratio': completion_ratio,
+                },
+                'is_merged': is_merged,
+                'status': effective_status,
+                'notification_status': '已通知' if r.notified_at else '未通知',
+                'asset_label': r.asset_label,
+                'asset_file_path': r.asset_file_path,
+                'merged_assets': merged_assets_with_display,
+                'notified_at': r.notified_at.isoformat() if r.notified_at else '',
+                'created_at': r.created_at.isoformat() if r.created_at else '',
+            }
+        )
+
+    if status == 'merged':
+        items = [item for item in items if item.get('is_merged')]
+    elif status == 'ready_to_notify':
+        items = [item for item in items if item.get('status') == 'ready_to_notify' and not item.get('notified_at')]
+    elif status == 'notified':
+        items = [item for item in items if item.get('notified_at')]
+
+    if status:
+        status_counter = {}
+        notified_count = 0
+        total_pending_terms = 0
+        total_covered_terms = 0
+        merged_count = 0
+        unique_users = set()
+        for item in items:
+            key = str(item.get('status') or '').strip()
+            status_counter[key] = status_counter.get(key, 0) + 1
+            if item.get('notified_at'):
+                notified_count += 1
+            if item.get('is_merged'):
+                merged_count += 1
+            total_pending_terms += int(((item.get('progress') or {}).get('pending_count')) or 0)
+            total_covered_terms += int(((item.get('progress') or {}).get('covered_count')) or 0)
+            unique_users.add(item.get('user_phone') or '')
+
+    return jsonify(
+        {
+            'days': days,
+            'status': status,
+            'count': len(items),
+            'summary': {
+                'item_count': len(items),
+                'unique_user_count': len([x for x in unique_users if x]),
+                'status_counter': status_counter,
+                'pending_term_count': total_pending_terms,
+                'covered_term_count': total_covered_terms,
+                'ready_to_notify_count': sum(1 for item in items if item.get('status') == 'ready_to_notify' and not item.get('notified_at')),
+                'notified_count': notified_count,
+                'merged_count': merged_count,
+            },
+            'items': items,
+        }
+    )
+
+
+@app.post(f'{settings.api_prefix}/ops/action-supplements/merge')
+@_require_admin
+def ops_action_supplements_merge():
+    item_id = request.form.get('item_id', type=int)
+    asset_label = (request.form.get('asset_label') or '').strip()
+    notify_after_merge = str(request.form.get('notify_after_merge') or '').strip() in {'1', 'true', 'yes'}
+    file = request.files.get('file')
+    if not item_id:
+        return jsonify({'detail': 'item_id is required'}), 400
+    if not asset_label:
+        return jsonify({'detail': 'asset_label is required'}), 400
+    if file is None or not getattr(file, 'filename', ''):
+        return jsonify({'detail': 'file is required'}), 400
+
+    with SessionLocal() as db:
+        item = db.execute(select(ActionSupplementTask).where(ActionSupplementTask.id == item_id)).scalar_one_or_none()
+        if not item:
+            return jsonify({'detail': 'supplement item not found'}), 404
+
+        ext = Path(file.filename).suffix or '.bin'
+        safe_label = re.sub(r'[\\\\/:*?\"<>|]+', '_', asset_label).strip() or '未命名音效'
+        out_path = Path('./assets/sfx').resolve() / f'{safe_label}{ext}'
+        idx = 2
+        while out_path.exists():
+            out_path = Path('./assets/sfx').resolve() / f'{safe_label}_{idx}{ext}'
+            idx += 1
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        file.save(out_path)
+
+        current_children = classify_sfx_terms(json.loads(item.sfx_terms_json or '[]') if item.sfx_terms_json else [])
+        draft_graph = {
+            'common': {},
+            'genres': {
+                item.target_genre or item.genre or '玄幻': {
+                    item.target_head or item.verb: {
+                        'semantic_terms': json.loads(item.semantic_terms_json or '[]'),
+                        'sfx_terms': _merge_unique_list(json.loads(item.sfx_terms_json or '[]') + [asset_label]),
+                    }
+                }
+            },
+        }
+        apply_action_graph_draft(
+            {
+                'genre': item.target_genre or item.genre or '玄幻',
+                'draft_count': 1,
+                'draft_graph': draft_graph,
+            }
+        )
+        neo4j_sync = {'ok': False, 'detail': 'neo4j sync skipped'}
+        try:
+            neo4j_sync = sync_action_graph_to_neo4j()
+        except Exception as exc:
+            neo4j_sync = {
+                'ok': False,
+                'detail': f'neo4j sync failed: {exc}',
+            }
+        sfx_mode = _sfx_mode_label(asset_label, {'composite_sfx_terms': current_children['composite_terms']})
+        display_name = _build_sfx_display_name(asset_label, item.target_genre or item.genre or '', {'composite_sfx_terms': current_children['composite_terms']})
+        db.add(
+            ActionSupplementAsset(
+                supplement_id=item.id,
+                asset_label=asset_label,
+                asset_file_path=str(out_path),
+            )
+        )
+        item.asset_label = asset_label
+        item.asset_file_path = str(out_path)
+
+        sfx_terms = [str(x).strip() for x in json.loads(item.sfx_terms_json or '[]') if str(x).strip()]
+        node_key = build_action_node_key(str(item.target_genre or item.genre or '').strip(), str(item.target_head or item.verb or '').strip())
+        node_coverage = load_action_node_coverage({node_key}).get(node_key) or {}
+        global_label_coverage = load_global_sfx_label_coverage()
+        existing_labels = set(str(x).strip() for x in (node_coverage.get('covered_labels') or []) if str(x).strip())
+        existing_labels.update(str(x).strip() for x in (global_label_coverage.get('labels') or []) if str(x).strip())
+        existing_labels.add(asset_label)
+        target_terms = set(sfx_terms or [asset_label])
+        covered = len(target_terms & existing_labels)
+        fully_covered = covered >= len(target_terms)
+        item.status = 'ready_to_notify' if fully_covered else 'partial'
+        sibling_rows = db.execute(
+            select(ActionSupplementTask).where(
+                ActionSupplementTask.target_genre == (item.target_genre or item.genre or ''),
+                ActionSupplementTask.target_head == (item.target_head or item.verb or ''),
+            )
+        ).scalars().all()
+        for sibling in sibling_rows:
+            try:
+                sibling_terms = [str(x).strip() for x in json.loads(sibling.sfx_terms_json or '[]') if str(x).strip()]
+            except json.JSONDecodeError:
+                sibling_terms = []
+            if not sibling_terms:
+                continue
+            sibling_covered = len(set(sibling_terms) & existing_labels)
+            sibling.status = 'ready_to_notify' if sibling_covered >= len(set(sibling_terms)) else ('partial' if sibling_covered else 'pending')
+        db.commit()
+
+        _log_user_operation(
+            db=db,
+            action='action_supplement_merge',
+            project_id=item.project_id,
+            req={'item_id': item.id, 'asset_label': asset_label, 'notify_after_merge': notify_after_merge},
+            resp={'ok': True, 'status': item.status, 'neo4j_sync_ok': bool((neo4j_sync or {}).get('ok'))},
+            file_refs=[str(out_path)],
+        )
+
+        return jsonify(
+            {
+                'ok': True,
+                'item_id': item.id,
+                'status': item.status,
+                'asset_label': asset_label,
+                'asset_display_name': display_name,
+                'asset_mode': sfx_mode,
+                'asset_file_path': str(out_path),
+                'covered_term_count': covered,
+                'target_term_count': len(target_terms),
+                'neo4j_sync': neo4j_sync,
+            }
+        )
+
+
+def _merge_unique_list(items: list[str]) -> list[str]:
+    seen = set()
+    out = []
+    for item in items:
+        value = str(item).strip()
+        if value and value not in seen:
+            seen.add(value)
+            out.append(value)
+    return out
+
+
+@app.post(f'{settings.api_prefix}/ops/action-supplements/notify')
+@_require_admin
+def ops_action_supplements_notify():
+    payload = request.get_json(force=True) or {}
+    item_ids = payload.get('item_ids') or []
+    if not isinstance(item_ids, list) or not item_ids:
+        return jsonify({'detail': 'item_ids is required'}), 400
+
+    now = datetime.now(timezone.utc)
+    with SessionLocal() as db:
+        rows = db.execute(select(ActionSupplementTask).where(ActionSupplementTask.id.in_(item_ids))).scalars().all()
+        grouped: dict[str, list[ActionSupplementTask]] = {}
+        for row in rows:
+            row.notified_at = now
+            grouped.setdefault(row.user_phone or '', []).append(row)
+        db.commit()
+
+        notifications = []
+        for phone, items in grouped.items():
+            payload_out = {
+                'phone': phone,
+                'project_ids': sorted({x.project_id for x in items if x.project_id}),
+                'verbs': [x.verb for x in items],
+                'asset_labels': [x.asset_label for x in items if x.asset_label],
+                'message': '您之前提交的音效补充需求已完成补充，欢迎回到系统继续使用。',
+            }
+            _log_user_operation(
+                db=db,
+                action='action_supplement_notify',
+                project_id=items[0].project_id if items else None,
+                req=payload_out,
+                resp={'queued': True, 'sms_sent': False},
+                file_refs=[],
+            )
+            notifications.append(payload_out)
+
+    return jsonify({'ok': True, 'notification_count': len(notifications), 'notifications': notifications, 'sms_sent': False})
 
 
 @app.post(f'{settings.api_prefix}/analysis/<int:project_id>/narration')
@@ -1582,6 +2448,93 @@ def ops_recommendations():
     )
 
 
+@app.get(f'{settings.api_prefix}/ops/action-sfx-feedback')
+@_require_admin
+def ops_action_sfx_feedback():
+    days = int((request.args.get('days') or '7').strip())
+    days = max(1, min(90, days))
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    by_verb: dict[str, int] = {}
+    by_label: dict[str, int] = {}
+    by_file: dict[str, int] = {}
+    by_project: dict[str, int] = {}
+    rows_out = []
+
+    with SessionLocal() as db:
+        rows = db.execute(
+            select(
+                UserOperationLog.project_id,
+                UserOperationLog.user_phone,
+                UserOperationLog.action,
+                UserOperationLog.input_json,
+                UserOperationLog.file_refs_json,
+                UserOperationLog.created_at,
+            )
+            .where(
+                UserOperationLog.created_at >= cutoff,
+                UserOperationLog.action == 'action_sfx_asset_download',
+            )
+            .order_by(UserOperationLog.created_at.desc())
+            .limit(300)
+        ).all()
+
+    for project_id, user_phone, action, input_json, file_refs_json, created_at in rows:
+        try:
+            payload = json.loads(input_json or '{}')
+        except json.JSONDecodeError:
+            payload = {}
+        try:
+            file_refs = json.loads(file_refs_json or '[]')
+        except json.JSONDecodeError:
+            file_refs = []
+
+        verb = str(payload.get('verb') or '').strip()
+        label = str(payload.get('label') or '').strip()
+        file_name = str(payload.get('file_name') or '').strip()
+        if not file_name and isinstance(file_refs, list) and file_refs:
+            file_name = Path(str(file_refs[0])).name
+
+        if verb:
+            by_verb[verb] = by_verb.get(verb, 0) + 1
+        if label:
+            by_label[label] = by_label.get(label, 0) + 1
+        if file_name:
+            by_file[file_name] = by_file.get(file_name, 0) + 1
+        if project_id is not None:
+            key = str(project_id)
+            by_project[key] = by_project.get(key, 0) + 1
+
+        rows_out.append(
+            {
+                'project_id': project_id,
+                'user_phone': user_phone,
+                'action': action,
+                'verb': verb,
+                'label': label,
+                'file_name': file_name,
+                'created_at': created_at.isoformat() if created_at else '',
+            }
+        )
+
+    top_verbs = [{'verb': k, 'count': v} for k, v in sorted(by_verb.items(), key=lambda x: x[1], reverse=True)[:20]]
+    top_labels = [{'label': k, 'count': v} for k, v in sorted(by_label.items(), key=lambda x: x[1], reverse=True)[:20]]
+    top_files = [{'file_name': k, 'count': v} for k, v in sorted(by_file.items(), key=lambda x: x[1], reverse=True)[:20]]
+    top_projects = [{'project_id': k, 'count': v} for k, v in sorted(by_project.items(), key=lambda x: x[1], reverse=True)[:20]]
+
+    return jsonify(
+        {
+            'days': days,
+            'download_count': len(rows_out),
+            'top_verbs': top_verbs,
+            'top_labels': top_labels,
+            'top_files': top_files,
+            'top_projects': top_projects,
+            'recent_downloads': rows_out,
+        }
+    )
+
+
 @app.get(f'{settings.api_prefix}/ops/lexicon-draft')
 @_require_admin
 def ops_lexicon_draft():
@@ -1930,6 +2883,46 @@ def ops_download_local_file():
     return send_file(abs_p, as_attachment=True, download_name=abs_p.name)
 
 
+@app.get(f'{settings.api_prefix}/sfx/file')
+@_require_login
+def download_sfx_file():
+    raw_path = (request.args.get('path') or '').strip()
+    project_id_raw = (request.args.get('project_id') or '').strip()
+    verb = (request.args.get('verb') or '').strip()
+    label = (request.args.get('label') or '').strip()
+    if not raw_path:
+        return jsonify({'detail': 'path is required'}), 400
+    p = Path(raw_path).expanduser()
+    abs_p = p.resolve()
+    sfx_root = Path('./assets/sfx').resolve()
+    try:
+        abs_p.relative_to(sfx_root)
+    except Exception:
+        return jsonify({'detail': 'path must be under assets/sfx'}), 400
+    if not abs_p.exists() or not abs_p.is_file():
+        return jsonify({'detail': 'file not found'}), 404
+    try:
+        project_id = int(project_id_raw) if project_id_raw else None
+    except ValueError:
+        project_id = None
+    with SessionLocal() as db:
+        _log_user_operation(
+            db=db,
+            action='action_sfx_asset_download',
+            project_id=project_id,
+            req={
+                'verb': verb,
+                'label': label,
+                'file_name': abs_p.name,
+                'path': str(abs_p),
+            },
+            resp={'ok': True},
+            file_refs=[str(abs_p)],
+        )
+    return send_file(abs_p, as_attachment=True, download_name=abs_p.name)
+
+
 if __name__ == '__main__':
     Base.metadata.create_all(bind=engine)
+    _ensure_schema_columns()
     app.run(host='0.0.0.0', port=8090, debug=False, use_reloader=False)

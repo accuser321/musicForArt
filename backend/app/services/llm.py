@@ -14,6 +14,7 @@ PROMPT_DIR = Path(__file__).resolve().parent.parent / 'prompts'
 SYSTEM_PROMPT_FILE = ''
 PROMPT_CHAIN_BY_KIND = {
     'audio': ['V3-music_analysis_task.txt', 'V3-music_analysis_task_retry.txt'],
+    'action_verbs': ['V3-action_verbs_task.txt', 'V3-action_verbs_task_retry.txt'],
     'text_analysis': ['V3-text_analysis_task.txt', 'V3-text_analysis_task_retry.txt'],
     'text_with_music': ['V3-text_analysis_task.txt', 'V3-text_analysis_task_retry.txt'],
     'fusion': ['V3-production_analysis_task.txt', 'V3-production_analysis_task_retry.txt'],
@@ -61,16 +62,33 @@ def _extract_json_blob(text: str) -> dict | None:
 
     # 3) Robust path: scan from each '{' and let raw_decode find first valid object
     decoder = json.JSONDecoder()
+    best_obj = None
+    preferred_keys = {
+        'title',
+        'summary',
+        'fit_genres',
+        'risk_genres',
+        'scene_units',
+        'clause_timeline',
+        'fit_with_music',
+        'action_candidates',
+        'qualified_actions',
+        'music_entry_plan',
+        'fit_verdict',
+    }
     for i, ch in enumerate(candidate):
         if ch != '{':
             continue
         try:
             obj, _end = decoder.raw_decode(candidate[i:])
             if isinstance(obj, dict):
-                return obj
+                if preferred_keys.intersection(obj.keys()):
+                    return obj
+                if best_obj is None:
+                    best_obj = obj
         except json.JSONDecodeError:
             continue
-    return None
+    return best_obj
 
 
 def _is_num(v) -> bool:
@@ -142,6 +160,39 @@ def _validate_contract(payload: dict, evidence_kind: str | None) -> tuple[bool, 
             return False, 'mix_notes must be list'
         if not isinstance(payload.get('key_points'), list):
             return False, 'key_points must be list'
+        return True, ''
+
+    if kind == 'action_verbs':
+        required = [
+            'title',
+            'rule_summary',
+            'action_candidates',
+            'key_points',
+            'risks',
+        ]
+        for k in required:
+            if k not in payload:
+                return False, f'missing key: {k}'
+        if not isinstance(payload.get('rule_summary'), list):
+            return False, 'rule_summary must be list'
+        if not isinstance(payload.get('action_candidates'), list):
+            return False, 'action_candidates must be list'
+        for i, row in enumerate(payload.get('action_candidates') or []):
+            if not isinstance(row, dict):
+                return False, f'action_candidates[{i}] must be object'
+            req = [
+                'candidate_no',
+                'verb',
+                'sentence_excerpt',
+                'reason',
+            ]
+            for rk in req:
+                if rk not in row:
+                    return False, f'action_candidates[{i}] missing key: {rk}'
+        if not isinstance(payload.get('key_points'), list):
+            return False, 'key_points must be list'
+        if not isinstance(payload.get('risks'), list):
+            return False, 'risks must be list'
         return True, ''
 
     def _validate_sections_and_structure(obj: dict) -> tuple[bool, str]:
@@ -373,6 +424,8 @@ def _max_tokens_for_kind(evidence_kind: str) -> int:
     kind = (evidence_kind or '').strip().lower()
     if kind == 'audio':
         return max(700, min(base, 1500))
+    if kind == 'action_verbs':
+        return max(700, min(base, 1300))
     if kind == 'text_analysis':
         return max(700, min(base, 1300))
     if kind == 'fusion':
@@ -454,10 +507,24 @@ def _chat_completion(system_prompt: str, user_prompt: str, evidence_kind: str = 
                 time.sleep(0.8)
                 continue
             return None, {'status': 'incomplete_read', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': 'upstream connection closed unexpectedly', 'attempt': attempt}
+        except http.client.RemoteDisconnected:
+            elapsed = int((time.perf_counter() - t0) * 1000)
+            print(f'[LLM RemoteDisconnected] req={req_id} elapsed_ms={elapsed} remote end closed connection without response', file=sys.stderr)
+            if attempt < max_attempts:
+                time.sleep(0.8)
+                continue
+            return None, {'status': 'remote_disconnected', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': 'remote end closed connection without response', 'attempt': attempt}
         except (KeyError, IndexError, json.JSONDecodeError) as e:
             elapsed = int((time.perf_counter() - t0) * 1000)
             print(f'[LLM ParseError] req={req_id} elapsed_ms={elapsed} {type(e).__name__}: {e}', file=sys.stderr)
             return None, {'status': 'parse_error', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': f'{type(e).__name__}: {e}', 'attempt': attempt}
+        except Exception as e:
+            elapsed = int((time.perf_counter() - t0) * 1000)
+            print(f'[LLM UnknownError] req={req_id} elapsed_ms={elapsed} {type(e).__name__}: {e}', file=sys.stderr)
+            if attempt < max_attempts:
+                time.sleep(0.8)
+                continue
+            return None, {'status': 'unknown_exception', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': f'{type(e).__name__}: {e}', 'attempt': attempt}
     return None, {'status': 'unknown_error', 'error': 'llm call failed unexpectedly'}
 
 
@@ -502,6 +569,14 @@ def _output_limits_by_kind(evidence_kind: str) -> str:
             '- summary <= 60 个汉字。\n'
             '- markdown 控制在 450-700 个汉字。\n'
             '- 整体输出禁止冗长重复，避免截断。'
+        )
+    if kind == 'action_verbs':
+        return (
+            '长度硬约束（必须执行）：\n'
+            '- action_candidates 按 raw_text 字数分档：0-1000字<=20，1001-2000字<=35，2001-3500字<=50，3501-5000字<=70，5000字以上<=90。\n'
+            '- key_points<=4，risks<=4。\n'
+            '- sentence_excerpt<=28字，reason<=20字。\n'
+            '- 只保留满足三条规则的人物动作动词，避免把弱相关动词塞满上限。'
         )
     if kind == 'text_analysis':
         return (

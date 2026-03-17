@@ -11,6 +11,7 @@ backend/uploads/*
 backend/exports/*
 !backend/exports/.gitkeep
 backend/*.db
+.local/
 
 # Node
 frontend/node_modules/

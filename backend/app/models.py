@@ -13,6 +13,7 @@ class Project(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
+    genre: Mapped[str] = mapped_column(String(32), nullable=False, default='玄幻')
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
@@ -162,3 +163,37 @@ class DailyUsage(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class ActionSupplementTask(Base):
+    __tablename__ = 'action_supplement_task'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(Integer, index=True, nullable=True)
+    user_phone: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='')
+    genre: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='')
+    verb: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    target_head: Mapped[str] = mapped_column(String(64), index=True, nullable=False, default='')
+    target_genre: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='')
+    sentence_excerpt: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    semantic_terms_json: Mapped[str] = mapped_column(Text, nullable=False, default='[]')
+    sfx_terms_json: Mapped[str] = mapped_column(Text, nullable=False, default='[]')
+    missing_sfx_terms_json: Mapped[str] = mapped_column(Text, nullable=False, default='[]')
+    status: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='pending')
+    asset_label: Mapped[str] = mapped_column(String(128), nullable=False, default='')
+    asset_file_path: Mapped[str] = mapped_column(String(1024), nullable=False, default='')
+    notified_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class ActionSupplementAsset(Base):
+    __tablename__ = 'action_supplement_asset'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    supplement_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    asset_label: Mapped[str] = mapped_column(String(128), index=True, nullable=False, default='')
+    asset_file_path: Mapped[str] = mapped_column(String(1024), nullable=False, default='')
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)

@@ -114,6 +114,50 @@
         background: #fffdf7;
         margin-right: 6px;
       }
+      .term-state-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 4px;
+      }
+      .term-state {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #fff;
+        font-size: 12px;
+      }
+      .term-state.pending {
+        border-color: #c8a65c;
+        background: #fff7e8;
+        color: #6c5326;
+      }
+      .term-state.covered {
+        border-color: #78b08b;
+        background: #eefaf2;
+        color: #2f6240;
+      }
+      .term-icon {
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .term-state.pending .term-icon {
+        background: #d2b168;
+        color: #fff;
+      }
+      .term-state.covered .term-icon {
+        background: #4f9b69;
+        color: #fff;
+      }
       .music-hero {
         background: linear-gradient(120deg, #fff8ee 0%, #fff2dc 100%);
         border: 1px solid #d6b684;
@@ -149,11 +193,17 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
       }
+      .action-graph-cards {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
       .section-card {
         background: #fffdfa;
         border: 1px solid var(--line);
         border-radius: 10px;
         padding: 10px;
+        overflow: hidden;
       }
       .section-head {
         display: flex;
@@ -171,6 +221,126 @@
       .kv-lite {
         font-size: 13px;
         margin: 3px 0;
+      }
+      .view-switch {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+      }
+      .view-chip {
+        width: auto;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 6px 12px;
+        background: #fff;
+        color: #3b4a5f;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .view-chip.active {
+        background: linear-gradient(90deg, #fff4de, #eefaf6);
+        border-color: #c7a55b;
+        color: #2b3c4e;
+      }
+      .graph-browser {
+        background: linear-gradient(180deg, #fffdf9 0%, #fbf8f1 100%);
+        border: 1px solid #d9d0be;
+        border-radius: 12px;
+        padding: 12px;
+      }
+      .graph-browser + .graph-browser {
+        margin-top: 10px;
+      }
+      .graph-stage {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+        align-items: stretch;
+      }
+      .graph-lane-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .graph-lane {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px;
+      }
+      .graph-lane h5 {
+        margin: 0 0 8px;
+        font-size: 13px;
+        color: #66788f;
+      }
+      .graph-center {
+        background: linear-gradient(180deg, #fff6e7 0%, #f4fff9 100%);
+        border: 1px solid #cfb06c;
+        border-radius: 16px;
+        padding: 14px;
+        text-align: center;
+        max-width: 100%;
+      }
+      .graph-node {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 8px 10px;
+        background: #fffdfa;
+        margin-bottom: 8px;
+      }
+      .graph-node.direct { border-color: #7bb3d9; }
+      .graph-node.composite { border-color: #86c8a8; }
+      .graph-node.semantic { border-color: #d8c28a; }
+      .graph-node .node-name {
+        font-weight: 700;
+        font-size: 13px;
+      }
+      .graph-node .node-meta {
+        font-size: 11px;
+        color: #708198;
+        margin-top: 4px;
+      }
+      .asset-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .asset-card {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px;
+      }
+      .asset-name {
+        font-weight: 700;
+        font-size: 13px;
+      }
+      .asset-meta {
+        color: #6a7b8f;
+        font-size: 11px;
+        line-height: 1.5;
+        margin-top: 4px;
+      }
+      .explain-box {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fff;
+        padding: 10px;
+        margin-top: 10px;
+      }
+      .explain-box h5 {
+        margin: 0 0 8px;
+        font-size: 13px;
+        color: #66788f;
+      }
+      .reason-list {
+        margin: 0;
+        padding-left: 18px;
+        color: #425467;
+        font-size: 13px;
+        line-height: 1.6;
       }
       .map-table {
         width: 100%;
@@ -222,15 +392,20 @@
       @media (max-width: 900px) {
         .music-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .section-cards { grid-template-columns: 1fr; }
+        .graph-lane-row { grid-template-columns: 1fr; }
       }
       @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
     </style>
   </head>
   <body>
     <div class="wrap">
-      <h1>Audiobook AI Studio · MVP 验证台</h1>
+      <h1>Music For Art · 用户创作台</h1>
       <div class="grid">
         <section class="card">
+          <div class="hint" style="margin-bottom:10px;">
+            用户入口：手机号验证码登录后，完成音乐分析、动作提取、动作图谱推荐、文本演绎分析与下载。
+            运营入口请使用 <a href="/admin.html" style="color:#7de8ff;">后台管理系统</a>。
+          </div>
           <label>API 地址</label>
           <input id="apiBase" value="http://127.0.0.1:8090/api" />
 
@@ -245,8 +420,15 @@
 
           <label>项目标题</label>
           <input id="projectTitle" value="玄武战役教学样例" />
+          <label>内容赛道</label>
+          <select id="projectGenre">
+            <option value="玄幻" selected>玄幻</option>
+            <option value="言情">言情</option>
+            <option value="悬疑">悬疑</option>
+            <option value="科幻">科幻</option>
+          </select>
           <button onclick="createProject()">1) 创建项目</button>
-          <p class="hint">当前项目ID: <span id="projectId">-</span></p>
+          <p class="hint">当前项目ID: <span id="projectId">-</span> ｜ 当前赛道: <span id="projectGenreState">-</span></p>
 
           <label>报告模式</label>
           <select id="reportMode">
@@ -265,51 +447,21 @@
 
           <label>上传演绎音频（第3步必传）</label>
           <input id="narrationFile" type="file" accept="audio/*" />
-          <button onclick="analyzeTextNarration()">3) 文本分析+演绎时间轴</button>
+          <button onclick="analyzeActionVerbs()">3) 人物动作提取</button>
+          <button onclick="buildActionSfxGraph()">3.5) 动作图谱推荐</button>
+          <button onclick="buildActionGraphDraft()">3.6) 动作补充单</button>
+          <button onclick="analyzeTextNarration()">4) 文本分析+演绎时间轴</button>
 
-          <button onclick="buildFusion()">4) 生成融合执行单</button>
-          <button onclick="directorAdvise()">4.5) 导演建议（统一汇总）</button>
-          <button onclick="fetchReport()">5) 拉取完整报告</button>
-          <button onclick="downloadCueCsv()">6) 下载 Cue CSV</button>
-          <button onclick="downloadSfxZip()">7) 下载 SFX ZIP</button>
-
-          <label>图谱推理词</label>
-          <input id="graphTerm" value="脚步声" />
-          <button onclick="graphReason()">8) 图谱推理</button>
-          <button onclick="graphStatus()">9) 图谱状态</button>
-          <button onclick="graphDashboard()">10) 图谱看板</button>
-          <button onclick="opsFunnel()">11) 漏斗指标</button>
-          <button onclick="opsRecommend()">12) 优化建议</button>
-          <button onclick="opsLexiconDraft()">13) 生成词典草稿</button>
-          <button onclick="opsLexiconDraftApplyMerge()">14) 应用词典草稿(merge)</button>
-          <button onclick="opsLexiconDraftApplyHighConf()">15) 应用高置信草稿(>=0.45)</button>
-          <button onclick="opsLexiconDraftApplyManual()">16) 按勾选候选应用</button>
-          <button onclick="markSelectedDraftRejected()">17) 标记勾选为拒绝</button>
-          <button onclick="markSelectedDraftApproved()">18) 标记勾选为通过</button>
+          <button onclick="buildFusion()">5) 生成融合执行单</button>
+          <button onclick="fetchReport()">6) 拉取完整报告</button>
+          <button onclick="downloadCueCsv()">7) 下载 Cue CSV</button>
+          <button onclick="downloadSfxZip()">8) 下载 SFX ZIP</button>
         </section>
 
         <section class="card">
           <h3>结果展示（中文）</h3>
           <div id="prettyOutput" class="pretty">等待操作...</div>
-          <div id="rawUserView" class="pretty" style="display:none;">等待操作...</div>
-          <details>
-            <summary>原始响应（调试）</summary>
-            <pre id="output">等待操作...</pre>
-          </details>
           <div id="busyTip" class="busy" style="display:none;">处理中，请稍候...</div>
-          <div class="review">
-            <h4>LLM 调试窗口（Prompt I/O）</h4>
-            <div id="llmDebugBox" class="hint">执行分析后可查看调用输入与输出。</div>
-          </div>
-          <div class="review" id="draftReview">
-            <h4>词典草稿审核区</h4>
-            <div class="hint">先点击“13) 生成词典草稿”，再在此勾选候选词应用。</div>
-            <div class="review-actions">
-              <button onclick="selectAllDraftItems(true)">全选</button>
-              <button onclick="selectAllDraftItems(false)">全不选</button>
-            </div>
-            <div id="draftReviewTable"></div>
-          </div>
         </section>
       </div>
     </div>
@@ -317,9 +469,19 @@
     <script>
       let projectId = null;
       let latestLexiconDraft = null;
+      let latestActionVerbData = null;
+      let latestActionSfxData = null;
+      let latestActionGraphDraftData = null;
+      let latestActionGraphExplanation = null;
       let uiBusy = false;
       let authToken = localStorage.getItem('mfa_auth_token') || '';
       let authPhone = localStorage.getItem('mfa_auth_phone') || '';
+      const ACTION_PROMPT_BY_GENRE = {
+        '玄幻': 'V3-action_verbs_xuanhuan_task.txt',
+        '言情': 'V3-action_verbs_yanqing_task.txt',
+        '悬疑': 'V3-action_verbs_xuanyi_task.txt',
+        '科幻': 'V3-action_verbs_kehuan_task.txt',
+      };
 
       function sanitizeText(s) {
         return String(s ?? '')
@@ -462,12 +624,16 @@
 
       function show(data) {
         const normalized = normalizePayload(data);
-        document.getElementById('output').textContent = typeof normalized === 'string' ? normalized : JSON.stringify(normalized, null, 2);
+        const outputBox = document.getElementById('output');
+        if (outputBox) {
+          outputBox.textContent = typeof normalized === 'string' ? normalized : JSON.stringify(normalized, null, 2);
+        }
         renderPretty(normalized);
       }
 
       function renderLlmDebug(data) {
         const box = document.getElementById('llmDebugBox');
+        if (!box) return;
         const trace = data && data.llm_trace;
         if (!Array.isArray(trace) || !trace.length) {
           box.textContent = '本次没有LLM调试追踪（可能命中规则降级或LLM未启用）。';
@@ -490,6 +656,7 @@
               <div><strong>Task Prompt</strong><pre>${escHtml(t.task_prompt || '')}</pre></div>
               <div><strong>System Prompt</strong><pre>${escHtml(t.system_prompt || '')}</pre></div>
               <div><strong>User Prompt</strong><pre>${escHtml(t.user_prompt || '')}</pre></div>
+              <div class="hint" style="margin:6px 0;">以下 Raw Response 为 <strong>LLM 原始输出</strong>，未经过系统补充与派生。</div>
               ${rawBlock}
               <div><strong>Contract</strong> ${contractText}</div>
             </details>
@@ -536,6 +703,62 @@
           };
         }
         return { parsed: null, raw: '', prompt_file: '', status: '' };
+      }
+
+      function extractRawResponsePayloads(data) {
+        const trace = Array.isArray(data && data.llm_trace) ? data.llm_trace : [];
+        const out = [];
+        for (let i = 0; i < trace.length; i += 1) {
+          const t = trace[i] || {};
+          const raw = sanitizeText(t.raw_response || '');
+          const parsed = raw ? (parseJsonLoose(raw) || extractFirstJsonObject(raw)) : null;
+          out.push({
+            parsed: (parsed && typeof parsed === 'object') ? parsed : null,
+            raw,
+            prompt_file: t.prompt_file || '',
+            status: (t.call_meta || {}).status || '',
+            contract_valid: t.contract_valid,
+          });
+        }
+        return out;
+      }
+
+      function getBestActionVerbReport(data) {
+        const mergedReport = data && data.report_json && typeof data.report_json === 'object' ? data.report_json : null;
+        if (mergedReport && Array.isArray(mergedReport.action_candidates)) {
+          return {
+            report: mergedReport,
+            source: (data.segmentation && data.segmentation.mode === 'segmented') ? '系统合并结果' : '接口最终report_json',
+            prompt_file: data.effective_prompt_file || '',
+            status: 'ok',
+            contract_valid: true,
+            raw: '',
+            effective_prompt_file: data && data.effective_prompt_file ? data.effective_prompt_file : '',
+            genre: data && data.genre ? data.genre : (mergedReport && mergedReport.genre ? mergedReport.genre : ''),
+            segmentation: data && data.segmentation ? data.segmentation : null,
+            segment_reports: Array.isArray(data && data.segment_reports) ? data.segment_reports : [],
+          };
+        }
+        const payloads = extractRawResponsePayloads(data);
+        for (let i = 0; i < payloads.length; i += 1) {
+          const item = payloads[i];
+          const rawObj = item && item.parsed && typeof item.parsed === 'object' ? item.parsed : null;
+          if (rawObj) {
+            return {
+              report: rawObj,
+              source: `LLM调用${i + 1}`,
+              prompt_file: item.prompt_file || '',
+              status: item.status || '',
+              contract_valid: item.contract_valid,
+              raw: item.raw || '',
+              effective_prompt_file: data && data.effective_prompt_file ? data.effective_prompt_file : '',
+              genre: data && data.genre ? data.genre : (rawObj && rawObj.genre ? rawObj.genre : ''),
+              segmentation: data && data.segmentation ? data.segmentation : null,
+              segment_reports: Array.isArray(data && data.segment_reports) ? data.segment_reports : [],
+            };
+          }
+        }
+        return null;
       }
 
       function renderKvValue(v) {
@@ -610,6 +833,31 @@
         const arr = Array.isArray(items) ? items.filter(Boolean) : [];
         if (!arr.length) return '<span class="hint">无</span>';
         return arr.map(x => `<span class="pill">${escHtml(String(x))}</span>`).join('');
+      }
+
+      function renderSfxBuckets(children, fallbackTerms, fallbackMissingTerms) {
+        const direct = Array.isArray(children && children.direct_sfx_terms) ? children.direct_sfx_terms : [];
+        const composite = Array.isArray(children && children.composite_sfx_terms) ? children.composite_sfx_terms : [];
+        const missingDirect = Array.isArray(children && children.missing_direct_sfx_terms) ? children.missing_direct_sfx_terms : [];
+        const missingComposite = Array.isArray(children && children.missing_composite_sfx_terms) ? children.missing_composite_sfx_terms : [];
+        const covered = Array.isArray(children && children.covered_sfx_terms) ? children.covered_sfx_terms : [];
+        const coveredSet = new Set(covered.map(x => String(x).trim()).filter(Boolean));
+        const renderStateTerms = (arr, compositeMode = false) => {
+          if (!arr.length) return '<span class="hint">无</span>';
+          return `<div class="term-state-list">${arr.map(term => {
+            const t = String(term || '').trim();
+            const isCovered = coveredSet.has(t);
+            return `<span class="term-state ${isCovered ? 'covered' : 'pending'}"><span class="term-icon">${isCovered ? '✓' : '?'}</span>${escHtml(t)}${compositeMode ? '（组合）' : ''}</span>`;
+          }).join('')}</div>`;
+        };
+        const directHtml = direct.length ? `<div><span class="hint">直达音效</span><div>${renderPills(direct)}</div></div>` : '';
+        const compositeHtml = composite.length ? `<div style="margin-top:6px;"><span class="hint">组合音效</span><div>${renderPills(composite.map(x => `${x}（组合）`))}</div></div>` : '';
+        const missingDirectHtml = direct.length ? `<div><span class="hint">待补直达音效</span>${renderStateTerms(direct, false)}</div>` : '';
+        const missingCompositeHtml = composite.length ? `<div style="margin-top:6px;"><span class="hint">待补组合音效</span>${renderStateTerms(composite, true)}</div>` : '';
+        return {
+          all: directHtml || compositeHtml ? `${directHtml}${compositeHtml}` : renderPills(fallbackTerms || []),
+          missing: missingDirectHtml || missingCompositeHtml ? `${missingDirectHtml}${missingCompositeHtml}` : renderPills(fallbackMissingTerms || []),
+        };
       }
 
       function renderMusicAnalysisPanels(data, report, panel) {
@@ -705,6 +953,264 @@
         return blocks;
       }
 
+      function renderActionVerbPanels(report, panel, meta) {
+        const blocks = [];
+        const candidates = Array.isArray(report.action_candidates) ? report.action_candidates : [];
+        const qualified = Array.isArray(report.qualified_actions) ? report.qualified_actions : [];
+        const rules = Array.isArray(report.rule_summary) ? report.rule_summary : [];
+        if (meta && typeof meta === 'object') {
+          const contractText = meta.contract_valid === true ? '通过' : (meta.contract_valid === false ? '不通过' : '未校验');
+          blocks.push(panel('当前展示来源', `
+            <div class="kv"><div>数据来源</div><div>${escHtml(meta.source || '-')}</div></div>
+            <div class="kv"><div>提示词文件</div><div>${escHtml(meta.prompt_file || '-')}</div></div>
+            <div class="kv"><div>赛道</div><div>${escHtml((report && report.genre) || meta.genre || '-')}</div></div>
+            <div class="kv"><div>最终命中Prompt</div><div>${escHtml(meta.effective_prompt_file || meta.prompt_file || '-')}</div></div>
+            <div class="kv"><div>调用状态</div><div>${escHtml(meta.status || '-')}</div></div>
+            <div class="kv"><div>Contract</div><div>${escHtml(contractText)}</div></div>
+          `));
+          if (meta.segmentation && typeof meta.segmentation === 'object') {
+            const sg = meta.segmentation;
+            blocks.push(panel('分段分析状态', `
+              <div class="kv"><div>模式</div><div>${escHtml(sg.mode === 'segmented' ? '自动分段分析' : '单次分析')}</div></div>
+              <div class="kv"><div>总字数</div><div>${sg.total_text_length ?? '-'}</div></div>
+              <div class="kv"><div>分段数</div><div>${sg.segment_count ?? '-'}</div></div>
+              <div class="kv"><div>单次安全阈值</div><div>${sg.single_pass_safe_chars ?? '-'} 字</div></div>
+              <div class="kv"><div>目标分段长度</div><div>${sg.segment_target_chars ?? '-'} 字</div></div>
+            `));
+          }
+        }
+        blocks.push(panel('人物动作判定规则', `<ul>${rules.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`));
+        blocks.push(panel('提取结果概览', `
+          <div class="kv"><div>候选动词数</div><div>${candidates.length}</div></div>
+          <div class="kv"><div>需做动作音效</div><div>${qualified.length}</div></div>
+          <div class="kv"><div>功能标题</div><div>${escHtml(report.title || '人物动作动词提取')}</div></div>
+        `));
+        if (candidates.length) {
+          const rows = candidates.map(r => `<tr>
+            <td>${r.candidate_no ?? '-'}</td>
+            <td>${escHtml(r.verb || '')}</td>
+            <td>${escHtml(r.sentence_excerpt || '')}</td>
+          </tr>`).join('');
+          blocks.push(panel('人物动作动词明细', `<table class="table-lite"><thead><tr><th>#</th><th>动词</th><th>原句片段</th></tr></thead><tbody>${rows}</tbody></table>`));
+        }
+        if (qualified.length) {
+          const rows = qualified.map((r, idx) => `<tr>
+            <td>${idx + 1}</td>
+            <td>${escHtml(r.verb || '')}</td>
+            <td>${escHtml(r.sentence_excerpt || '')}</td>
+          </tr>`).join('');
+          blocks.push(panel('通过规则的动作动词', `<table class="table-lite"><thead><tr><th>#</th><th>动词</th><th>原句片段</th></tr></thead><tbody>${rows}</tbody></table>`));
+        }
+        if (Array.isArray(report.key_points) && report.key_points.length) {
+          blocks.push(panel('关键结论', `<ul>${report.key_points.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`));
+        }
+        if (Array.isArray(report.risks) && report.risks.length) {
+          blocks.push(panel('复核提醒', `<ul>${report.risks.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`));
+        }
+        if (report.markdown) {
+          blocks.push(panel('模型完整说明', `<div class="md">${mdToHtml(report.markdown)}</div>`));
+        }
+        const segReports = meta && Array.isArray(meta.segment_reports) ? meta.segment_reports : [];
+        if (segReports.length > 1) {
+          const rows = segReports.map(seg => {
+            const segReport = seg.report_json || {};
+            const count = Array.isArray(segReport.action_candidates) ? segReport.action_candidates.length : 0;
+            return `<tr>
+              <td>${seg.segment_no ?? '-'}</td>
+              <td>${seg.start_char ?? '-'} ~ ${seg.end_char ?? '-'}</td>
+              <td>${seg.text_length ?? '-'}</td>
+              <td>${count}</td>
+              <td>${escHtml(seg.effective_prompt_file || '-')}</td>
+            </tr>`;
+          }).join('');
+          blocks.push(panel('分段明细（系统逐段调用后合并）', `<table class="table-lite"><thead><tr><th>段号</th><th>字符区间</th><th>段字数</th><th>候选数</th><th>Prompt</th></tr></thead><tbody>${rows}</tbody></table>`));
+        }
+        if (!candidates.length && !qualified.length) {
+          blocks.push(panel('LLM 原始结构化结果', `<pre>${escHtml(JSON.stringify(report, null, 2))}</pre>`));
+        }
+        return blocks;
+      }
+
+      function renderActionGraphPanels(data, panel) {
+        const blocks = [];
+        const items = Array.isArray(data.graph_items) ? data.graph_items : [];
+        const summary = data.summary || {};
+        const gapSummary = data.asset_gap_summary || {};
+        const gapItems = Array.isArray(gapSummary.gap_items) ? gapSummary.gap_items : [];
+        const renderGraphNodes = (arr, kind, suffix = '') => {
+          if (!Array.isArray(arr) || !arr.length) return '<div class="hint">暂无</div>';
+          return arr.map(x => `
+            <div class="graph-node ${kind}">
+              <div class="node-name">${escHtml(x)}${suffix}</div>
+              <div class="node-meta">${kind === 'direct' ? '直达音效' : kind === 'composite' ? '组合音效' : '语义关联'}</div>
+            </div>
+          `).join('');
+        };
+        blocks.push(panel('动作图谱总览', `
+          <div class="kv"><div>赛道</div><div>${escHtml(data.genre || '-')}</div></div>
+          <div class="kv"><div>动作词数</div><div>${summary.verb_count ?? items.length}</div></div>
+          <div class="kv"><div>命中素材数</div><div>${summary.asset_count ?? 0}</div></div>
+          <div class="kv"><div>素材缺口词数</div><div>${summary.gap_count ?? gapItems.length}</div></div>
+        `));
+        const cards = items.map(item => {
+          const assets = Array.isArray(item.assets) ? item.assets : [];
+          const parentNode = item.parent_node || {};
+          const childNode = item.children || {};
+          const graphSource = item.graph_source || {};
+          const sfxBuckets = renderSfxBuckets(
+            childNode,
+            childNode.sfx_terms || item.sfx_terms || [],
+            childNode.missing_sfx_terms || item.missing_sfx_terms || []
+          );
+          const whyReasons = [
+            `父节点命中：${(parentNode.genre || data.genre || '-') + ' -> ' + (parentNode.verb_head || item.verb || '-')}`,
+            graphSource
+              ? `图谱来源：通用层${graphSource.common_hit ? '命中' : '未命中'}，赛道层${graphSource.genre_hit ? '命中' : '未命中'}`
+              : '图谱来源：未标注',
+            (childNode.semantic_terms || item.semantic_terms || []).length
+              ? `语义扩展：${(childNode.semantic_terms || item.semantic_terms || []).join('、')}`
+              : '语义扩展：暂无',
+            (childNode.direct_sfx_terms || []).length
+              ? `直达音效边：${(childNode.direct_sfx_terms || []).join('、')}`
+              : '直达音效边：暂无',
+            (childNode.composite_sfx_terms || []).length
+              ? `组合音效边：${(childNode.composite_sfx_terms || []).map(x => `${x}（组合）`).join('、')}`
+              : '组合音效边：暂无',
+            item.reason ? `推荐判断：${item.reason}` : '',
+          ].filter(Boolean);
+          const assetRows = assets.length
+            ? assets.map((a, idx) => `
+                <tr>
+                  <td>${idx + 1}</td>
+                  <td>${escHtml(a.display_name || a.label || '')}</td>
+                  <td>${escHtml(a.file_name || '')}</td>
+                  <td>${a.score ?? '-'}</td>
+                  <td><button onclick="downloadActionSfxAsset('${escAttr(item.verb || '')}','${escAttr(a.label || '')}','${escAttr(a.file_name || 'sfx.bin')}','${escAttr(a.download_api || '')}')">下载</button></td>
+                </tr>
+              `).join('')
+            : `<tr><td colspan="5" class="hint">当前没有命中素材</td></tr>`;
+          const graphHtml = `
+            <div class="graph-browser">
+              <div class="graph-stage">
+                <div class="graph-center">
+                  <div style="font-size:17px; font-weight:700;">${escHtml((parentNode.verb_head || item.verb || '动作词'))}</div>
+                  <div class="asset-meta" style="margin-top:6px;">父节点：${escHtml((parentNode.genre || data.genre || '-') + '::' + (parentNode.verb_head || item.verb || '-'))}</div>
+                  <div class="asset-meta" style="margin-top:6px;">原句：${escHtml(item.sentence_excerpt || '无')}</div>
+                  <div class="asset-meta" style="margin-top:6px;">推荐判断：${escHtml(item.reason || '图谱推荐')}</div>
+                  <div class="status-bar" style="justify-content:center; margin-top:10px;">
+                    <span class="badge">直达 ${escHtml((childNode.direct_sfx_terms || []).length)}</span>
+                    <span class="badge">组合 ${escHtml((childNode.composite_sfx_terms || []).length)}</span>
+                    <span class="badge">缺口 ${escHtml(((childNode.missing_sfx_terms || item.missing_sfx_terms || []).length))}</span>
+                  </div>
+                </div>
+                <div class="graph-lane-row">
+                  <div class="graph-lane">
+                    <h5>语义子级</h5>
+                    ${renderGraphNodes(childNode.semantic_terms || item.semantic_terms || [], 'semantic')}
+                  </div>
+                  <div class="graph-lane">
+                    <h5>直达音效</h5>
+                    ${renderGraphNodes(childNode.direct_sfx_terms || [], 'direct')}
+                    <h5 style="margin-top:10px;">组合音效</h5>
+                    ${renderGraphNodes(childNode.composite_sfx_terms || [], 'composite', '（组合）')}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="explain-box">
+              <h5>为什么推荐这些音效</h5>
+              <ul class="reason-list">
+                ${whyReasons.map(x => `<li>${escHtml(x)}</li>`).join('')}
+              </ul>
+            </div>
+          `;
+          return `
+            <article class="section-card">
+              <div class="section-head">
+                <strong>${escHtml(item.verb || '动作词')}</strong>
+                <span class="badge">${escHtml(item.reason || '图谱推荐')}</span>
+              </div>
+              <div class="view-switch">
+                <button class="view-chip active" type="button" onclick="toggleActionGraphView('${escAttr(item.verb || '')}', 'list', this)">列表视图</button>
+                <button class="view-chip" type="button" onclick="toggleActionGraphView('${escAttr(item.verb || '')}', 'graph', this)">图谱视图</button>
+              </div>
+              <div id="actionGraphList_${escAttr(item.verb || '')}">
+                <div class="kv-lite">父级节点：${escHtml((parentNode.genre || data.genre || '-') + ' -> ' + (parentNode.verb_head || item.verb || '-'))}</div>
+                <div class="kv-lite">原句片段：${escHtml(item.sentence_excerpt || '无')}</div>
+                <div class="kv-lite">图谱命中：${escHtml(
+                  graphSource
+                    ? `通用层=${graphSource.common_hit ? '是' : '否'} / 赛道层=${graphSource.genre_hit ? '是' : '否'}`
+                    : '未标注'
+                )}</div>
+                <div class="kv-lite">子级语义：${renderPills(childNode.semantic_terms || item.semantic_terms || [])}</div>
+                <div class="kv-lite">子级音效：${sfxBuckets.all}</div>
+                <div class="kv-lite">待补子级音效：${sfxBuckets.missing}</div>
+                <div class="explain-box">
+                  <h5>为什么推荐这些音效</h5>
+                  <ul class="reason-list">
+                    ${whyReasons.map(x => `<li>${escHtml(x)}</li>`).join('')}
+                  </ul>
+                </div>
+                <table class="table-lite" style="margin-top:8px;">
+                  <thead><tr><th>#</th><th>命中词</th><th>素材</th><th>分数</th><th>下载</th></tr></thead>
+                  <tbody>${assetRows}</tbody>
+                </table>
+              </div>
+              <div id="actionGraphGraph_${escAttr(item.verb || '')}" style="display:none;">
+                ${graphHtml}
+              </div>
+            </article>
+          `;
+        }).join('');
+        blocks.push(panel('动作词 -> 语义扩展 -> 音效素材', `<div class="action-graph-cards">${cards || '<div class="hint">暂无图谱结果</div>'}</div>`));
+        if (gapItems.length) {
+          const rows = gapItems.map((g, idx) => `<tr>
+            <td>${idx + 1}</td>
+            <td>${escHtml(g.sfx_term || '')}</td>
+            <td>${escHtml((g.verbs || []).join('、') || '无')}</td>
+            <td>${escHtml((g.examples || []).slice(0, 2).join('；') || '无')}</td>
+            <td>${g.missing_count ?? 0}</td>
+          </tr>`).join('');
+          blocks.push(panel('素材缺口面板', `<table class="table-lite"><thead><tr><th>#</th><th>缺口音效词</th><th>关联动作词</th><th>示例片段</th><th>出现次数</th></tr></thead><tbody>${rows}</tbody></table>`));
+        }
+        return blocks;
+      }
+
+      function toggleActionGraphView(key, mode, btn) {
+        const safe = String(key || '');
+        const list = document.getElementById(`actionGraphList_${safe}`);
+        const graph = document.getElementById(`actionGraphGraph_${safe}`);
+        if (!list || !graph) return;
+        list.style.display = mode === 'list' ? '' : 'none';
+        graph.style.display = mode === 'graph' ? '' : 'none';
+        const root = btn && btn.parentElement;
+        if (root) root.querySelectorAll('.view-chip').forEach(x => x.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+      }
+
+      function renderActionGraphDraftPanels(data, panel) {
+        const blocks = [];
+        const items = Array.isArray(data.draft_items) ? data.draft_items : [];
+        blocks.push(panel('动作补充单总览', `
+          <div class="kv"><div>赛道</div><div>${escHtml(data.genre || '-')}</div></div>
+          <div class="kv"><div>草稿数量</div><div>${data.draft_count ?? items.length}</div></div>
+        `));
+        if (items.length) {
+          const rows = items.map((it, idx) => `<tr>
+            <td>${idx + 1}</td>
+            <td>${escHtml(it.verb || '')}</td>
+            <td>${escHtml(it.target_head || '')}</td>
+            <td>${escHtml(it.target_bucket || '')}${it.target_genre ? `/${escHtml(it.target_genre)}` : ''}</td>
+            <td>${it.confidence ?? '-'}</td>
+            <td>${escHtml((it.semantic_terms || []).join('、') || '无')}</td>
+            <td>${escHtml((((it.sfx_terms_classified || {}).display_terms) || it.sfx_terms || []).join('、') || '无')}</td>
+            <td>${escHtml((((it.missing_sfx_terms_classified || {}).display_terms) || it.missing_sfx_terms || []).join('、') || '无')}</td>
+          </tr>`).join('');
+          blocks.push(panel('动作补充单明细', `<table class="table-lite"><thead><tr><th>#</th><th>动作词</th><th>建议头词</th><th>写入位置</th><th>置信度</th><th>语义词</th><th>推荐音效词</th><th>缺口词</th></tr></thead><tbody>${rows}</tbody></table>`));
+        }
+        return blocks;
+      }
+
       function renderPretty(data) {
         const box = document.getElementById('prettyOutput');
         if (typeof data === 'string') {
@@ -724,7 +1230,12 @@
         const blocks = [];
         const panel = (title, inner) => `<section class="panel"><h4>${escHtml(title)}</h4>${inner}</section>`;
         const report = data.report_json && typeof data.report_json === 'object' ? data.report_json : null;
+        const actionVerbSelection = getBestActionVerbReport(data);
+        const actionVerbReport = actionVerbSelection ? actionVerbSelection.report : null;
         const userView = (report && Object.keys(report).length) ? report : null;
+        const isActionVerbResult = Boolean(actionVerbReport && typeof actionVerbReport === 'object');
+        const isActionGraphResult = Boolean(Array.isArray(data.graph_items));
+        const isActionGraphDraftResult = Boolean(Array.isArray(data.draft_items));
         const fallbackMusicReport = {
           title: '音乐分析结果',
           summary: typeof data.report_markdown === 'string' ? data.report_markdown.split('\n').slice(0, 3).join(' ').trim() : '',
@@ -749,6 +1260,15 @@
 
         if (isMusicResult) {
           blocks.push(...renderMusicAnalysisPanels(data, userView || fallbackMusicReport, panel));
+        }
+        if (isActionVerbResult) {
+          blocks.push(...renderActionVerbPanels(actionVerbReport, panel, actionVerbSelection));
+        }
+        if (isActionGraphResult) {
+          blocks.push(...renderActionGraphPanels(data, panel));
+        }
+        if (isActionGraphDraftResult) {
+          blocks.push(...renderActionGraphDraftPanels(data, panel));
         }
         if (data.text && data.narration) {
           const sceneCount = Array.isArray(data.text.scenes) ? data.text.scenes.length : 0;
@@ -781,13 +1301,13 @@
             </div>
           `);
         }
-        if (!isMusicResult && userView && userView.title) {
+        if (!isMusicResult && !isActionVerbResult && userView && userView.title) {
           blocks.push(panel('文本分析标题', `<div class="kv"><div>标题</div><div>${escHtml(userView.title)}</div></div>`));
         }
-        if (!isMusicResult && userView && userView.text_theme) {
+        if (!isMusicResult && !isActionVerbResult && userView && userView.text_theme) {
           blocks.push(panel('文本主情绪与叙事方向', `<div>${escHtml(userView.text_theme)}</div>`));
         }
-        const fitTextFromReport = !isMusicResult && userView && typeof userView.fit_with_music === 'object' ? userView.fit_with_music : null;
+        const fitTextFromReport = !isMusicResult && !isActionVerbResult && userView && typeof userView.fit_with_music === 'object' ? userView.fit_with_music : null;
         if (fitTextFromReport) {
           const score = Number(fitTextFromReport.score || 0);
           const verdict = fitTextFromReport.verdict || '未判定';
@@ -820,7 +1340,7 @@
           `));
         }
 
-        const sceneUnits = !isMusicResult && userView && Array.isArray(userView.scene_units) ? userView.scene_units : [];
+        const sceneUnits = !isMusicResult && !isActionVerbResult && userView && Array.isArray(userView.scene_units) ? userView.scene_units : [];
         if (sceneUnits.length) {
           const rows = sceneUnits.map(s => `<tr>
             <td>${s.scene_no ?? '-'}</td>
@@ -838,11 +1358,11 @@
           blocks.push(panel('场景分析（面向创作）', `<table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>原文片段</th><th>主情绪</th><th>情绪变化</th><th>动作标签</th><th>强度</th><th>音乐需求</th><th>进入建议</th><th>退出建议</th><th>音效词</th></tr></thead><tbody>${rows}</tbody></table>`));
         }
 
-        const keyPoints = (!isMusicResult && userView && Array.isArray(userView.key_points)) ? userView.key_points : [];
+        const keyPoints = (!isMusicResult && !isActionVerbResult && userView && Array.isArray(userView.key_points)) ? userView.key_points : [];
         if (keyPoints.length) {
           blocks.push(panel('关键结论', `<ul>${keyPoints.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`));
         }
-        if (!isMusicResult && userView && userView.structure_logic && typeof userView.structure_logic === 'object') {
+        if (!isMusicResult && !isActionVerbResult && userView && userView.structure_logic && typeof userView.structure_logic === 'object') {
           const sl = userView.structure_logic;
           blocks.push(panel('乐段结构规律', `
             <div class="kv"><div>结构猜测</div><div>${escHtml(sl.pattern_guess || '未识别')}</div></div>
@@ -850,7 +1370,7 @@
             <div class="kv"><div>证据</div><div>${escHtml((sl.evidence || []).join('；') || '无')}</div></div>
           `));
         }
-        if (!isMusicResult && userView && Array.isArray(userView.sections) && userView.sections.length) {
+        if (!isMusicResult && !isActionVerbResult && userView && Array.isArray(userView.sections) && userView.sections.length) {
           const rows = userView.sections.map(s => `<tr>
             <td>${s.section_no ?? '-'}</td>
             <td>${escHtml(s.section_type || '')}</td>
@@ -864,7 +1384,7 @@
           blocks.push(panel('乐段与配器递进', `<table class="table-lite"><thead><tr><th>序号</th><th>类型</th><th>标签</th><th>时间(秒)</th><th>配器</th><th>新增配器</th><th>能量级</th><th>递进说明</th></tr></thead><tbody>${rows}</tbody></table>`));
         }
 
-        if (!isMusicResult && typeof data.duration_sec === 'number') {
+        if (!isMusicResult && !isActionVerbResult && typeof data.duration_sec === 'number') {
           blocks.push(panel('音频基本信息', `
             <div class="kv"><div>时长</div><div>${data.duration_sec.toFixed(2)} 秒</div></div>
             <div class="kv"><div>估计节奏</div><div>${Number(data.bpm || 0).toFixed(1)} BPM</div></div>
@@ -1028,9 +1548,26 @@
           .replaceAll("'", '&#39;');
       }
 
+      function escAttr(s) {
+        return escHtml(s);
+      }
+
+      function normalizePhoneInput(raw) {
+        let phone = String(raw || '').replace(/\D/g, '');
+        if (phone.startsWith('86') && phone.length === 13) phone = phone.slice(2);
+        return phone;
+      }
+
+      function isValidPhoneInput(raw) {
+        return /^1\d{10}$/.test(normalizePhoneInput(raw));
+      }
+
       async function requestCode() {
-        const phone = (document.getElementById('loginPhone').value || '').trim();
+        const input = (document.getElementById('loginPhone').value || '').trim();
+        const phone = normalizePhoneInput(input);
+        document.getElementById('loginPhone').value = phone;
         if (!phone) return show('请先输入手机号');
+        if (!isValidPhoneInput(phone)) return show('请输入有效的11位手机号');
         await runAction('发送验证码', async () => {
           const res = await apiFetch(`${apiBase()}/auth/request-code`, {
             method: 'POST',
@@ -1046,9 +1583,11 @@
       }
 
       async function loginByCode() {
-        const phone = (document.getElementById('loginPhone').value || '').trim();
+        const phone = normalizePhoneInput((document.getElementById('loginPhone').value || '').trim());
         const code = (document.getElementById('loginCode').value || '').trim();
+        document.getElementById('loginPhone').value = phone;
         if (!phone || !code) return show('请输入手机号和验证码');
+        if (!isValidPhoneInput(phone)) return show('请输入有效的11位手机号');
         await runAction('手机号登录', async () => {
           const res = await apiFetch(`${apiBase()}/auth/login`, {
             method: 'POST',
@@ -1067,6 +1606,7 @@
 
       function renderDraftReview(data) {
         const tableBox = document.getElementById('draftReviewTable');
+        if (!tableBox) return;
         const items = (data && data.draft_items) || [];
         if (!items.length) {
           tableBox.innerHTML = '<div class="hint">暂无候选词。</div>';
@@ -1108,14 +1648,16 @@
       async function createProject() {
         await runAction('创建项目', async () => {
           const title = document.getElementById('projectTitle').value;
+          const genre = document.getElementById('projectGenre').value;
           const res = await apiFetch(`${apiBase()}/projects`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title }),
+            body: JSON.stringify({ title, genre }),
           });
           const data = await readApiResponse(res);
           projectId = data.id;
           document.getElementById('projectId').textContent = projectId;
+          document.getElementById('projectGenreState').textContent = data.genre || genre || '-';
           show(data);
         });
       }
@@ -1144,6 +1686,80 @@
           form.append('report_mode', reportMode());
           form.append('file', f);
           const res = await apiFetch(`${apiBase()}/analysis/${projectId}/text-narration`, { method: 'POST', body: form });
+          show(await readApiResponse(res));
+        });
+      }
+
+      async function analyzeActionVerbs() {
+        if (!projectId) return show('请先创建项目');
+        const text = (document.getElementById('textInput').value || '').trim();
+        const genre = (document.getElementById('projectGenre').value || '').trim();
+        const promptFile = ACTION_PROMPT_BY_GENRE[genre] || 'V3-action_verbs_xuanhuan_task.txt';
+        if (!text) return show('请先输入文本');
+        await runAction('人物动作提取', async () => {
+          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/action-verbs?report_mode=${encodeURIComponent(reportMode())}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, genre, prompt_file: promptFile, report_mode: reportMode() }),
+          });
+          const data = await readApiResponse(res);
+          latestActionVerbData = data;
+          show(data);
+        });
+      }
+
+      async function buildActionSfxGraph() {
+        if (!projectId) return show('请先创建项目');
+        if (!latestActionVerbData || !latestActionVerbData.report_json) {
+          return show('请先执行第3步：人物动作提取');
+        }
+        await runAction('动作图谱推荐', async () => {
+          try {
+            const explainRes = await apiFetch(`${apiBase()}/action-graph/explanation`);
+            if (explainRes.ok) latestActionGraphExplanation = await readApiResponse(explainRes);
+          } catch (_) {}
+          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/action-sfx`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action_report: latestActionVerbData.report_json }),
+          });
+          const data = await readApiResponse(res);
+          if (latestActionGraphExplanation && !data.business_explanation) {
+            data.business_explanation = latestActionGraphExplanation;
+          }
+          latestActionSfxData = data;
+          show(data);
+        });
+      }
+
+      async function buildActionGraphDraft() {
+        if (!projectId) return show('请先创建项目');
+        if (!latestActionSfxData || !Array.isArray(latestActionSfxData.graph_items)) {
+          return show('请先执行第3.5步：动作图谱推荐');
+        }
+        await runAction('动作补充单', async () => {
+          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/action-graph-draft`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action_sfx_result: latestActionSfxData }),
+          });
+          const data = await readApiResponse(res);
+          latestActionGraphDraftData = data;
+          show(data);
+        });
+      }
+
+      async function applyActionGraphDraft() {
+        if (!projectId) return show('请先创建项目');
+        if (!latestActionGraphDraftData || !Array.isArray(latestActionGraphDraftData.draft_items)) {
+          return show('请先执行第3.6步：动作补充单');
+        }
+        await runAction('应用动作草稿', async () => {
+          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/action-graph-draft/apply`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ draft_result: latestActionGraphDraftData }),
+          });
           show(await readApiResponse(res));
         });
       }
@@ -1178,18 +1794,6 @@
         });
       }
 
-      async function directorAdvise() {
-        if (!projectId) return show('请先创建项目');
-        await runAction('导演建议（统一汇总）', async () => {
-          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/director`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ report_mode: reportMode() }),
-          });
-          show(await readApiResponse(res));
-        });
-      }
-
       async function fetchReport() {
         if (!projectId) return show('请先创建项目');
         await runAction('拉取完整报告', async () => {
@@ -1219,6 +1823,13 @@
           URL.revokeObjectURL(href);
           show({ ok: true, downloaded: a.download });
         });
+      }
+
+      async function downloadActionSfxAsset(verb, label, fileName, downloadApi) {
+        if (!downloadApi) return show('缺少素材下载地址');
+        const sep = downloadApi.includes('?') ? '&' : '?';
+        const url = `${apiBase().replace(/\/api$/, '')}${downloadApi}${sep}project_id=${encodeURIComponent(projectId || '')}&verb=${encodeURIComponent(verb || '')}&label=${encodeURIComponent(label || '')}`;
+        await _download(url, fileName || 'sfx.bin');
       }
 
       async function downloadCueCsv() {

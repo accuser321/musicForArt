@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+from app.services.nlp_zh import clear_domain_term_cache
+
 LEXICON_PATH = Path('./assets/sfx/semantic_lexicon.json').resolve()
 
 
@@ -37,6 +39,7 @@ def save_lexicon(data: dict[str, list[str]]) -> None:
                 uniq.append(x)
         norm[key] = uniq
     LEXICON_PATH.write_text(json.dumps(norm, ensure_ascii=False, indent=2), encoding='utf-8')
+    clear_domain_term_cache()
 
 
 def merge_lexicon(delta: dict[str, list[str]]) -> dict[str, list[str]]:

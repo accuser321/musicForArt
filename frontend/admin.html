@@ -52,6 +52,7 @@
         border: none;
       }
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .wide { grid-column: 1 / -1; }
       .card {
         border: 1px solid var(--line);
         border-radius: 12px;
@@ -71,9 +72,103 @@
         white-space: pre-wrap;
       }
       table { width: 100%; border-collapse: collapse; font-size: 12px; }
-      th, td { border: 1px solid var(--line); padding: 6px; text-align: left; }
+      th, td { border: 1px solid var(--line); padding: 8px; text-align: left; vertical-align: top; }
       .tag { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; margin-right: 4px; color: var(--muted); }
+      .pill { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid var(--line); margin:2px 4px 2px 0; color:var(--ink); }
+      .supp-table-wrap { overflow:auto; max-height: 640px; border:1px solid var(--line); border-radius:8px; }
+      .supp-group { border:1px solid var(--line); border-radius:12px; padding:10px; background:#0b1730; margin-bottom:12px; }
+      .supp-group-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:10px; flex-wrap:wrap; }
+      .supp-group-title { font-size:15px; font-weight:700; }
+      .supp-group-meta { color:var(--muted); font-size:12px; }
+      .supp-actions { display:flex; gap:6px; flex-direction:column; min-width:220px; }
+      .term-block { border:1px solid var(--line); border-radius:8px; padding:8px; margin-bottom:8px; background:#0b1730; }
+      .term-title { font-weight:700; margin-bottom:6px; }
+      .muted-sm { color: var(--muted); font-size: 11px; }
+      .supp-actions input[type="file"] { padding:6px; }
+      .stats { display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap:10px; margin-top:10px; margin-bottom:10px; }
+      .stat { border:1px solid var(--line); border-radius:10px; padding:10px; background:#0a1830; }
+      .stat.clickable { cursor:pointer; transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; }
+      .stat.clickable:hover { transform: translateY(-1px); border-color: var(--accent); box-shadow: 0 0 0 1px rgba(30,200,255,.25); }
+      .stat .k { color:var(--muted); font-size:11px; margin-bottom:4px; }
+      .stat .v { font-size:22px; font-weight:700; }
+      .status-bar { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+      .status-chip { border:1px solid var(--line); border-radius:999px; padding:4px 10px; color:var(--muted); font-size:12px; }
+      .term-state-list { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+      .term-state {
+        display:inline-flex; align-items:center; gap:6px; padding:4px 10px;
+        border:1px solid var(--line); border-radius:999px; background:#0f213f; color:var(--ink); font-size:12px;
+      }
+      .term-state.pending { border-color:#90743b; background:#231c0c; }
+      .term-state.covered { border-color:#2f8f66; background:#0d2119; }
+      .term-icon {
+        width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center;
+        font-size:11px; font-weight:700;
+      }
+      .term-state.pending .term-icon { background:#624d1b; color:#fff3d8; }
+      .term-state.covered .term-icon { background:#196746; color:#e8fff5; }
+      .link-btn { width:auto; display:inline-block; padding:6px 10px; font-size:12px; border-radius:8px; cursor:pointer; background:#11284a; color:var(--ink); border:1px solid var(--line); }
+      .verb-cell strong { font-size:14px; }
+      .progress-box { min-width:140px; }
+      .progress-line { height:8px; background:#081223; border-radius:999px; border:1px solid var(--line); overflow:hidden; margin:6px 0; }
+      .progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); }
+      .supp-debug { min-height: 100px; max-height: 220px; }
+      .graph-detail { border:1px solid var(--line); border-radius:12px; padding:12px; background:#0a1830; margin-top:10px; }
+      .graph-detail h4 { margin:0 0 10px; font-size:15px; }
+      .graph-two-col { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:10px; }
+      .view-switch { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
+      .view-chip { width:auto; display:inline-block; padding:6px 12px; font-size:12px; border-radius:999px; cursor:pointer; background:#0b1730; color:var(--ink); border:1px solid var(--line); }
+      .view-chip.active { background:linear-gradient(90deg, rgba(30,200,255,.18), rgba(0,231,182,.18)); border-color:#4ddcff; }
+      .graph-browser {
+        margin-top:10px; border:1px solid var(--line); border-radius:12px; padding:14px;
+        background:
+          radial-gradient(500px 220px at 50% 10%, rgba(30,200,255,.08) 0%, transparent 70%),
+          #081425;
+      }
+      .graph-stage {
+        display:grid; grid-template-columns: 1fr minmax(220px, 280px) 1fr; gap:14px; align-items:start;
+      }
+      .graph-lane { border:1px solid rgba(34,64,109,.7); border-radius:12px; padding:10px; background:rgba(9,23,44,.78); min-height:180px; }
+      .graph-lane h5 { margin:0 0 8px; font-size:13px; color:var(--muted); }
+      .graph-center {
+        border:1px solid #3d78be; border-radius:16px; padding:14px; text-align:center;
+        background:linear-gradient(180deg, rgba(30,200,255,.12), rgba(0,231,182,.08));
+        box-shadow:0 0 0 1px rgba(30,200,255,.18), 0 12px 30px rgba(0,0,0,.18);
+      }
+      .graph-center .node-title { font-size:18px; font-weight:700; }
+      .graph-center .node-sub { color:var(--muted); font-size:12px; margin-top:6px; }
+      .graph-node {
+        border:1px solid var(--line); border-radius:12px; padding:8px 10px; background:#0b1730;
+        margin-bottom:8px;
+      }
+      .graph-node.direct { border-color:#2f7fd8; }
+      .graph-node.composite { border-color:#24b99d; }
+      .graph-node .node-name { font-weight:700; font-size:13px; }
+      .graph-node .node-meta { color:var(--muted); font-size:11px; margin-top:4px; }
+      .asset-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin-top:8px; }
+      .asset-card {
+        border:1px solid var(--line); border-radius:12px; padding:10px; background:#0b1730;
+      }
+      .asset-card .asset-name { font-weight:700; font-size:13px; }
+      .asset-card .asset-meta { color:var(--muted); font-size:11px; margin-top:4px; line-height:1.5; }
+      .asset-card .asset-badges { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+      .asset-badge { border:1px solid var(--line); border-radius:999px; padding:2px 8px; font-size:11px; color:var(--muted); }
+      .section-box { border:1px solid var(--line); border-radius:12px; padding:10px; background:#0b1730; margin-top:10px; }
+      .section-box h5 { margin:0 0 8px; font-size:13px; color:var(--muted); }
+      .explain-box {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #0b1730;
+        padding: 10px;
+        margin-top: 10px;
+      }
+      .explain-box h5 { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+      .reason-list { margin: 0; padding-left: 18px; color: var(--ink); font-size: 13px; line-height: 1.6; }
+      @media (max-width: 980px) {
+        .graph-stage { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 900px) { .graph-two-col { grid-template-columns:1fr; } }
       @media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } }
+      @media (max-width: 1200px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     </style>
   </head>
   <body>
@@ -141,6 +236,108 @@
         </div>
 
         <div class="card">
+          <h3>素材反馈看板</h3>
+          <div class="row">
+            <div class="cell"><input id="assetDays" value="7" placeholder="统计天数" /></div>
+            <div class="cell"><button onclick="loadAssetFeedback()">加载素材反馈</button></div>
+          </div>
+          <pre id="assetFeedbackOut">等待查询...</pre>
+        </div>
+
+        <div class="card">
+          <h3>分词增强预览</h3>
+          <div class="row">
+            <div class="cell"><input id="tokenizeText" value="躲闪不及，飞身后撤，衣料摩擦声骤起" placeholder="输入一个词或一句文本" /></div>
+            <div class="cell"><button onclick="previewTokenize()">预览分词</button></div>
+          </div>
+          <pre id="tokenizeOut">等待查询...</pre>
+        </div>
+
+        <div class="card">
+          <h3>动作图谱 Neo4j</h3>
+          <div class="row">
+            <div class="cell"><button onclick="loadActionGraphNeo4jStatus()">图谱状态</button></div>
+            <div class="cell"><button onclick="syncActionGraphNeo4j()">同步到Neo4j</button></div>
+            <div class="cell"><input id="actionNodeKey" value="玄幻::躲闪" placeholder="节点Key，如 玄幻::躲闪" /></div>
+            <div class="cell"><button onclick="queryActionGraphNode()">查询节点</button></div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <div class="cell">
+              <select id="graphGenre">
+                <option value="">全部赛道</option>
+                <option value="玄幻">玄幻</option>
+                <option value="言情">言情</option>
+                <option value="悬疑">悬疑</option>
+                <option value="科幻">科幻</option>
+              </select>
+            </div>
+            <div class="cell"><input id="graphQuery" placeholder="按父节点或动作词搜索，如 躲闪" /></div>
+            <div class="cell"><input id="graphLimit" value="50" placeholder="数量" /></div>
+            <div class="cell">
+              <select id="graphOnlyGap">
+                <option value="0">全部父节点</option>
+                <option value="1">只看有缺口</option>
+              </select>
+            </div>
+            <div class="cell">
+              <select id="graphSortBy">
+                <option value="pending">待补优先</option>
+                <option value="notify">可通知优先</option>
+                <option value="recent">最近补充优先</option>
+                <option value="alpha">动作词顺序</option>
+              </select>
+            </div>
+            <div class="cell">
+              <select id="graphStatusFilter">
+                <option value="all">全部状态</option>
+                <option value="notify">只看可通知</option>
+                <option value="notified">只看已通知</option>
+                <option value="incomplete">只看待继续补齐</option>
+              </select>
+            </div>
+            <div class="cell"><button onclick="browseActionGraphNodes()">浏览父节点</button></div>
+          </div>
+          <div id="graphBrowser" style="margin-top:10px;"></div>
+          <div id="graphDetail" style="margin-top:10px;"></div>
+          <pre id="actionNeo4jOut">等待查询...</pre>
+        </div>
+
+        <div class="card wide">
+          <h3>动作补充单运营</h3>
+        <div class="row">
+            <div class="cell"><input id="suppDays" value="30" placeholder="统计天数" /></div>
+            <div class="cell">
+              <select id="suppStatus">
+                <option value="">全部状态</option>
+                <option value="pending">pending：待合并</option>
+                <option value="partial">partial：部分补齐</option>
+                <option value="ready_to_notify">ready_to_notify：已补齐待通知</option>
+                <option value="merged">merged：已合并（全补齐）</option>
+                <option value="notified">notified：已通知用户（提醒状态）</option>
+              </select>
+            </div>
+            <div class="cell"><button onclick="loadSupplements()">加载补充单</button></div>
+          </div>
+          <div class="muted" id="suppStatusHint" style="margin-top:8px;">
+            `pending` 表示这条补充单还没开始合并素材；上传成功后，状态会进入 `partial` 或 `ready_to_notify`。
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <div class="cell">
+              <select id="notifyTarget">
+                <option value="">请选择手机号与单条补充单</option>
+              </select>
+            </div>
+            <div class="cell"><button onclick="notifySupplements()">触发用户提醒（单条/批量）</button></div>
+          </div>
+          <div class="muted" style="margin-top:6px;">
+            下拉框用于单条精准通知；如需批量通知，请勾选下方补充单后点击同一个按钮。
+          </div>
+          <div id="suppSummary" style="margin-top:10px;"></div>
+          <div id="suppTable" style="margin-top:10px;"></div>
+          <pre id="suppOut" class="supp-debug">等待查询...</pre>
+        </div>
+
+        <div class="card">
           <h3>项目全流程数据包</h3>
           <div class="row">
             <div class="cell"><input id="bundlePid" placeholder="项目ID" /></div>
@@ -165,6 +362,7 @@
     <script>
       let token = localStorage.getItem('mfa_admin_token') || '';
       let loginPhone = localStorage.getItem('mfa_admin_phone') || '';
+      let latestSupplements = [];
 
       function base() { return document.getElementById('apiBase').value.replace(/\/$/, ''); }
       function h(extra = {}) {
@@ -183,10 +381,134 @@
       function show(id, data) {
         document.getElementById(id).textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
       }
+      function escHtml(s) {
+        return String(s ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+      function renderPills(list) {
+        const arr = Array.isArray(list) ? list.filter(Boolean) : [];
+        if (!arr.length) return '<span class="muted">无</span>';
+        return arr.map(x => `<span class="pill">${escHtml(x)}</span>`).join('');
+      }
+      function renderSupplementSfxBuckets(children, fallbackTerms, fallbackMissingTerms) {
+        const direct = Array.isArray(children && children.direct_sfx_terms) ? children.direct_sfx_terms : [];
+        const composite = Array.isArray(children && children.composite_sfx_terms) ? children.composite_sfx_terms : [];
+        const missingDirect = Array.isArray(children && children.missing_direct_sfx_terms) ? children.missing_direct_sfx_terms : [];
+        const missingComposite = Array.isArray(children && children.missing_composite_sfx_terms) ? children.missing_composite_sfx_terms : [];
+        const covered = Array.isArray(children && children.covered_sfx_terms) ? children.covered_sfx_terms : [];
+        const coveredSet = new Set(covered.map(x => String(x).trim()).filter(Boolean));
+        const renderStateTerms = (arr, compositeMode = false) => {
+          if (!arr.length) return '<span class="muted">无</span>';
+          return `<div class="term-state-list">${arr.map(term => {
+            const t = String(term || '').trim();
+            const isCovered = coveredSet.has(t);
+            return `<span class="term-state ${isCovered ? 'covered' : 'pending'}"><span class="term-icon">${isCovered ? '✓' : '?'}</span>${escHtml(t)}${compositeMode ? '（组合）' : ''}</span>`;
+          }).join('')}</div>`;
+        };
+        return {
+          allHtml: direct.length || composite.length
+            ? `${direct.length ? `<div><div class="muted-sm">直达音效</div><div>${renderPills(direct)}</div></div>` : ''}${composite.length ? `<div style="margin-top:6px;"><div class="muted-sm">组合音效</div><div>${renderPills(composite.map(x => `${x}（组合）`))}</div></div>` : ''}`
+            : renderPills(fallbackTerms || []),
+          missingHtml: direct.length || composite.length
+            ? `${direct.length ? `<div><div class="muted-sm">直达音效补充状态</div>${renderStateTerms(direct, false)}</div>` : ''}${composite.length ? `<div style="margin-top:6px;"><div class="muted-sm">组合音效补充状态</div>${renderStateTerms(composite, true)}</div>` : ''}`
+            : renderPills(fallbackMissingTerms || []),
+          coveredHtml: '<span class="muted">已合并状态已在上方用对号标记，不再重复展示。</span>',
+        };
+      }
+      function supplementStatusLabel(status) {
+        const key = String(status || '').trim();
+        return ({
+          'pending': '待合并',
+          'partial': '部分补齐',
+          'ready_to_notify': '已补齐待通知',
+          'merged': '已合并（全补齐）',
+          'merged_duplicate': '已并入重复单',
+        })[key] || (key || '未知');
+      }
+      function updateSupplementStatusHint() {
+        const sel = document.getElementById('suppStatus');
+        const hint = document.getElementById('suppStatusHint');
+        if (!sel || !hint) return;
+        const key = String(sel.value || '').trim();
+        const text = {
+          '': '查看全部补充单状态，适合复盘和排查整条补库链路。',
+          'pending': '`pending` 表示待合并。还没真正把素材并入这条补充单。',
+          'partial': '`partial` 表示部分补齐。已经上传过一部分素材，但还没全部补全。',
+          'ready_to_notify': '`ready_to_notify` 表示这条补充单已补齐待通知。业务到此已经完成，是否通知用户是独立提醒状态。',
+          'merged': '`merged` 表示已合并（全补齐）视图。已补齐的数据可以同时出现在 `merged` 和 `ready_to_notify` 中。',
+          'notified': '`notified` 表示提醒状态已通知。它和业务状态独立，已补齐的数据仍保持在 `ready_to_notify`。',
+        }[key] || '选择一个状态查看对应补充单。';
+        hint.textContent = text;
+      }
+
+      function refreshNotifyTargets(items) {
+        const sel = document.getElementById('notifyTarget');
+        if (!sel) return;
+        const list = Array.isArray(items) ? items : [];
+        const readyItems = list
+          .filter(item => String(item.status || '') === 'ready_to_notify' && String(item.notification_status || '') !== '已通知')
+          .sort((a, b) => {
+            const phoneCmp = String(a.user_phone || '').localeCompare(String(b.user_phone || ''));
+            if (phoneCmp) return phoneCmp;
+            return Number(a.id || 0) - Number(b.id || 0);
+          });
+        const options = ['<option value="">请选择手机号与单条补充单</option>'];
+        for (const item of readyItems) {
+          const phone = String(item.user_phone || '').trim();
+          const id = Number(item.id || 0);
+          const verb = String(item.verb || '').trim();
+          const label = `${phone} ｜ #${id} ｜ ${verb || '未命名动作词'}`;
+          options.push(`<option value="${escHtml(JSON.stringify({ phone, item_ids: [id], verb }))}">${escHtml(label)}</option>`);
+        }
+        sel.innerHTML = options.join('');
+      }
+
+      async function loadNotifyTargets() {
+        const sel = document.getElementById('notifyTarget');
+        if (!sel) return;
+        const res = await fetch(`${base()}/ops/action-supplements?days=180&status=ready_to_notify`, { headers: h() });
+        const data = await read(res);
+        const items = Array.isArray(data && data.items) ? data.items : [];
+        refreshNotifyTargets(items);
+      }
+
+      function renderStats(summary) {
+        const s = summary || {};
+        const statusCounter = s.status_counter || {};
+        return `
+          <div class="stats">
+            <div class="stat"><div class="k">补充单数</div><div class="v">${escHtml(s.item_count || 0)}</div></div>
+            <div class="stat"><div class="k">涉及用户</div><div class="v">${escHtml(s.unique_user_count || 0)}</div></div>
+            <div class="stat"><div class="k">待补词数</div><div class="v">${escHtml(s.pending_term_count || 0)}</div></div>
+            <div class="stat"><div class="k">已补词数</div><div class="v">${escHtml(s.covered_term_count || 0)}</div></div>
+            <div class="stat"><div class="k">可通知单数</div><div class="v">${escHtml(s.ready_to_notify_count || 0)}</div></div>
+            <div class="stat"><div class="k">已合并单数</div><div class="v">${escHtml(s.merged_count || 0)}</div></div>
+          </div>
+          <div class="status-bar">
+            ${Object.entries(statusCounter).map(([k, v]) => `<span class="status-chip">${escHtml(k)}：${escHtml(v)}</span>`).join('')}
+          </div>
+        `;
+      }
+
+      function normalizePhoneInput(raw) {
+        let phone = String(raw || '').replace(/\D/g, '');
+        if (phone.startsWith('86') && phone.length === 13) phone = phone.slice(2);
+        return phone;
+      }
+
+      function isValidPhoneInput(raw) {
+        return /^1\d{10}$/.test(normalizePhoneInput(raw));
+      }
 
       async function sendCode() {
-        const phone = (document.getElementById('phone').value || '').trim();
+        const phone = normalizePhoneInput((document.getElementById('phone').value || '').trim());
+        document.getElementById('phone').value = phone;
         if (!phone) return show('usersOut', '请输入手机号');
+        if (!isValidPhoneInput(phone)) return show('usersOut', '请输入有效的11位手机号');
         const res = await fetch(`${base()}/auth/request-code`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -198,8 +520,10 @@
       }
 
       async function login() {
-        const phone = (document.getElementById('phone').value || '').trim();
+        const phone = normalizePhoneInput((document.getElementById('phone').value || '').trim());
         const code = (document.getElementById('code').value || '').trim();
+        document.getElementById('phone').value = phone;
+        if (!isValidPhoneInput(phone)) return show('usersOut', '请输入有效的11位手机号');
         const res = await fetch(`${base()}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -212,6 +536,7 @@
           localStorage.setItem('mfa_admin_token', token);
           localStorage.setItem('mfa_admin_phone', loginPhone);
           setState();
+          loadNotifyTargets();
         }
         show('usersOut', data);
       }
@@ -222,7 +547,9 @@
       }
 
       async function saveUser() {
-        const phone = (document.getElementById('uPhone').value || '').trim();
+        const phone = normalizePhoneInput((document.getElementById('uPhone').value || '').trim());
+        document.getElementById('uPhone').value = phone;
+        if (!isValidPhoneInput(phone)) return show('usersOut', '请输入有效的11位手机号');
         const is_authorized = document.getElementById('uAuth').value === '1';
         const is_admin = document.getElementById('uAdmin').value === '1';
         const daily_limit = Number(document.getElementById('uLimit').value || 3);
@@ -259,6 +586,657 @@
         show('eventsOut', await read(res));
       }
 
+      async function loadAssetFeedback() {
+        const days = (document.getElementById('assetDays').value || '7').trim();
+        const res = await fetch(`${base()}/ops/action-sfx-feedback?days=${encodeURIComponent(days)}`, { headers: h() });
+        show('assetFeedbackOut', await read(res));
+      }
+
+      async function previewTokenize() {
+        const text = (document.getElementById('tokenizeText').value || '').trim();
+        const res = await fetch(`${base()}/semantic/tokenize?text=${encodeURIComponent(text)}`, { headers: h() });
+        show('tokenizeOut', await read(res));
+      }
+
+      async function loadActionGraphNeo4jStatus() {
+        const res = await fetch(`${base()}/action-graph/neo4j-status`, { headers: h() });
+        show('actionNeo4jOut', await read(res));
+      }
+
+      async function syncActionGraphNeo4j() {
+        const res = await fetch(`${base()}/action-graph/neo4j-sync`, {
+          method: 'POST',
+          headers: h(),
+        });
+        show('actionNeo4jOut', await read(res));
+      }
+
+      async function queryActionGraphNode() {
+        const nodeKey = (document.getElementById('actionNodeKey').value || '').trim();
+        const res = await fetch(`${base()}/action-graph/node?node_key=${encodeURIComponent(nodeKey)}`, { headers: h() });
+        const data = await read(res);
+        renderGraphDetail(data);
+        show('actionNeo4jOut', data);
+      }
+
+      async function browseActionGraphNodes() {
+        const genre = (document.getElementById('graphGenre').value || '').trim();
+        const q = (document.getElementById('graphQuery').value || '').trim();
+        const limit = (document.getElementById('graphLimit').value || '50').trim();
+        const onlyWithGap = (document.getElementById('graphOnlyGap').value || '0').trim();
+        const sortBy = (document.getElementById('graphSortBy').value || 'pending').trim();
+        const statusFilter = (document.getElementById('graphStatusFilter').value || 'all').trim();
+        const res = await fetch(`${base()}/action-graph/nodes?genre=${encodeURIComponent(genre)}&q=${encodeURIComponent(q)}&limit=${encodeURIComponent(limit)}&only_with_gap=${encodeURIComponent(onlyWithGap)}&sort_by=${encodeURIComponent(sortBy)}&status_filter=${encodeURIComponent(statusFilter)}`, { headers: h() });
+        const data = await read(res);
+        renderGraphBrowser(data);
+        show('actionNeo4jOut', data);
+      }
+
+      async function applyGraphWorkbenchPreset(kind) {
+        const onlyGap = document.getElementById('graphOnlyGap');
+        const sortBy = document.getElementById('graphSortBy');
+        const statusFilter = document.getElementById('graphStatusFilter');
+        if (!onlyGap || !sortBy || !statusFilter) return;
+        if (kind === 'all') {
+          onlyGap.value = '0';
+          sortBy.value = 'pending';
+          statusFilter.value = 'all';
+        } else if (kind === 'gap') {
+          onlyGap.value = '1';
+          sortBy.value = 'pending';
+          statusFilter.value = 'incomplete';
+        } else if (kind === 'notify') {
+          onlyGap.value = '0';
+          sortBy.value = 'notify';
+          statusFilter.value = 'notify';
+        } else if (kind === 'notified') {
+          onlyGap.value = '0';
+          sortBy.value = 'recent';
+          statusFilter.value = 'notified';
+        } else if (kind === 'active') {
+          onlyGap.value = '0';
+          sortBy.value = 'recent';
+          statusFilter.value = 'all';
+        }
+        await browseActionGraphNodes();
+      }
+
+      function openGraphNode(nodeKey) {
+        document.getElementById('actionNodeKey').value = nodeKey;
+        queryActionGraphNode();
+      }
+
+      function nodeKeyToId(nodeKey) {
+        return `supp-group-${String(nodeKey || '').replace(/[^a-zA-Z0-9\u4e00-\u9fa5_-]+/g, '_')}`;
+      }
+
+      async function jumpToSupplementGroup(nodeKey, status = '') {
+        if (status) {
+          const sel = document.getElementById('suppStatus');
+          if (sel) sel.value = status;
+        }
+        await loadSupplements();
+        const target = document.getElementById(nodeKeyToId(nodeKey));
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          target.style.boxShadow = '0 0 0 2px rgba(30,200,255,0.75)';
+          setTimeout(() => { target.style.boxShadow = ''; }, 1800);
+        }
+      }
+
+      function renderGraphBrowser(data) {
+        const box = document.getElementById('graphBrowser');
+        if (!box) return;
+        const items = Array.isArray(data && data.items) ? data.items : [];
+        if (!items.length) {
+          box.innerHTML = '<div class="muted">当前没有可浏览的父节点。</div>';
+          return;
+        }
+        const totalNodes = items.length;
+        const gapNodes = items.filter(item => Number(item.pending_count || 0) > 0).length;
+        const notifyNodes = items.filter(item => Number(item.ready_to_notify_count || 0) > 0).length;
+        const notifiedNodes = items.filter(item => Number(item.notified_count || 0) > 0).length;
+        const activeNodes = items.filter(item => Number(item.supplement_item_count || 0) > 0).length;
+        const topGapItems = [...items]
+          .filter(item => Number(item.pending_count || 0) > 0)
+          .sort((a, b) => Number(b.pending_count || 0) - Number(a.pending_count || 0) || Number(b.supplement_item_count || 0) - Number(a.supplement_item_count || 0))
+          .slice(0, 5);
+        const topNotifyItems = [...items]
+          .filter(item => Number(item.ready_to_notify_count || 0) > 0)
+          .sort((a, b) => Number(b.ready_to_notify_count || 0) - Number(a.ready_to_notify_count || 0) || Number(b.pending_count || 0) - Number(a.pending_count || 0))
+          .slice(0, 5);
+        const renderTaskCards = (list, kind) => {
+          if (!list.length) return '<div class="muted">当前没有推荐任务。</div>';
+          return list.map(item => `
+            <div class="term-block">
+              <div class="term-title">${escHtml(item.node_key || '')}</div>
+              <div class="status-bar" style="margin-top:4px;">
+                <span class="status-chip">直达 ${escHtml(item.direct_sfx_count || 0)}</span>
+                <span class="status-chip">组合 ${escHtml(item.composite_sfx_count || 0)}</span>
+              </div>
+              <div class="muted-sm">待补 ${escHtml(item.pending_count || 0)} ｜ 可通知 ${escHtml(item.ready_to_notify_count || 0)} ｜ 已通知 ${escHtml(item.notified_count || 0)}</div>
+              <div class="muted-sm" style="margin-top:4px;">最近补充：${escHtml(item.last_supplement_at || '暂无')}</div>
+              <button class="link-btn" style="margin-top:6px;" onclick="openGraphNode('${escHtml(item.node_key || '')}')">查看详情</button>
+              ${kind === 'gap' ? `<button class="link-btn" style="margin-top:6px;" onclick="jumpToSupplementGroup('${escHtml(item.node_key || '')}', 'pending')">去补充</button>` : ''}
+              ${kind === 'notify' ? `<button class="link-btn" style="margin-top:6px;" onclick="jumpToSupplementGroup('${escHtml(item.node_key || '')}', 'ready_to_notify')">去通知</button>` : ''}
+            </div>
+          `).join('');
+        };
+        const rows = items.map(item => `
+          <tr>
+            <td>${escHtml(item.genre || '')}</td>
+            <td>
+              <strong>${escHtml(item.verb_head || '')}</strong>
+              <div class="muted-sm">${escHtml(item.node_key || '')}</div>
+              <div class="status-bar" style="margin-top:6px;">
+                <span class="status-chip">直达 ${escHtml(item.direct_sfx_count || 0)}</span>
+                <span class="status-chip">组合 ${escHtml(item.composite_sfx_count || 0)}</span>
+              </div>
+            </td>
+            <td>${escHtml(item.semantic_count || 0)}</td>
+            <td>
+              <div>${escHtml(item.sfx_count || 0)}</div>
+              <div class="muted-sm">直达 ${escHtml(item.direct_sfx_count || 0)} / 组合 ${escHtml(item.composite_sfx_count || 0)}</div>
+            </td>
+            <td>
+              <div class="muted-sm">补充单 ${escHtml(item.supplement_item_count || 0)}</div>
+              <div class="muted-sm">已补 ${escHtml(item.covered_count || 0)} / 待补 ${escHtml(item.pending_count || 0)}</div>
+              <div class="muted-sm">可通知 ${escHtml(item.ready_to_notify_count || 0)} / 已通知 ${escHtml(item.notified_count || 0)} / 待继续补齐 ${escHtml(item.incomplete_count || 0)}</div>
+              <div class="progress-line"><div class="progress-fill" style="width:${Math.round(((item.completion_ratio || 0) * 100))}%"></div></div>
+            </td>
+            <td>
+              <button class="link-btn" onclick="openGraphNode('${escHtml(item.node_key || '')}')">查看子级</button>
+              <button class="link-btn" style="margin-top:6px;" onclick="jumpToSupplementGroup('${escHtml(item.node_key || '')}', 'pending')">去补充</button>
+              ${Number(item.ready_to_notify_count || 0) > 0 ? `<button class="link-btn" style="margin-top:6px;" onclick="jumpToSupplementGroup('${escHtml(item.node_key || '')}', 'ready_to_notify')">去通知</button>` : ''}
+            </td>
+          </tr>
+        `).join('');
+        box.innerHTML = `
+          <div class="stats" style="margin-bottom:10px;">
+            <div class="stat clickable" onclick="applyGraphWorkbenchPreset('all')"><div class="k">当前父节点数</div><div class="v">${escHtml(totalNodes)}</div></div>
+            <div class="stat clickable" onclick="applyGraphWorkbenchPreset('gap')"><div class="k">待补节点数</div><div class="v">${escHtml(gapNodes)}</div></div>
+            <div class="stat clickable" onclick="applyGraphWorkbenchPreset('notify')"><div class="k">可通知节点数</div><div class="v">${escHtml(notifyNodes)}</div></div>
+            <div class="stat clickable" onclick="applyGraphWorkbenchPreset('notified')"><div class="k">已通知节点数</div><div class="v">${escHtml(notifiedNodes)}</div></div>
+            <div class="stat clickable" onclick="applyGraphWorkbenchPreset('active')"><div class="k">活跃节点数</div><div class="v">${escHtml(activeNodes)}</div></div>
+          </div>
+          <div class="graph-two-col" style="margin-bottom:10px;">
+            <div class="card" style="padding:10px;">
+              <h3 style="margin-bottom:8px;">今日优先补充</h3>
+              ${renderTaskCards(topGapItems, 'gap')}
+            </div>
+            <div class="card" style="padding:10px;">
+              <h3 style="margin-bottom:8px;">今日优先通知</h3>
+              ${renderTaskCards(topNotifyItems, 'notify')}
+            </div>
+          </div>
+          <div class="supp-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>赛道</th>
+                  <th>父节点</th>
+                  <th>语义子级数</th>
+                  <th>音效子级数</th>
+                  <th>业务状态</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      function renderGraphDetail(data) {
+        const box = document.getElementById('graphDetail');
+        if (!box) return;
+        if (!data || data.detail) {
+          box.innerHTML = '<div class="muted">当前没有可展示的父节点详情。</div>';
+          return;
+        }
+        const directTerms = Array.isArray(data.direct_sfx_terms) ? data.direct_sfx_terms : [];
+        const compositeTerms = Array.isArray(data.composite_sfx_terms) ? data.composite_sfx_terms : [];
+        const semanticTerms = Array.isArray(data.semantic_terms) ? data.semantic_terms : [];
+        const summary = data.summary || {};
+        const supp = data.supplement_summary || {};
+        const explain = data.business_explanation || {};
+        const latestAt = supp.latest_created_at || supp.last_supplement_at || '';
+        const chips = Object.entries(supp.status_counter || {}).map(([k, v]) => `<span class="status-chip">${escHtml(k)}：${escHtml(v)}</span>`).join('');
+        const supplementItems = Array.isArray(supp.supplement_items) ? supp.supplement_items : [];
+        const readyNotifyItems = supplementItems.filter(item => !!item.ready_to_notify && String(item.notification_status || '') !== '已通知');
+        const whyReasons = [
+          `命名规则：${explain.display_name_rule || '音效名（类型-赛道）'}`,
+          `语义子级：${explain.semantic_edge_meaning || '用于扩展理解与召回。'}`,
+          `直达音效边：${explain.direct_edge_meaning || '表示可直接命中的素材标签。'}`,
+          `组合音效边：${explain.composite_edge_meaning || '表示整体动作音效。'}`,
+          `运营提示：${explain.operator_hint || '优先补待补音效词。'}`,
+        ];
+        const renderAssetCards = (items) => {
+          if (!Array.isArray(items) || !items.length) return '<div class="muted">暂无已入库素材。</div>';
+          return `<div class="asset-grid">${items.map(item => `
+            <div class="asset-card">
+              <div class="asset-name">${escHtml(item.display_name || item.asset_label || item.file_name || '')}</div>
+              <div class="asset-meta">
+                原始名：${escHtml(item.asset_label || item.file_name || '未知')}<br/>
+                文件：${escHtml(item.file_name || '未知')}<br/>
+                路径：${escHtml(item.asset_file_path || '未记录')}
+              </div>
+              <div class="asset-badges">
+                <span class="asset-badge">${escHtml(item.sfx_mode || '未分类')}</span>
+                <span class="asset-badge">${escHtml(data.genre || '未标赛道')}</span>
+              </div>
+            </div>
+          `).join('')}</div>`;
+        };
+        const graphNodes = (items, kind, suffix = '') => {
+          if (!Array.isArray(items) || !items.length) return '<div class="muted">暂无</div>';
+          return items.map(item => `
+            <div class="graph-node ${kind}">
+              <div class="node-name">${escHtml(item)}${suffix}</div>
+              <div class="node-meta">${kind === 'direct' ? '直达音效边' : kind === 'composite' ? '组合音效边' : '语义关联边'}</div>
+            </div>
+          `).join('');
+        };
+        const graphView = `
+          <div class="graph-browser">
+            <div class="graph-stage">
+              <div class="graph-lane">
+                <h5>语义子级</h5>
+                ${graphNodes(semanticTerms, 'semantic')}
+              </div>
+              <div class="graph-center">
+                <div class="node-title">${escHtml(data.node_key || '')}</div>
+                <div class="node-sub">赛道：${escHtml(data.genre || '')} ｜ 动作词：${escHtml(data.verb_head || '')}</div>
+                <div class="status-bar" style="justify-content:center; margin-top:10px;">
+                  <span class="status-chip">直达 ${escHtml(summary.direct_sfx_count || 0)}</span>
+                  <span class="status-chip">组合 ${escHtml(summary.composite_sfx_count || 0)}</span>
+                  <span class="status-chip">待补 ${escHtml(supp.pending_count || 0)}</span>
+                  <span class="status-chip">可通知 ${escHtml(supp.ready_to_notify_count || 0)}</span>
+                </div>
+              </div>
+              <div class="graph-lane">
+                <h5>直达音效边</h5>
+                ${graphNodes(directTerms, 'direct')}
+                <h5 style="margin-top:10px;">组合音效边</h5>
+                ${graphNodes(compositeTerms, 'composite', '（组合）')}
+              </div>
+            </div>
+          </div>
+        `;
+        const supplementRows = supplementItems.length ? supplementItems.map(item => `
+          <tr>
+            <td>${item.ready_to_notify && String(item.notification_status || '') !== '已通知' ? `<input type="checkbox" class="graph-notify-check" value="${escHtml(item.id || '')}" />` : ''}</td>
+            <td>${escHtml(item.id || '')}</td>
+            <td>
+              <div>${escHtml(item.status || '')}</div>
+              <div class="muted-sm">${item.ready_to_notify && String(item.notification_status || '') !== '已通知' ? '可通知' : (String(item.notification_status || '') === '已通知' ? '已通知用户' : '待继续补齐')}</div>
+              <div class="muted-sm">提醒状态：${escHtml(item.notification_status || '未通知')}</div>
+            </td>
+            <td>${escHtml(item.user_phone || '')}</td>
+            <td>${escHtml(item.sentence_excerpt || '')}</td>
+            <td>${escHtml(item.created_at || '')}</td>
+            <td>
+              <div class="muted-sm">已补 ${escHtml(item.covered_count || 0)} / 待补 ${escHtml(item.pending_count || 0)}</div>
+              <div class="progress-line"><div class="progress-fill" style="width:${Math.round(((item.completion_ratio || 0) * 100))}%"></div></div>
+              ${Array.isArray(item.pending_terms) && item.pending_terms.length ? `<div class="muted-sm" style="margin-top:6px;">缺口：${item.pending_terms.map(x => escHtml(x)).join('、')}</div>` : '<div class="muted-sm" style="margin-top:6px;">缺口：无</div>'}
+            </td>
+            <td>${Array.isArray(item.assets) && item.assets.length ? item.assets.map(x => escHtml(x.display_name || x.asset_label || x.file_name || '')).join('、') : '<span class="muted">暂无</span>'}</td>
+          </tr>
+        `).join('') : '';
+        box.innerHTML = `
+          <div class="graph-detail">
+            <h4>父节点详情：${escHtml(data.node_key || '')}</h4>
+            <div class="view-switch">
+              <button class="view-chip active" type="button" onclick="toggleGraphDetailView('list', this)">列表视图</button>
+              <button class="view-chip" type="button" onclick="toggleGraphDetailView('graph', this)">图谱视图</button>
+            </div>
+            <div class="explain-box">
+              <h5>为什么是这个节点结构</h5>
+              <ul class="reason-list">
+                ${whyReasons.map(x => `<li>${escHtml(x)}</li>`).join('')}
+              </ul>
+            </div>
+            <div class="status-bar">
+              <span class="status-chip">赛道：${escHtml(data.genre || '')}</span>
+              <span class="status-chip">动作词：${escHtml(data.verb_head || '')}</span>
+              <span class="status-chip">语义子级：${escHtml(summary.semantic_count || 0)}</span>
+              <span class="status-chip">音效子级：${escHtml(summary.sfx_count || 0)}</span>
+              <span class="status-chip">直达音效：${escHtml(summary.direct_sfx_count || 0)}</span>
+              <span class="status-chip">组合音效：${escHtml(summary.composite_sfx_count || 0)}</span>
+              <span class="status-chip">补充单：${escHtml(supp.item_count || 0)}</span>
+              <span class="status-chip">已补：${escHtml(supp.covered_count || 0)}</span>
+              <span class="status-chip">待补：${escHtml(supp.pending_count || 0)}</span>
+              <span class="status-chip">可通知：${escHtml(supp.ready_to_notify_count || 0)}</span>
+              <span class="status-chip">已通知：${escHtml(supp.notified_count || 0)}</span>
+              <span class="status-chip">待继续补齐：${escHtml(supp.incomplete_count || 0)}</span>
+            </div>
+            <div id="graphDetailListView">
+              <div style="margin-top:10px;">
+                <div class="muted-sm">语义子级</div>
+                <div>${renderPills(semanticTerms)}</div>
+              </div>
+              <div class="graph-two-col" style="margin-top:10px;">
+                <div>
+                  <div class="muted-sm">直达音效边</div>
+                  <div>${renderPills(directTerms)}</div>
+                </div>
+                <div>
+                  <div class="muted-sm">组合音效边</div>
+                  <div>${renderPills(compositeTerms.map(x => `${x}（组合）`))}</div>
+                </div>
+              </div>
+              <div class="graph-two-col">
+                <div>
+                  <div class="muted-sm">已补音效子级</div>
+                  <div>${renderPills(supp.covered_terms || [])}</div>
+                </div>
+                <div>
+                  <div class="muted-sm">待补音效子级</div>
+                  <div>${renderPills(supp.pending_terms || data.sfx_terms || [])}</div>
+                </div>
+              </div>
+              <div class="section-box">
+                <h5>补充单状态</h5>
+                <div class="status-bar">${chips || '<span class="muted">暂无补充单记录</span>'}</div>
+                <div class="muted-sm" style="margin-top:6px;">补齐进度：${escHtml(supp.covered_count || 0)}/${escHtml((supp.target_terms && supp.target_terms.length) || summary.sfx_count || 0)}</div>
+                <div class="progress-line"><div class="progress-fill" style="width:${Math.round((((supp.completion_ratio) || 0) * 100))}%"></div></div>
+                ${latestAt ? `<div class="muted-sm" style="margin-top:6px;">最近补充单时间：${escHtml(latestAt)}</div>` : ''}
+              </div>
+              <div class="section-box">
+                <h5>最近补充单与已入库素材</h5>
+                ${supplementRows ? `
+                  <div class="supp-table-wrap" style="margin-top:6px;">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>通知</th>
+                          <th>ID</th>
+                          <th>状态</th>
+                          <th>用户手机号</th>
+                          <th>原句片段</th>
+                          <th>时间</th>
+                          <th>补齐状态</th>
+                          <th>已入库素材</th>
+                        </tr>
+                      </thead>
+                      <tbody>${supplementRows}</tbody>
+                    </table>
+                  </div>
+                ` : '<div class="muted" style="margin-top:6px;">当前没有补充单明细。</div>'}
+              </div>
+              <div class="section-box">
+                <h5>父节点已入库素材</h5>
+                ${renderAssetCards(
+                  supplementItems.flatMap(item => Array.isArray(item.assets) ? item.assets : [])
+                  .filter((x, idx, arr) => {
+                    const key = `${x.display_name || ''}|${x.asset_file_path || ''}|${x.file_name || ''}`;
+                    return arr.findIndex(y => `${y.display_name || ''}|${y.asset_file_path || ''}|${y.file_name || ''}` === key) === idx;
+                  })
+                )}
+              </div>
+              <div class="section-box">
+                <h5>节点内可通知操作</h5>
+                <div class="row" style="margin-top:6px;">
+                  <div class="cell"><input id="graphNotifyIds" placeholder="可选：手动补充ID，逗号分隔" /></div>
+                  <div class="cell"><button onclick="notifySupplementsFromGraph()">通知当前父节点已勾选补充单</button></div>
+                </div>
+                <div class="muted-sm" style="margin-top:6px;">当前可通知补充单数：${escHtml(readyNotifyItems.length)}</div>
+              </div>
+            </div>
+            <div id="graphDetailGraphView" style="display:none;">
+              ${graphView}
+              <div class="explain-box">
+                <h5>图谱解释</h5>
+                <ul class="reason-list">
+                  ${whyReasons.map(x => `<li>${escHtml(x)}</li>`).join('')}
+                </ul>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      function toggleGraphDetailView(mode, btn) {
+        const list = document.getElementById('graphDetailListView');
+        const graph = document.getElementById('graphDetailGraphView');
+        if (!list || !graph) return;
+        list.style.display = mode === 'list' ? '' : 'none';
+        graph.style.display = mode === 'graph' ? '' : 'none';
+        const chips = document.querySelectorAll('#graphDetail .view-chip');
+        chips.forEach(chip => chip.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+      }
+
+      async function notifySupplementsFromGraph() {
+        const checked = Array.from(document.querySelectorAll('.graph-notify-check:checked')).map(x => Number(x.value)).filter(x => Number.isFinite(x) && x > 0);
+        const raw = (document.getElementById('graphNotifyIds').value || '').trim();
+        const manual = raw.split(',').map(x => Number(x.trim())).filter(x => Number.isFinite(x) && x > 0);
+        const item_ids = Array.from(new Set([...checked, ...manual]));
+        if (!item_ids.length) return show('actionNeo4jOut', '请先勾选可通知补充单，或手动输入ID');
+        const res = await fetch(`${base()}/ops/action-supplements/notify`, {
+          method: 'POST',
+          headers: h({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ item_ids }),
+        });
+        const data = await read(res);
+        show('actionNeo4jOut', { ...data, message: '已将当前父节点下所选补充单的提醒状态更新为已通知。' });
+        const nodeKey = (document.getElementById('actionNodeKey').value || '').trim();
+        if (nodeKey) await queryActionGraphNode();
+      }
+
+      async function loadSupplements() {
+        const days = (document.getElementById('suppDays').value || '30').trim();
+        const status = (document.getElementById('suppStatus').value || '').trim();
+        updateSupplementStatusHint();
+        const qs = new URLSearchParams({ days });
+        if (status) qs.set('status', status);
+        const res = await fetch(`${base()}/ops/action-supplements?${qs.toString()}`, { headers: h() });
+        const data = await read(res);
+        latestSupplements = Array.isArray(data && data.items) ? data.items : [];
+        const summaryBox = document.getElementById('suppSummary');
+        if (summaryBox) summaryBox.innerHTML = renderStats((data && data.summary) || {});
+        renderSupplementTable(latestSupplements);
+        await loadNotifyTargets();
+        show('suppOut', data);
+      }
+
+      function renderSupplementTable(items) {
+        const box = document.getElementById('suppTable');
+        if (!box) return;
+        if (!Array.isArray(items) || !items.length) {
+          box.innerHTML = '<div class="muted">当前没有可处理的动作补充单。</div>';
+          return;
+        }
+        const groups = new Map();
+        for (const item of items) {
+          const key = (item.parent_node && item.parent_node.node_key) || `${item.genre || ''}::${item.verb || ''}`;
+          const current = groups.get(key) || { key, items: [], genre: item.genre || '', verb: item.verb || '', target_head: item.target_head || '' };
+          current.items.push(item);
+          groups.set(key, current);
+        }
+        const renderTermUpload = (item, term, idx, isComposite = false) => `
+          <div class="term-block">
+            <div class="term-title">${escHtml(term || '未命名音效词')}${isComposite ? '（组合）' : ''}</div>
+            <div class="muted-sm">建议为该音效词单独上传一个可命中的素材文件。</div>
+            <input id="suppLabel_${item.id}_${idx}" placeholder="入库名称" value="${escHtml(term || '')}" style="margin-top:6px;" />
+            <input id="suppFile_${item.id}_${idx}" type="file" style="margin-top:6px;" />
+            <button onclick="mergeSupplementRow(${item.id}, ${idx}, '${escHtml(term || '')}')" style="margin-top:6px;">上传并合并入库</button>
+          </div>
+        `;
+        const renderRow = (item) => `
+          <tr>
+            <td><input type="checkbox" class="supp-check" value="${item.id}" /></td>
+            <td>${item.id}</td>
+            <td>${escHtml(item.user_phone || '')}</td>
+            <td>${escHtml(item.genre || '')}</td>
+            <td class="verb-cell">
+              <div><strong>${escHtml(item.verb || '')}</strong></div>
+              <div class="muted-sm">父级节点：${escHtml((item.parent_node && item.parent_node.node_key) || ((item.genre || '') + '::' + (item.verb || '')))}</div>
+            </td>
+            <td>${escHtml(item.target_head || '')}</td>
+            <td>${escHtml(item.sentence_excerpt || '')}</td>
+            <td>
+              <div class="muted-sm">语义子级</div>
+              <div>${renderPills((item.children && item.children.semantic_terms) || item.semantic_terms || [])}</div>
+            </td>
+            <td>
+              ${(() => {
+                const buckets = renderSupplementSfxBuckets(
+                  item.children || {},
+                  (item.children && item.children.sfx_terms) || item.sfx_terms || [],
+                  (item.children && item.children.missing_sfx_terms) || item.missing_sfx_terms || []
+                );
+                return `
+                  <div class="muted-sm">音效子级</div>
+                  <div>${buckets.allHtml}</div>
+                  <div style="margin-top:6px;"><div class="muted-sm">待补子级</div><div>${buckets.missingHtml}</div></div>
+                  <div style="margin-top:6px;"><div class="muted-sm">已补子级</div><div>${buckets.coveredHtml}</div></div>
+                `;
+              })()}
+            </td>
+            <td>
+              <div>${escHtml(supplementStatusLabel(item.status || ''))}</div>
+              <div class="muted-sm">${escHtml(item.status || '')}</div>
+              <div class="muted-sm">提醒状态：${escHtml(item.notification_status || '未通知')}</div>
+              <div class="progress-box">
+                <div class="muted-sm">补齐进度 ${escHtml((item.progress && item.progress.covered_count) || 0)}/${escHtml((item.progress && item.progress.target_count) || 0)}</div>
+                <div class="progress-line"><div class="progress-fill" style="width:${Math.round((((item.progress && item.progress.completion_ratio) || 0) * 100))}%"></div></div>
+              </div>
+            </td>
+            <td>
+              <div class="supp-actions">
+                ${(() => {
+                  const directTerms = ((item.children && item.children.missing_direct_sfx_terms) || []);
+                  const compositeTerms = ((item.children && item.children.missing_composite_sfx_terms) || []);
+                  const fallbackTerms = (((item.children && item.children.missing_sfx_terms) && item.children.missing_sfx_terms.length)
+                    ? item.children.missing_sfx_terms
+                    : ((item.children && item.children.sfx_terms) || item.sfx_terms || []));
+                  if (directTerms.length || compositeTerms.length) {
+                    return [
+                      ...directTerms.map((term, idx) => renderTermUpload(item, term, idx, false)),
+                      ...compositeTerms.map((term, idx) => renderTermUpload(item, term, directTerms.length + idx, true)),
+                    ].join('');
+                  }
+                  return fallbackTerms.map((term, idx) => renderTermUpload(item, term, idx, false)).join('');
+                })()}
+                ${Array.isArray(item.merged_assets) && item.merged_assets.length ? `<div class="muted-sm">已入库：${item.merged_assets.map(x => escHtml(x.display_name || x.asset_label || x.file_name || '')).join('、')}</div>` : ''}
+              </div>
+            </td>
+          </tr>
+        `;
+        const groupsHtml = Array.from(groups.values()).map(group => {
+          const groupPending = group.items.reduce((n, x) => n + Number((x.progress && x.progress.pending_count) || 0), 0);
+          const groupCovered = group.items.reduce((n, x) => n + Number((x.progress && x.progress.covered_count) || 0), 0);
+          const rows = group.items.map(renderRow).join('');
+          return `
+            <div class="supp-group" id="${nodeKeyToId(group.key)}" data-node-key="${escHtml(group.key)}">
+              <div class="supp-group-head">
+                <div>
+                  <div class="supp-group-title">${escHtml(group.key)}</div>
+                  <div class="supp-group-meta">赛道：${escHtml(group.genre)} ｜ 动作词：${escHtml(group.verb)} ｜ 建议头词：${escHtml(group.target_head || group.verb)}</div>
+                </div>
+                <div>
+                  <div class="supp-group-meta">补充单数：${group.items.length} ｜ 已补词：${groupCovered} ｜ 待补词：${groupPending}</div>
+                  <button class="link-btn" style="margin-top:6px;" onclick="openGraphNode('${escHtml(group.key)}')">查看该父节点图谱</button>
+                  <button class="link-btn" style="margin-top:6px;" onclick="jumpToSupplementGroup('${escHtml(group.key)}', 'pending')">定位当前补充组</button>
+                </div>
+              </div>
+              <div class="supp-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>通知</th>
+                      <th>ID</th>
+                      <th>用户手机号</th>
+                      <th>赛道</th>
+                      <th>动作词</th>
+                      <th>建议头词</th>
+                      <th>原句片段</th>
+                      <th>关联语义</th>
+                      <th>待补音效词</th>
+                      <th>状态 / 进度</th>
+                      <th>逐词入库操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>${rows}</tbody>
+                </table>
+              </div>
+            </div>
+          `;
+        }).join('');
+        box.innerHTML = groupsHtml;
+      }
+
+      async function mergeSupplementRow(itemId, termIdx, fallbackLabel) {
+        const current = latestSupplements.find(x => Number(x.id) === Number(itemId)) || null;
+        const assetLabel = (document.getElementById(`suppLabel_${itemId}_${termIdx}`).value || '').trim() || fallbackLabel || '';
+        const file = document.getElementById(`suppFile_${itemId}_${termIdx}`).files[0];
+        if (!assetLabel) return show('suppOut', '请输入入库名称');
+        if (!file) return show('suppOut', '请先选择音效文件');
+        const form = new FormData();
+        form.append('item_id', itemId);
+        form.append('asset_label', assetLabel);
+        form.append('notify_after_merge', '1');
+        form.append('file', file);
+        const res = await fetch(`${base()}/ops/action-supplements/merge`, {
+          method: 'POST',
+          headers: h(),
+          body: form,
+        });
+        const data = await read(res);
+        if (!res.ok) {
+          show('suppOut', data);
+          return;
+        }
+        const nextStatus = String((data && data.status) || '').trim();
+        const sel = document.getElementById('suppStatus');
+        if (sel && nextStatus) sel.value = nextStatus;
+        show('suppOut', {
+          ok: true,
+          message: `上传成功：这条补充单已从 pending 流转到 ${supplementStatusLabel(nextStatus)}。系统已自动切换到新状态视图。`,
+          item_id: data.item_id,
+          next_status: nextStatus,
+          asset_label: data.asset_label,
+          asset_file_path: data.asset_file_path,
+          covered_term_count: data.covered_term_count,
+          target_term_count: data.target_term_count,
+        });
+        await loadSupplements();
+        if (current && current.parent_node && current.parent_node.node_key) {
+          setTimeout(() => jumpToSupplementGroup(current.parent_node.node_key, nextStatus || 'partial'), 120);
+        }
+      }
+
+      async function notifySupplements() {
+        const checked = Array.from(document.querySelectorAll('.supp-check:checked')).map(x => Number(x.value)).filter(x => Number.isFinite(x) && x > 0);
+        const selected = (document.getElementById('notifyTarget').value || '').trim();
+        let item_ids = checked;
+        let phone = '';
+        if (!item_ids.length && selected) {
+          try {
+            const parsed = JSON.parse(selected);
+            item_ids = Array.isArray(parsed.item_ids) ? parsed.item_ids : [];
+            phone = parsed.phone || '';
+          } catch (_) {}
+        }
+        if (!item_ids.length) return show('suppOut', '请先从下拉框选择单条补充单，或勾选下方补充单后再批量通知');
+        const res = await fetch(`${base()}/ops/action-supplements/notify`, {
+          method: 'POST',
+          headers: h({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ item_ids }),
+        });
+        const data = await read(res);
+        const mode = checked.length ? '批量通知' : '单条通知';
+        show('suppOut', {
+          ...data,
+          mode,
+          message: checked.length
+            ? '已将勾选补充单的提醒状态批量更新为已通知。'
+            : (phone ? `已将单条补充单提醒状态更新为已通知：${phone}` : '已将所选单条补充单的提醒状态更新为已通知。'),
+        });
+        await loadSupplements();
+      }
+
       async function loadBundle() {
         const pid = (document.getElementById('bundlePid').value || '').trim();
         if (!pid) return show('bundleOut', '请输入项目ID');
@@ -289,6 +1267,7 @@
       }
 
       setState();
+      updateSupplementStatusHint();
     </script>
   </body>
 </html>
