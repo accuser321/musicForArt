@@ -195,5 +195,23 @@ class ActionSupplementAsset(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     supplement_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
     asset_label: Mapped[str] = mapped_column(String(128), index=True, nullable=False, default='')
+    asset_scope: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='genre')
+    asset_scope_genre: Mapped[str] = mapped_column(String(32), nullable=False, default='')
     asset_file_path: Mapped[str] = mapped_column(String(1024), nullable=False, default='')
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class ActionGraphInheritanceReview(Base):
+    __tablename__ = 'action_graph_inheritance_review'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    genre: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='')
+    verb_head: Mapped[str] = mapped_column(String(64), index=True, nullable=False, default='')
+    project_id: Mapped[int] = mapped_column(Integer, index=True, nullable=True)
+    hit_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    sample_excerpt: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    status: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='active')
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )

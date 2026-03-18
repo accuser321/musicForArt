@@ -16,6 +16,7 @@ from app.config import settings
 from app.db import SessionLocal, engine
 from app.models import (
     ActionSupplementAsset,
+    ActionGraphInheritanceReview,
     ActionSupplementTask,
     AudioAnalysis,
     AuthCode,
@@ -40,9 +41,12 @@ from app.services.llm import llm_enabled
 from app.services.text_analysis import analyze_text_for_audiobook
 from app.services.action_verbs import analyze_action_verbs
 from app.services.action_sfx_graph import (
+    build_asset_scope_label,
+    build_asset_variant_display_name,
     build_action_node_key,
     build_action_sfx_recommendation,
     classify_sfx_terms,
+    get_action_node_layer_term_items,
     load_global_sfx_label_coverage,
     load_action_node_coverage,
 )
@@ -52,6 +56,17 @@ from app.services.action_graph_neo4j import (
     list_action_graph_nodes,
     query_action_graph_node,
     sync_action_graph_to_neo4j,
+)
+from app.services.action_graph_manage import (
+    delete_action_graph_node,
+    demote_action_graph_terms_to_genre,
+    get_action_graph_node_layers,
+    list_action_graph_inheritance_blocks,
+    list_action_graph_maintenance_catalog,
+    promote_action_graph_terms_to_common,
+    remove_action_graph_overlap_terms,
+    set_action_graph_inheritance_block,
+    update_action_graph_node_layer,
 )
 from app.services.exporter import export_cue_csv, export_sfx_zip
 from app.services.reasoning_observability import get_reason_cache, log_reason_event, set_reason_cache
@@ -109,14 +124,50 @@ def _build_sfx_display_name(term: str, genre: str, children: dict | None = None)
 
 def _ensure_schema_columns() -> None:
     dialect = engine.dialect.name
-    cols = {col['name'] for col in inspect(engine).get_columns('projects')}
-    if 'genre' in cols:
-        return
     with engine.begin() as conn:
-        if dialect == 'sqlite':
-            conn.execute(sql_text("ALTER TABLE projects ADD COLUMN genre VARCHAR(32) NOT NULL DEFAULT '玄幻'"))
+        project_cols = {col['name'] for col in inspect(engine).get_columns('projects')}
+        if 'genre' not in project_cols:
+            if dialect == 'sqlite':
+                conn.execute(sql_text("ALTER TABLE projects ADD COLUMN genre VARCHAR(32) NOT NULL DEFAULT '玄幻'"))
+            else:
+                conn.execute(sql_text("ALTER TABLE projects ADD COLUMN genre VARCHAR(32) NOT NULL DEFAULT '玄幻'"))
+
+        asset_cols = {col['name'] for col in inspect(engine).get_columns('action_supplement_asset')}
+        if 'asset_scope' not in asset_cols:
+            conn.execute(sql_text("ALTER TABLE action_supplement_asset ADD COLUMN asset_scope VARCHAR(32) NOT NULL DEFAULT 'genre'"))
+        if 'asset_scope_genre' not in asset_cols:
+            conn.execute(sql_text("ALTER TABLE action_supplement_asset ADD COLUMN asset_scope_genre VARCHAR(32) NOT NULL DEFAULT ''"))
+
+
+def _record_inheritance_review_hits(db, project_id: int, hits: list[dict]) -> None:
+    for item in hits or []:
+        genre = str(item.get('genre') or '').strip()
+        verb_head = str(item.get('verb_head') or '').strip()
+        if not genre or not verb_head:
+            continue
+        row = db.execute(
+            select(ActionGraphInheritanceReview).where(
+                ActionGraphInheritanceReview.genre == genre,
+                ActionGraphInheritanceReview.verb_head == verb_head,
+            )
+        ).scalar_one_or_none()
+        excerpt = str(item.get('sentence_excerpt') or '').strip()
+        if row is None:
+            row = ActionGraphInheritanceReview(
+                genre=genre,
+                verb_head=verb_head,
+                project_id=project_id,
+                hit_count=1,
+                sample_excerpt=excerpt,
+                status='active',
+            )
+            db.add(row)
         else:
-            conn.execute(sql_text("ALTER TABLE projects ADD COLUMN genre VARCHAR(32) NOT NULL DEFAULT '玄幻'"))
+            row.project_id = project_id
+            row.hit_count = int(row.hit_count or 0) + 1
+            if excerpt:
+                row.sample_excerpt = excerpt
+            row.status = 'active'
 
 
 def _normalize_phone(raw: str) -> str:
@@ -725,6 +776,9 @@ def api_action_graph_node():
     if not node_key:
         return jsonify({'detail': 'node_key is required'}), 400
     out = query_action_graph_node(node_key)
+    layer_info = get_action_graph_node_layers(node_key)
+    if not layer_info.get('detail'):
+        out['graph_layers'] = layer_info
     if not out.get('detail'):
         genre = str(out.get('genre') or '').strip()
         verb_head = str(out.get('verb_head') or '').strip()
@@ -753,7 +807,17 @@ def api_action_graph_node():
                 assets_by_supp.setdefault(int(asset.supplement_id), []).append(
                     {
                         'asset_label': str(asset.asset_label or '').strip(),
-                        'display_name': _build_sfx_display_name(str(asset.asset_label or '').strip(), genre, asset_children),
+                        'asset_scope': str(asset.asset_scope or 'genre').strip().lower() or 'genre',
+                        'asset_scope_genre': str(asset.asset_scope_genre or genre or '').strip(),
+                        'display_name': build_asset_variant_display_name(
+                            str(asset.asset_label or '').strip(),
+                            str(asset.asset_scope or 'genre').strip().lower() or 'genre',
+                            str(asset.asset_scope_genre or genre or '').strip() or genre,
+                        ),
+                        'scope_label': build_asset_scope_label(
+                            str(asset.asset_scope or 'genre').strip().lower() or 'genre',
+                            str(asset.asset_scope_genre or genre or '').strip() or genre,
+                        ),
                         'sfx_mode': _sfx_mode_label(str(asset.asset_label or '').strip(), asset_children),
                         'asset_file_path': str(asset.asset_file_path or '').strip(),
                         'file_name': Path(asset.asset_file_path or '').name if asset.asset_file_path else '',
@@ -834,13 +898,186 @@ def api_action_graph_node():
             'supplement_items': supplement_items[:20],
         }
         out['business_explanation'] = {
-            'display_name_rule': '{音效名}（{类型}-{赛道}）',
-            'semantic_edge_meaning': '语义子级用于扩展理解与召回，不等于必须上传素材。',
+            'display_name_rule': '下载版本：{音效词}（通用） 或 {音效词}（赛道）',
+            'semantic_edge_meaning': '语义扩展词用于扩展理解与召回，不等于必须上传素材。',
             'direct_edge_meaning': '直达音效边表示可直接命中的素材标签，适合用户直接下载或运营直接补库。',
             'composite_edge_meaning': '组合音效边表示整体动作音效，适合直接交付给用户作为成品动作音效使用。',
-            'operator_hint': '运营补库时，优先补待补音效词；如果节点含有（组合）标签，则说明该词可作为整体动作音效单独上传。',
+            'operator_hint': '运营补库时，需要先选择上传的是通用版素材还是当前赛道版素材；如果节点含有（组合）标签，则说明该词可作为整体动作音效单独上传。',
         }
     code = 200 if not out.get('detail') else 404
+    return jsonify(out), code
+
+
+@app.get(f'{settings.api_prefix}/action-graph/node-layers')
+@_require_admin
+def api_action_graph_node_layers():
+    node_key = (request.args.get('node_key') or '').strip()
+    target_genre = (request.args.get('target_genre') or '').strip()
+    out = get_action_graph_node_layers(node_key, target_genre=target_genre)
+    code = 200 if not out.get('detail') else 404
+    return jsonify(out), code
+
+
+@app.get(f'{settings.api_prefix}/action-graph/maintenance-catalog')
+@_require_admin
+def api_action_graph_maintenance_catalog():
+    out = list_action_graph_maintenance_catalog()
+    return jsonify(out), 200
+
+
+@app.post(f'{settings.api_prefix}/action-graph/node-layer')
+@_require_admin
+def api_action_graph_node_layer_update():
+    payload = request.get_json(force=True) or {}
+    out = update_action_graph_node_layer(
+        node_key=str(payload.get('node_key') or '').strip(),
+        layer=str(payload.get('layer') or '').strip(),
+        semantic_terms=[str(x).strip() for x in (payload.get('semantic_terms') or []) if str(x).strip()],
+        sfx_terms=[str(x).strip() for x in (payload.get('sfx_terms') or []) if str(x).strip()],
+    )
+    if out.get('ok'):
+        neo4j_sync = sync_action_graph_to_neo4j()
+        out['neo4j_sync'] = neo4j_sync
+    code = 200 if out.get('ok') else 400
+    return jsonify(out), code
+
+
+@app.post(f'{settings.api_prefix}/action-graph/promote-to-common')
+@_require_admin
+def api_action_graph_promote_to_common():
+    payload = request.get_json(force=True) or {}
+    out = promote_action_graph_terms_to_common(
+        node_key=str(payload.get('node_key') or '').strip(),
+        semantic_terms=[str(x).strip() for x in (payload.get('semantic_terms') or []) if str(x).strip()],
+        sfx_terms=[str(x).strip() for x in (payload.get('sfx_terms') or []) if str(x).strip()],
+        remove_from_genre=bool(payload.get('remove_from_genre')),
+    )
+    if out.get('ok'):
+        neo4j_sync = sync_action_graph_to_neo4j()
+        out['neo4j_sync'] = neo4j_sync
+    code = 200 if out.get('ok') else 400
+    return jsonify(out), code
+
+
+@app.post(f'{settings.api_prefix}/action-graph/demote-to-genre')
+@_require_admin
+def api_action_graph_demote_to_genre():
+    payload = request.get_json(force=True) or {}
+    out = demote_action_graph_terms_to_genre(
+        node_key=str(payload.get('node_key') or '').strip(),
+        semantic_terms=[str(x).strip() for x in (payload.get('semantic_terms') or []) if str(x).strip()],
+        sfx_terms=[str(x).strip() for x in (payload.get('sfx_terms') or []) if str(x).strip()],
+        target_genre=str(payload.get('target_genre') or '').strip(),
+        remove_from_common=bool(payload.get('remove_from_common')),
+    )
+    if out.get('ok'):
+        neo4j_sync = sync_action_graph_to_neo4j()
+        out['neo4j_sync'] = neo4j_sync
+    code = 200 if out.get('ok') else 400
+    return jsonify(out), code
+
+
+@app.post(f'{settings.api_prefix}/action-graph/remove-overlap')
+@_require_admin
+def api_action_graph_remove_overlap():
+    payload = request.get_json(force=True) or {}
+    out = remove_action_graph_overlap_terms(
+        node_key=str(payload.get('node_key') or '').strip(),
+        semantic_terms=[str(x).strip() for x in (payload.get('semantic_terms') or []) if str(x).strip()],
+        sfx_terms=[str(x).strip() for x in (payload.get('sfx_terms') or []) if str(x).strip()],
+        remove_from_layer=str(payload.get('remove_from_layer') or '').strip(),
+        target_genre=str(payload.get('target_genre') or '').strip(),
+    )
+    if out.get('ok'):
+        neo4j_sync = sync_action_graph_to_neo4j()
+        out['neo4j_sync'] = neo4j_sync
+    code = 200 if out.get('ok') else 400
+    return jsonify(out), code
+
+
+@app.post(f'{settings.api_prefix}/action-graph/node-delete')
+@_require_admin
+def api_action_graph_node_delete():
+    payload = request.get_json(force=True) or {}
+    out = delete_action_graph_node(
+        node_key=str(payload.get('node_key') or '').strip(),
+        action=str(payload.get('action') or '').strip(),
+        target_genre=str(payload.get('target_genre') or '').strip(),
+    )
+    if out.get('ok'):
+        neo4j_sync = sync_action_graph_to_neo4j()
+        out['neo4j_sync'] = neo4j_sync
+    code = 200 if out.get('ok') else 400
+    return jsonify(out), code
+
+
+@app.get(f'{settings.api_prefix}/action-graph/inheritance-dashboard')
+@_require_admin
+def api_action_graph_inheritance_dashboard():
+    blocked = list_action_graph_inheritance_blocks()
+    days = max(1, min(int((request.args.get('days') or '30').strip()), 365))
+    cutoff = datetime.now() - timedelta(days=days)
+    with SessionLocal() as db:
+        rows = db.execute(
+            select(ActionGraphInheritanceReview)
+            .where(ActionGraphInheritanceReview.updated_at >= cutoff)
+            .order_by(ActionGraphInheritanceReview.hit_count.desc(), ActionGraphInheritanceReview.updated_at.desc())
+        ).scalars().all()
+    blocked_pairs = {(str(item.get('genre') or '').strip(), str(item.get('verb_head') or '').strip()) for item in (blocked.get('items') or [])}
+    review_items = []
+    for row in rows:
+        genre = str(row.genre or '').strip()
+        verb_head = str(row.verb_head or '').strip()
+        if not genre or not verb_head:
+            continue
+        review_items.append(
+            {
+                'id': int(row.id),
+                'genre': genre,
+                'verb_head': verb_head,
+                'hit_count': int(row.hit_count or 0),
+                'sample_excerpt': str(row.sample_excerpt or '').strip(),
+                'status': str(row.status or 'active').strip() or 'active',
+                'updated_at': row.updated_at.isoformat() if row.updated_at else '',
+                'is_currently_blocked': (genre, verb_head) in blocked_pairs,
+            }
+        )
+    return jsonify(
+        {
+            'blocked_pool': blocked,
+            'review_pool': {
+                'days': days,
+                'items': review_items,
+                'count': len(review_items),
+            },
+        }
+    ), 200
+
+
+@app.post(f'{settings.api_prefix}/action-graph/inheritance-block')
+@_require_admin
+def api_action_graph_inheritance_block():
+    payload = request.get_json(force=True) or {}
+    genre = str(payload.get('genre') or '').strip()
+    verb_head = str(payload.get('verb_head') or '').strip()
+    action = str(payload.get('action') or '').strip().lower()
+    if action not in {'block', 'restore'}:
+        return jsonify({'ok': False, 'detail': 'action must be block or restore'}), 400
+    out = set_action_graph_inheritance_block(verb_head=verb_head, genre=genre, blocked=(action == 'block'))
+    if out.get('ok'):
+        with SessionLocal() as db:
+            row = db.execute(
+                select(ActionGraphInheritanceReview).where(
+                    ActionGraphInheritanceReview.genre == genre,
+                    ActionGraphInheritanceReview.verb_head == verb_head,
+                )
+            ).scalar_one_or_none()
+            if row is not None:
+                row.status = 'restored' if action == 'restore' else 'blocked'
+                db.commit()
+        neo4j_sync = sync_action_graph_to_neo4j()
+        out['neo4j_sync'] = neo4j_sync
+    code = 200 if out.get('ok') else 400
     return jsonify(out), code
 
 
@@ -869,12 +1106,12 @@ def api_action_graph_nodes():
 def api_action_graph_explanation():
     return jsonify(
         {
-            'display_name_rule': '{音效名}（{类型}-{赛道}）',
-            'semantic_edge_meaning': '语义子级用于扩展理解与召回，不等于必须上传素材。',
+            'display_name_rule': '下载版本：{音效词}（通用） 或 {音效词}（赛道）',
+            'semantic_edge_meaning': '语义扩展词用于扩展理解与召回，不等于必须上传素材。',
             'direct_edge_meaning': '直达音效边表示可直接命中的素材标签，适合用户直接下载或运营直接补库。',
             'composite_edge_meaning': '组合音效边表示整体动作音效，适合直接交付给用户作为成品动作音效使用。',
             'user_hint': '如果你想快速出结果，可优先选择组合音效；如果你想自己叠加设计层次，可优先选择直达音效。',
-            'operator_hint': '运营补库时，优先补待补音效词；如果节点含有（组合）标签，则说明该词可作为整体动作音效单独上传。',
+            'operator_hint': '运营补库时，需要先选择上传的是通用版素材还是当前赛道版素材；如果节点含有（组合）标签，则说明该词可作为整体动作音效单独上传。',
         }
     )
 
@@ -1318,6 +1555,8 @@ def analyze_action_sfx_api(project_id: int):
             return jsonify({'detail': 'Project not found'}), 404
 
         result = build_action_sfx_recommendation(project_id=project_id, action_report=action_report)
+        _record_inheritance_review_hits(db, project_id, result.get('blocked_inheritance_hits') or [])
+        db.commit()
         _log_user_operation(
             db=db,
             action='action_sfx_graph',
@@ -1506,6 +1745,8 @@ def ops_action_supplements():
             {
                 'id': a.id,
                 'asset_label': a.asset_label,
+                'asset_scope': str(a.asset_scope or 'genre').strip().lower() or 'genre',
+                'asset_scope_genre': str(a.asset_scope_genre or '').strip(),
                 'asset_file_path': a.asset_file_path,
                 'file_name': Path(a.asset_file_path).name if a.asset_file_path else '',
                 'created_at': a.created_at.isoformat() if a.created_at else '',
@@ -1540,7 +1781,12 @@ def ops_action_supplements():
         dedup_asset_keys = set()
         normalized_assets = []
         for asset in merged_assets:
-            key = f"{str(asset.get('asset_label') or '').strip()}|{str(asset.get('asset_file_path') or asset.get('file_path') or '').strip()}"
+            key = (
+                f"{str(asset.get('asset_label') or '').strip()}"
+                f"|{str(asset.get('asset_scope') or '').strip()}"
+                f"|{str(asset.get('asset_scope_genre') or '').strip()}"
+                f"|{str(asset.get('asset_file_path') or asset.get('file_path') or '').strip()}"
+            )
             if key in dedup_asset_keys:
                 continue
             dedup_asset_keys.add(key)
@@ -1570,7 +1816,15 @@ def ops_action_supplements():
             merged_assets_with_display.append(
                 {
                     **asset,
-                    'display_name': _build_sfx_display_name(label, r.genre, {'composite_sfx_terms': target_terms_classified['composite_terms']}),
+                    'display_name': build_asset_variant_display_name(
+                        label,
+                        str(asset.get('asset_scope') or 'genre').strip().lower() or 'genre',
+                        str(asset.get('asset_scope_genre') or r.genre or '').strip() or r.genre,
+                    ),
+                    'scope_label': build_asset_scope_label(
+                        str(asset.get('asset_scope') or 'genre').strip().lower() or 'genre',
+                        str(asset.get('asset_scope_genre') or r.genre or '').strip() or r.genre,
+                    ),
                     'sfx_mode': _sfx_mode_label(label, {'composite_sfx_terms': target_terms_classified['composite_terms']}),
                 }
             )
@@ -1582,6 +1836,33 @@ def ops_action_supplements():
             merged_count += 1
         total_pending_terms += len(pending_terms)
         total_covered_terms += len(covered_terms)
+        layer_term_items = get_action_node_layer_term_items(
+            str(r.target_genre or r.genre or '').strip(),
+            str(r.target_head or r.verb or '').strip(),
+        )
+        semantic_term_items = list(layer_term_items.get('semantic_term_items') or [])
+        direct_term_items = list(layer_term_items.get('direct_sfx_term_items') or [])
+        composite_term_items = list(layer_term_items.get('composite_sfx_term_items') or [])
+        direct_source_map = {str(item.get('term') or '').strip(): item for item in direct_term_items if str(item.get('term') or '').strip()}
+        composite_source_map = {str(item.get('term') or '').strip(): item for item in composite_term_items if str(item.get('term') or '').strip()}
+        missing_direct_term_items = [
+            dict(direct_source_map.get(str(term).strip()) or {
+                'term': str(term).strip(),
+                'source': 'unknown',
+                'source_label': '未标注',
+            })
+            for term in pending_terms_classified['direct_terms']
+            if str(term).strip()
+        ]
+        missing_composite_term_items = [
+            dict(composite_source_map.get(str(term).strip()) or {
+                'term': str(term).strip(),
+                'source': 'unknown',
+                'source_label': '未标注',
+            })
+            for term in pending_terms_classified['composite_terms']
+            if str(term).strip()
+        ]
 
         items.append(
             {
@@ -1613,14 +1894,19 @@ def ops_action_supplements():
                 },
                 'children': {
                     'semantic_terms': semantic_terms,
+                    'semantic_term_items': semantic_term_items,
                     'sfx_terms': target_terms,
                     'missing_sfx_terms': pending_terms,
                     'covered_sfx_terms': covered_terms,
                     'direct_sfx_terms': target_terms_classified['direct_terms'],
+                    'direct_sfx_term_items': direct_term_items,
                     'composite_sfx_terms': target_terms_classified['composite_terms'],
+                    'composite_sfx_term_items': composite_term_items,
                     'display_sfx_terms': target_terms_classified['display_terms'],
                     'missing_direct_sfx_terms': pending_terms_classified['direct_terms'],
+                    'missing_direct_sfx_term_items': missing_direct_term_items,
                     'missing_composite_sfx_terms': pending_terms_classified['composite_terms'],
+                    'missing_composite_sfx_term_items': missing_composite_term_items,
                     'display_missing_sfx_terms': pending_terms_classified['display_terms'],
                 },
                 'progress': {
@@ -1690,12 +1976,15 @@ def ops_action_supplements():
 def ops_action_supplements_merge():
     item_id = request.form.get('item_id', type=int)
     asset_label = (request.form.get('asset_label') or '').strip()
+    asset_scope = (request.form.get('asset_scope') or '').strip().lower()
     notify_after_merge = str(request.form.get('notify_after_merge') or '').strip() in {'1', 'true', 'yes'}
     file = request.files.get('file')
     if not item_id:
         return jsonify({'detail': 'item_id is required'}), 400
     if not asset_label:
         return jsonify({'detail': 'asset_label is required'}), 400
+    if asset_scope not in {'common', 'genre'}:
+        return jsonify({'detail': 'asset_scope must be common or genre'}), 400
     if file is None or not getattr(file, 'filename', ''):
         return jsonify({'detail': 'file is required'}), 400
 
@@ -1715,20 +2004,25 @@ def ops_action_supplements_merge():
         file.save(out_path)
 
         current_children = classify_sfx_terms(json.loads(item.sfx_terms_json or '[]') if item.sfx_terms_json else [])
-        draft_graph = {
-            'common': {},
-            'genres': {
-                item.target_genre or item.genre or '玄幻': {
-                    item.target_head or item.verb: {
-                        'semantic_terms': json.loads(item.semantic_terms_json or '[]'),
-                        'sfx_terms': _merge_unique_list(json.loads(item.sfx_terms_json or '[]') + [asset_label]),
-                    }
+        target_genre = item.target_genre or item.genre or '玄幻'
+        target_head = item.target_head or item.verb
+        next_sfx_terms = _merge_unique_list(json.loads(item.sfx_terms_json or '[]') + [asset_label])
+        draft_graph = {'common': {}, 'genres': {}}
+        if asset_scope == 'common':
+            draft_graph['common'][target_head] = {
+                'semantic_terms': [],
+                'sfx_terms': next_sfx_terms,
+            }
+        else:
+            draft_graph['genres'][target_genre] = {
+                target_head: {
+                    'semantic_terms': json.loads(item.semantic_terms_json or '[]'),
+                    'sfx_terms': next_sfx_terms,
                 }
-            },
-        }
+            }
         apply_action_graph_draft(
             {
-                'genre': item.target_genre or item.genre or '玄幻',
+                'genre': target_genre,
                 'draft_count': 1,
                 'draft_graph': draft_graph,
             }
@@ -1742,11 +2036,13 @@ def ops_action_supplements_merge():
                 'detail': f'neo4j sync failed: {exc}',
             }
         sfx_mode = _sfx_mode_label(asset_label, {'composite_sfx_terms': current_children['composite_terms']})
-        display_name = _build_sfx_display_name(asset_label, item.target_genre or item.genre or '', {'composite_sfx_terms': current_children['composite_terms']})
+        display_name = build_asset_variant_display_name(asset_label, asset_scope, target_genre)
         db.add(
             ActionSupplementAsset(
                 supplement_id=item.id,
                 asset_label=asset_label,
+                asset_scope=asset_scope,
+                asset_scope_genre=(target_genre if asset_scope == 'genre' else ''),
                 asset_file_path=str(out_path),
             )
         )
@@ -1785,7 +2081,7 @@ def ops_action_supplements_merge():
             db=db,
             action='action_supplement_merge',
             project_id=item.project_id,
-            req={'item_id': item.id, 'asset_label': asset_label, 'notify_after_merge': notify_after_merge},
+            req={'item_id': item.id, 'asset_label': asset_label, 'asset_scope': asset_scope, 'notify_after_merge': notify_after_merge},
             resp={'ok': True, 'status': item.status, 'neo4j_sync_ok': bool((neo4j_sync or {}).get('ok'))},
             file_refs=[str(out_path)],
         )
@@ -1796,6 +2092,8 @@ def ops_action_supplements_merge():
                 'item_id': item.id,
                 'status': item.status,
                 'asset_label': asset_label,
+                'asset_scope': asset_scope,
+                'asset_scope_label': build_asset_scope_label(asset_scope, target_genre),
                 'asset_display_name': display_name,
                 'asset_mode': sfx_mode,
                 'asset_file_path': str(out_path),

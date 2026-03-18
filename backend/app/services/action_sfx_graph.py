@@ -68,7 +68,10 @@ def _load_action_graph() -> dict[str, dict]:
                 bucket[str(k).strip()] = _normalize_entry(v)
         genres[str(genre).strip()] = bucket
 
-    return {'common': common, 'genres': genres}
+    meta = (data or {}).get('_meta') if isinstance(data, dict) else {}
+    if not isinstance(meta, dict):
+        meta = {}
+    return {'_meta': meta, 'common': common, 'genres': genres}
 
 
 def _merge_unique(items: list[str]) -> list[str]:
@@ -80,6 +83,29 @@ def _merge_unique(items: list[str]) -> list[str]:
             seen.add(value)
             out.append(value)
     return out
+
+
+def _inheritance_blocks(graph: dict | None = None) -> dict[str, set[str]]:
+    data = graph if isinstance(graph, dict) else _load_action_graph()
+    meta = data.get('_meta') or {}
+    raw = meta.get('inheritance_blocks') or {}
+    out: dict[str, set[str]] = {}
+    if not isinstance(raw, dict):
+        return out
+    for genre, heads in raw.items():
+        genre_key = str(genre or '').strip()
+        if not genre_key:
+            continue
+        out[genre_key] = {str(head or '').strip() for head in (heads or []) if str(head or '').strip()}
+    return out
+
+
+def is_inheritance_blocked(genre: str, head: str, graph: dict | None = None) -> bool:
+    genre_key = str(genre or '').strip()
+    head_key = str(head or '').strip()
+    if not genre_key or not head_key:
+        return False
+    return head_key in _inheritance_blocks(graph).get(genre_key, set())
 
 
 def is_direct_sfx_term(term: str) -> bool:
@@ -116,6 +142,23 @@ def build_sfx_display_name(term: str, genre: str, composite_terms: list[str] | N
     mode = '组合' if value in composite_set or not is_direct_sfx_term(value) else '直达'
     genre_part = str(genre or '').strip()
     return f'{value}（{mode}{("-" + genre_part) if genre_part else ""}）'
+
+
+def build_asset_scope_label(asset_scope: str, genre: str) -> str:
+    scope = str(asset_scope or '').strip().lower()
+    genre_name = str(genre or '').strip()
+    if scope == 'common':
+        return '通用'
+    if scope == 'genre':
+        return genre_name or '赛道'
+    return '候选'
+
+
+def build_asset_variant_display_name(term: str, asset_scope: str, genre: str) -> str:
+    value = str(term or '').strip()
+    if not value:
+        return ''
+    return f'{value}（{build_asset_scope_label(asset_scope, genre)}）'
 
 
 def build_action_node_key(genre: str, head: str) -> str:
@@ -171,15 +214,24 @@ def load_action_node_coverage(node_keys: set[str] | None = None) -> dict[str, di
             label = str(asset.asset_label or '').strip()
             if not label:
                 continue
+            asset_scope = str(asset.asset_scope or 'genre').strip().lower() or 'genre'
+            asset_scope_genre = str(asset.asset_scope_genre or genre or '').strip()
             entry['covered_labels'].add(label)
-            display_name = build_sfx_display_name(label, genre, composite_terms)
-            key = f'{label}|{asset.asset_file_path}'
-            if key in {f"{str(x.get('asset_label') or '').strip()}|{str(x.get('asset_file_path') or '').strip()}" for x in entry['assets']}:
+            display_name = build_asset_variant_display_name(label, asset_scope, asset_scope_genre or genre)
+            key = f'{label}|{asset_scope}|{asset_scope_genre}|{asset.asset_file_path}'
+            if key in {
+                f"{str(x.get('asset_label') or '').strip()}|{str(x.get('asset_scope') or '').strip()}|{str(x.get('asset_scope_genre') or '').strip()}|{str(x.get('asset_file_path') or '').strip()}"
+                for x in entry['assets']
+            }:
                 continue
             entry['assets'].append(
                 {
                     'label': label,
                     'asset_label': label,
+                    'asset_scope': asset_scope,
+                    'asset_scope_genre': asset_scope_genre,
+                    'scope_label': build_asset_scope_label(asset_scope, asset_scope_genre or genre),
+                    'variant_key': f'{label}|{asset_scope}|{asset_scope_genre}',
                     'file_name': Path(asset.asset_file_path).name if asset.asset_file_path else '',
                     'file_path': asset.asset_file_path,
                     'asset_file_path': asset.asset_file_path,
@@ -216,11 +268,17 @@ def load_global_sfx_label_coverage() -> dict:
         labels.add(label)
         task = task_by_id.get(int(asset.supplement_id))
         genre = str((task.target_genre if task else '') or (task.genre if task else '') or '').strip()
-        display_name = build_sfx_display_name(label, genre, [label] if not is_direct_sfx_term(label) else [])
+        asset_scope = str(asset.asset_scope or 'genre').strip().lower() or 'genre'
+        asset_scope_genre = str(asset.asset_scope_genre or genre or '').strip()
+        display_name = build_asset_variant_display_name(label, asset_scope, asset_scope_genre or genre)
         assets_by_label.setdefault(label, []).append(
             {
                 'label': label,
                 'asset_label': label,
+                'asset_scope': asset_scope,
+                'asset_scope_genre': asset_scope_genre,
+                'scope_label': build_asset_scope_label(asset_scope, asset_scope_genre or genre),
+                'variant_key': f'{label}|{asset_scope}|{asset_scope_genre}',
                 'file_name': Path(asset.asset_file_path).name if asset.asset_file_path else '',
                 'file_path': asset.asset_file_path,
                 'asset_file_path': asset.asset_file_path,
@@ -248,6 +306,88 @@ def _merge_graph_entries(base: dict | None, extra: dict | None) -> dict:
     }
 
 
+def _source_key(common_hit: bool, genre_hit: bool) -> str:
+    if common_hit and genre_hit:
+        return 'common+genre'
+    if genre_hit:
+        return 'genre'
+    if common_hit:
+        return 'common'
+    return 'unknown'
+
+
+def _source_label(source: str) -> str:
+    return {
+        'common': '通用层',
+        'genre': '赛道层',
+        'common+genre': '通用+赛道',
+        'fallback': '保底生成',
+        'unknown': '未标注',
+    }.get(str(source or '').strip(), '未标注')
+
+
+def _layered_term_items(common_terms: list[str], genre_terms: list[str]) -> list[dict]:
+    ordered = _merge_unique(list(common_terms or []) + list(genre_terms or []))
+    common_set = {str(x).strip() for x in (common_terms or []) if str(x).strip()}
+    genre_set = {str(x).strip() for x in (genre_terms or []) if str(x).strip()}
+    out = []
+    for term in ordered:
+        source = _source_key(term in common_set, term in genre_set)
+        out.append(
+            {
+                'term': term,
+                'source': source,
+                'source_label': _source_label(source),
+                'from_common': term in common_set,
+                'from_genre': term in genre_set,
+            }
+        )
+    return out
+
+
+def _append_fallback_term_items(existing_items: list[dict], fallback_terms: list[str]) -> list[dict]:
+    out = [dict(item) for item in (existing_items or []) if isinstance(item, dict)]
+    existing_terms = {str(item.get('term') or '').strip() for item in out if str(item.get('term') or '').strip()}
+    for term in fallback_terms or []:
+        value = str(term or '').strip()
+        if not value or value in existing_terms:
+            continue
+        out.append(
+            {
+                'term': value,
+                'source': 'fallback',
+                'source_label': _source_label('fallback'),
+                'from_common': False,
+                'from_genre': False,
+                'is_fallback': True,
+            }
+        )
+        existing_terms.add(value)
+    return out
+
+
+def get_action_node_layer_term_items(genre: str, head: str) -> dict:
+    graph = _load_action_graph()
+    head_value = str(head or '').strip()
+    genre_value = str(genre or '').strip()
+    common_entry = ((graph.get('common') or {}).get(head_value) or {})
+    if is_inheritance_blocked(genre_value, head_value, graph):
+        common_entry = {}
+    genre_entry = ((((graph.get('genres') or {}).get(genre_value) or {}).get(head_value)) or {})
+    common_semantic_terms = list(common_entry.get('semantic_terms') or ((common_entry.get('children') or {}).get('semantic_terms') or []))
+    genre_semantic_terms = list(genre_entry.get('semantic_terms') or ((genre_entry.get('children') or {}).get('semantic_terms') or []))
+    common_sfx_terms = list(common_entry.get('sfx_terms') or ((common_entry.get('children') or {}).get('sfx_terms') or []))
+    genre_sfx_terms = list(genre_entry.get('sfx_terms') or ((genre_entry.get('children') or {}).get('sfx_terms') or []))
+    sfx_term_items = _layered_term_items(common_sfx_terms, genre_sfx_terms)
+    direct_set = set(classify_sfx_terms(_merge_unique(list(common_sfx_terms) + list(genre_sfx_terms)))['direct_terms'])
+    return {
+        'semantic_term_items': _layered_term_items(common_semantic_terms, genre_semantic_terms),
+        'sfx_term_items': sfx_term_items,
+        'direct_sfx_term_items': [item for item in sfx_term_items if str(item.get('term') or '').strip() in direct_set],
+        'composite_sfx_term_items': [item for item in sfx_term_items if str(item.get('term') or '').strip() not in direct_set],
+    }
+
+
 def build_action_sfx_recommendation(project_id: int, action_report: dict, backend_override: str | None = None) -> dict:
     report = action_report if isinstance(action_report, dict) else {}
     candidates = report.get('action_candidates') or []
@@ -256,6 +396,7 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
     library = load_sfx_library(backend_override=backend_override)
     global_label_coverage = load_global_sfx_label_coverage()
     candidate_node_keys = set()
+    blocked_hits = []
     for row in candidates:
         if not isinstance(row, dict):
             continue
@@ -263,6 +404,17 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
         if not verb:
             continue
         genre_entry = (((graph.get('genres') or {}).get(genre) or {}).get(verb)) or {}
+        common_entry = ((graph.get('common') or {}).get(verb)) or {}
+        if is_inheritance_blocked(genre, verb, graph) and common_entry and not genre_entry:
+            blocked_hits.append(
+                {
+                    'genre': genre,
+                    'verb_head': verb,
+                    'sentence_excerpt': str((row or {}).get('sentence_excerpt') or '').strip(),
+                    'reason': '该通用层节点已对当前赛道关闭继承，但用户文本仍然命中了这个动作词。',
+                }
+            )
+            continue
         head = str((genre_entry.get('parent_node') or {}).get('verb_head') or verb).strip()
         node_key = build_action_node_key(genre, head)
         if node_key:
@@ -280,7 +432,13 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
             continue
         common_entry = ((graph.get('common') or {}).get(verb) or {})
         genre_entry = ((((graph.get('genres') or {}).get(genre) or {}).get(verb)) or {})
+        if is_inheritance_blocked(genre, verb, graph) and common_entry and not genre_entry:
+            continue
         graph_entry = _merge_graph_entries(common_entry, genre_entry)
+        common_semantic_terms = list(common_entry.get('semantic_terms') or ((common_entry.get('children') or {}).get('semantic_terms') or []))
+        genre_semantic_terms = list(genre_entry.get('semantic_terms') or ((genre_entry.get('children') or {}).get('semantic_terms') or []))
+        common_sfx_terms = list(common_entry.get('sfx_terms') or ((common_entry.get('children') or {}).get('sfx_terms') or []))
+        genre_sfx_terms = list(genre_entry.get('sfx_terms') or ((genre_entry.get('children') or {}).get('sfx_terms') or []))
         node_key = str((graph_entry.get('parent_node') or {}).get('node_key') or build_action_node_key(genre, verb)).strip()
         coverage = coverage_by_node.get(node_key) or {}
         semantic_terms = list(graph_entry.get('semantic_terms') or [])
@@ -337,6 +495,18 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
 
         all_sfx_terms = _merge_unique(sfx_terms + picked_labels)
         all_sfx_classified = classify_sfx_terms(all_sfx_terms)
+        semantic_term_items = _layered_term_items(common_semantic_terms, genre_semantic_terms)
+        sfx_term_items = _layered_term_items(common_sfx_terms, genre_sfx_terms)
+        semantic_term_items = _append_fallback_term_items(
+            semantic_term_items,
+            [term for term in semantic_terms if term not in {str(item.get('term') or '').strip() for item in semantic_term_items}],
+        )
+        sfx_term_items = _append_fallback_term_items(
+            sfx_term_items,
+            [term for term in all_sfx_terms if term not in {str(item.get('term') or '').strip() for item in sfx_term_items}],
+        )
+        direct_term_items = [item for item in sfx_term_items if item['term'] in set(all_sfx_classified['direct_terms'])]
+        composite_term_items = [item for item in sfx_term_items if item['term'] in set(all_sfx_classified['composite_terms'])]
         covered_label_set = {str(x).strip() for x in (coverage.get('covered_labels') or []) if str(x).strip()}
         covered_label_set.update(str(x).strip() for x in (global_label_coverage.get('labels') or []) if str(x).strip())
         covered_label_set.update(str(x.get('label') or '').strip() for x in dedup_assets if str(x.get('label') or '').strip())
@@ -368,11 +538,15 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
                 },
                 'children': {
                     'semantic_terms': semantic_terms[:10],
+                    'semantic_term_items': semantic_term_items[:10],
                     'sfx_terms': all_sfx_terms[:8],
+                    'sfx_term_items': sfx_term_items[:8],
                     'missing_sfx_terms': missing_sfx_terms[:10],
                     'covered_sfx_terms': covered_sfx_terms[:10],
                     'direct_sfx_terms': all_sfx_classified['direct_terms'][:8],
+                    'direct_sfx_term_items': direct_term_items[:8],
                     'composite_sfx_terms': all_sfx_classified['composite_terms'][:8],
+                    'composite_sfx_term_items': composite_term_items[:8],
                     'display_sfx_terms': all_sfx_classified['display_terms'][:8],
                     'missing_direct_sfx_terms': missing_sfx_classified['direct_terms'][:10],
                     'missing_composite_sfx_terms': missing_sfx_classified['composite_terms'][:10],
@@ -389,6 +563,11 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
                     'common_hit': bool(common_entry),
                     'genre_hit': bool(genre_entry),
                     'genre': genre,
+                    'has_fallback_terms': any(str(item.get('source') or '') == 'fallback' for item in (sfx_term_items + semantic_term_items)),
+                    'semantic_term_items': semantic_term_items[:10],
+                    'sfx_term_items': sfx_term_items[:8],
+                    'direct_sfx_term_items': direct_term_items[:8],
+                    'composite_sfx_term_items': composite_term_items[:8],
                 },
             }
         )
@@ -432,4 +611,5 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
             'asset_count': sum(len(x.get('assets') or []) for x in items),
             'gap_count': len(gap_items),
         },
+        'blocked_inheritance_hits': blocked_hits,
     }

@@ -484,33 +484,6 @@
         "轻微换气声"
       ]
     },
-    "低头": {
-      "parent_node": {
-        "genre": "",
-        "verb_head": "低头",
-        "node_key": "低头"
-      },
-      "children": {
-        "semantic_terms": [
-          "垂首",
-          "俯首",
-          "低下头"
-        ],
-        "sfx_terms": [
-          "衣料轻擦声",
-          "细微动作声"
-        ]
-      },
-      "semantic_terms": [
-        "垂首",
-        "俯首",
-        "低下头"
-      ],
-      "sfx_terms": [
-        "衣料轻擦声",
-        "细微动作声"
-      ]
-    },
     "抬头": {
       "parent_node": {
         "genre": "",
@@ -591,6 +564,125 @@
         "松手声",
         "细微摩擦声"
       ]
+    },
+    "逃": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "逃",
+        "node_key": "逃"
+      },
+      "children": {
+        "semantic_terms": [
+          "奔逃",
+          "远离",
+          "逃"
+        ],
+        "sfx_terms": [
+          "喘息声",
+          "逃",
+          "破风声",
+          "疾跑"
+        ]
+      },
+      "semantic_terms": [
+        "奔逃",
+        "远离",
+        "逃"
+      ],
+      "sfx_terms": [
+        "喘息声",
+        "逃",
+        "破风声",
+        "疾跑"
+      ]
+    },
+    "低头": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "低头",
+        "node_key": "低头"
+      },
+      "children": {
+        "semantic_terms": [
+          "垂首",
+          "俯首",
+          "低下头"
+        ],
+        "sfx_terms": [
+          "衣料轻擦声"
+        ]
+      },
+      "semantic_terms": [
+        "垂首",
+        "俯首",
+        "低下头"
+      ],
+      "sfx_terms": [
+        "衣料轻擦声"
+      ]
+    },
+    "引来": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "引来",
+        "node_key": "引来"
+      },
+      "children": {
+        "semantic_terms": [],
+        "sfx_terms": [
+          "引来"
+        ]
+      },
+      "semantic_terms": [],
+      "sfx_terms": [
+        "引来"
+      ]
+    },
+    "躲闪": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "躲闪",
+        "node_key": "躲闪"
+      },
+      "children": {
+        "semantic_terms": [],
+        "sfx_terms": [
+          "快速移动声",
+          "衣料摩擦声",
+          "脚步急撤声",
+          "避让",
+          "疾退"
+        ]
+      },
+      "semantic_terms": [],
+      "sfx_terms": [
+        "快速移动声",
+        "衣料摩擦声",
+        "脚步急撤声",
+        "避让",
+        "疾退"
+      ]
+    },
+    "封印": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "封印",
+        "node_key": "封印"
+      },
+      "children": {
+        "semantic_terms": [],
+        "sfx_terms": [
+          "低频嗡鸣",
+          "能量收束声",
+          "封禁声"
+        ]
+      },
+      "semantic_terms": [],
+      "sfx_terms": [
+        "低频嗡鸣",
+        "能量收束声",
+        "封禁声"
+      ]
     }
   },
   "genres": {
@@ -649,9 +741,9 @@
         "children": {
           "semantic_terms": [
             "施法",
-            "结印",
             "起术",
             "掐印",
+            "结印",
             "掐诀"
           ],
           "sfx_terms": [
@@ -667,9 +759,9 @@
         },
         "semantic_terms": [
           "施法",
-          "结印",
           "起术",
           "掐印",
+          "结印",
           "掐诀"
         ],
         "sfx_terms": [
@@ -844,33 +936,31 @@
         },
         "children": {
           "semantic_terms": [
-            "奔逃",
             "疾跑",
-            "远离",
             "遁走",
-            "逃"
+            "逃",
+            "奔逃",
+            "远离"
           ],
           "sfx_terms": [
-            "快速脚步声",
             "破风声",
+            "疾跑",
             "喘息声",
-            "逃",
-            "疾跑"
+            "逃"
           ]
         },
         "semantic_terms": [
-          "奔逃",
           "疾跑",
-          "远离",
           "遁走",
-          "逃"
+          "逃",
+          "奔逃",
+          "远离"
         ],
         "sfx_terms": [
-          "快速脚步声",
           "破风声",
+          "疾跑",
           "喘息声",
-          "逃",
-          "疾跑"
+          "逃"
         ]
       },
       "跃起": {
@@ -1031,7 +1121,6 @@
             "锁住"
           ],
           "sfx_terms": [
-            "能量收束声",
             "封禁声",
             "低频嗡鸣"
           ]
@@ -1042,7 +1131,6 @@
           "锁住"
         ],
         "sfx_terms": [
-          "能量收束声",
           "封禁声",
           "低频嗡鸣"
         ]
@@ -1095,6 +1183,113 @@
         ],
         "sfx_terms": [
           "吐"
+        ]
+      },
+      "避开": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "避开",
+          "node_key": "玄幻::避开"
+        },
+        "children": {
+          "semantic_terms": [
+            "避开"
+          ],
+          "sfx_terms": [
+            "避开"
+          ]
+        },
+        "semantic_terms": [
+          "避开"
+        ],
+        "sfx_terms": [
+          "避开"
+        ]
+      },
+      "骑": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "骑",
+          "node_key": "玄幻::骑"
+        },
+        "children": {
+          "semantic_terms": [
+            "骑"
+          ],
+          "sfx_terms": [
+            "骑"
+          ]
+        },
+        "semantic_terms": [
+          "骑"
+        ],
+        "sfx_terms": [
+          "骑"
+        ]
+      },
+      "转身": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "转身",
+          "node_key": "玄幻::转身"
+        },
+        "children": {
+          "semantic_terms": [
+            "侧身",
+            "回身"
+          ],
+          "sfx_terms": []
+        },
+        "semantic_terms": [
+          "侧身",
+          "回身"
+        ],
+        "sfx_terms": []
+      },
+      "站起": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "站起",
+          "node_key": "玄幻::站起"
+        },
+        "children": {
+          "semantic_terms": [
+            "起身",
+            "站起来"
+          ],
+          "sfx_terms": []
+        },
+        "semantic_terms": [
+          "起身",
+          "站起来"
+        ],
+        "sfx_terms": []
+      },
+      "低头": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "低头",
+          "node_key": "玄幻::低头"
+        },
+        "children": {
+          "semantic_terms": [
+            "垂首",
+            "俯首",
+            "低下头"
+          ],
+          "sfx_terms": [
+            "衣料轻擦声",
+            "细微动作声"
+          ]
+        },
+        "semantic_terms": [
+          "垂首",
+          "俯首",
+          "低下头"
+        ],
+        "sfx_terms": [
+          "衣料轻擦声",
+          "细微动作声"
         ]
       }
     },

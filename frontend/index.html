@@ -77,6 +77,17 @@
         padding: 6px;
         text-align: left;
       }
+      .asset-candidate-details {
+        margin-top: 6px;
+      }
+      .asset-candidate-details summary {
+        cursor: pointer;
+        color: var(--accent);
+        font-weight: 600;
+      }
+      .asset-candidate-details[open] summary {
+        margin-bottom: 6px;
+      }
       .md h1, .md h2, .md h3 { margin: 8px 0; }
       .md ul { margin: 6px 0 6px 20px; }
       .error {
@@ -221,6 +232,24 @@
       .kv-lite {
         font-size: 13px;
         margin: 3px 0;
+      }
+      .kv-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-right: 8px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        border: 1px solid #b9c8d8;
+        background: linear-gradient(135deg, #f7fbff, #e9f1f8);
+        color: #2f4d67;
+        font-weight: 700;
+        box-shadow: 0 2px 10px rgba(46, 89, 124, 0.08);
+      }
+      .kv-title::before {
+        content: "✦";
+        font-size: 11px;
+        color: #5f88ad;
       }
       .view-switch {
         display: flex;
@@ -381,6 +410,26 @@
         text-align: left;
       }
       .hint { font-size: 12px; opacity: 0.8; }
+      .pending-sfx-alert {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        margin: 0 8px 6px 0;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: #8a2f00;
+        background: linear-gradient(135deg, rgba(255, 224, 188, 0.96), rgba(255, 241, 219, 0.98));
+        border: 1px solid rgba(205, 95, 22, 0.28);
+        box-shadow: 0 8px 20px rgba(205, 95, 22, 0.1);
+      }
+      .pending-sfx-alert::before {
+        content: "▲";
+        font-size: 11px;
+        color: #c44e00;
+      }
       .busy {
         margin-top: 8px;
         padding: 8px;
@@ -430,12 +479,6 @@
           <button onclick="createProject()">1) 创建项目</button>
           <p class="hint">当前项目ID: <span id="projectId">-</span> ｜ 当前赛道: <span id="projectGenreState">-</span></p>
 
-          <label>报告模式</label>
-          <select id="reportMode">
-            <option value="production" selected>production（制作版）</option>
-            <option value="teaching">teaching（教学版）</option>
-            <option value="concise">concise（简版）</option>
-          </select>
           <div class="hint">当前版本：LLM 调用已强制使用核心 Prompt 对（text_with_music + fusion_production），并默认返回 Prompt I/O 调试追踪。</div>
 
           <label>上传音乐</label>
@@ -835,6 +878,28 @@
         return arr.map(x => `<span class="pill">${escHtml(String(x))}</span>`).join('');
       }
 
+      function renderSourceBadge(source) {
+        const key = String(source || '').trim();
+        const label = ({
+          'common': '通用层',
+          'genre': '赛道层',
+          'common+genre': '通用+赛道',
+          'fallback': '保底生成',
+        })[key] || '未标注';
+        return `<span class="pill">${escHtml(label)}</span>`;
+      }
+
+      function renderTermItemsWithSource(items, suffix = '') {
+        const arr = Array.isArray(items) ? items.filter(Boolean) : [];
+        if (!arr.length) return '<span class="hint">无</span>';
+        return `<div class="term-state-list">${arr.map(item => `
+          <span class="term-state">
+            ${escHtml(String(item.term || ''))}${suffix}
+            ${renderSourceBadge(item.source)}
+          </span>
+        `).join('')}</div>`;
+      }
+
       function renderSfxBuckets(children, fallbackTerms, fallbackMissingTerms) {
         const direct = Array.isArray(children && children.direct_sfx_terms) ? children.direct_sfx_terms : [];
         const composite = Array.isArray(children && children.composite_sfx_terms) ? children.composite_sfx_terms : [];
@@ -852,8 +917,8 @@
         };
         const directHtml = direct.length ? `<div><span class="hint">直达音效</span><div>${renderPills(direct)}</div></div>` : '';
         const compositeHtml = composite.length ? `<div style="margin-top:6px;"><span class="hint">组合音效</span><div>${renderPills(composite.map(x => `${x}（组合）`))}</div></div>` : '';
-        const missingDirectHtml = direct.length ? `<div><span class="hint">待补直达音效</span>${renderStateTerms(direct, false)}</div>` : '';
-        const missingCompositeHtml = composite.length ? `<div style="margin-top:6px;"><span class="hint">待补组合音效</span>${renderStateTerms(composite, true)}</div>` : '';
+        const missingDirectHtml = direct.length ? `<div><span class="pending-sfx-alert">待补直达音效</span>${renderStateTerms(direct, false)}</div>` : '';
+        const missingCompositeHtml = composite.length ? `<div style="margin-top:6px;"><span class="pending-sfx-alert">待补组合音效</span>${renderStateTerms(composite, true)}</div>` : '';
         return {
           all: directHtml || compositeHtml ? `${directHtml}${compositeHtml}` : renderPills(fallbackTerms || []),
           missing: missingDirectHtml || missingCompositeHtml ? `${missingDirectHtml}${missingCompositeHtml}` : renderPills(fallbackMissingTerms || []),
@@ -1037,6 +1102,29 @@
         const summary = data.summary || {};
         const gapSummary = data.asset_gap_summary || {};
         const gapItems = Array.isArray(gapSummary.gap_items) ? gapSummary.gap_items : [];
+        const groupAssetsByLabel = (assets) => {
+          const groups = [];
+          const byLabel = new Map();
+          (Array.isArray(assets) ? assets : []).forEach(asset => {
+            const label = String((asset && asset.label) || (asset && asset.asset_label) || '').trim();
+            const key = String((asset && asset.variant_key) || '').trim()
+              || String((asset && asset.display_name) || '').trim()
+              || label
+              || '未命名音效词';
+            if (!byLabel.has(key)) {
+              const bucket = {
+                key,
+                label,
+                display_name: String((asset && asset.display_name) || label || key).trim(),
+                assets: [],
+              };
+              byLabel.set(key, bucket);
+              groups.push(bucket);
+            }
+            byLabel.get(key).assets.push(asset);
+          });
+          return groups;
+        };
         const renderGraphNodes = (arr, kind, suffix = '') => {
           if (!Array.isArray(arr) || !arr.length) return '<div class="hint">暂无</div>';
           return arr.map(x => `
@@ -1049,14 +1137,18 @@
         blocks.push(panel('动作图谱总览', `
           <div class="kv"><div>赛道</div><div>${escHtml(data.genre || '-')}</div></div>
           <div class="kv"><div>动作词数</div><div>${summary.verb_count ?? items.length}</div></div>
-          <div class="kv"><div>命中素材数</div><div>${summary.asset_count ?? 0}</div></div>
+          <div class="kv"><div>素材候选数</div><div>${summary.asset_count ?? 0}</div></div>
           <div class="kv"><div>素材缺口词数</div><div>${summary.gap_count ?? gapItems.length}</div></div>
         `));
         const cards = items.map(item => {
           const assets = Array.isArray(item.assets) ? item.assets : [];
+          const assetGroups = groupAssetsByLabel(assets);
           const parentNode = item.parent_node || {};
           const childNode = item.children || {};
           const graphSource = item.graph_source || {};
+          const semanticTermItems = Array.isArray(childNode.semantic_term_items) ? childNode.semantic_term_items : [];
+          const directTermItems = Array.isArray(childNode.direct_sfx_term_items) ? childNode.direct_sfx_term_items : [];
+          const compositeTermItems = Array.isArray(childNode.composite_sfx_term_items) ? childNode.composite_sfx_term_items : [];
           const sfxBuckets = renderSfxBuckets(
             childNode,
             childNode.sfx_terms || item.sfx_terms || [],
@@ -1076,18 +1168,48 @@
             (childNode.composite_sfx_terms || []).length
               ? `组合音效边：${(childNode.composite_sfx_terms || []).map(x => `${x}（组合）`).join('、')}`
               : '组合音效边：暂无',
+            (graphSource.direct_sfx_term_items || []).length || (graphSource.composite_sfx_term_items || []).length
+              ? `来源归属：${[...(graphSource.direct_sfx_term_items || []), ...(graphSource.composite_sfx_term_items || [])].map(x => `${x.term}(${x.source_label})`).join('、')}`
+              : '来源归属：暂无',
+            graphSource.has_fallback_terms ? '提示：含保底生成词，说明部分结果来自系统兜底，不是图谱已维护的精准边。' : '',
             item.reason ? `推荐判断：${item.reason}` : '',
           ].filter(Boolean);
-          const assetRows = assets.length
-            ? assets.map((a, idx) => `
-                <tr>
-                  <td>${idx + 1}</td>
-                  <td>${escHtml(a.display_name || a.label || '')}</td>
-                  <td>${escHtml(a.file_name || '')}</td>
-                  <td>${a.score ?? '-'}</td>
-                  <td><button onclick="downloadActionSfxAsset('${escAttr(item.verb || '')}','${escAttr(a.label || '')}','${escAttr(a.file_name || 'sfx.bin')}','${escAttr(a.download_api || '')}')">下载</button></td>
-                </tr>
-              `).join('')
+          const assetRows = assetGroups.length
+            ? assetGroups.map((group, idx) => {
+                const primary = group.assets[0] || {};
+                const extraAssets = group.assets.slice(1);
+                const extraRows = extraAssets.map((a, extraIdx) => `
+                  <tr>
+                    <td>${extraIdx + 1}</td>
+                    <td>${escHtml(a.file_name || '')}</td>
+                    <td>${a.score ?? '-'}</td>
+                    <td><button onclick="downloadActionSfxAsset('${escAttr(item.verb || '')}','${escAttr(a.label || '')}','${escAttr(a.file_name || 'sfx.bin')}','${escAttr(a.download_api || '')}')">下载</button></td>
+                  </tr>
+                `).join('');
+                return `
+                  <tr>
+                    <td>${idx + 1}</td>
+                    <td>${escHtml(primary.display_name || group.display_name || group.label || '')}</td>
+                    <td>${escHtml(primary.file_name || '')}</td>
+                    <td>${primary.score ?? '-'}</td>
+                    <td><button onclick="downloadActionSfxAsset('${escAttr(item.verb || '')}','${escAttr(primary.label || '')}','${escAttr(primary.file_name || 'sfx.bin')}','${escAttr(primary.download_api || '')}')">下载</button></td>
+                  </tr>
+                  ${extraAssets.length ? `
+                    <tr>
+                      <td></td>
+                      <td colspan="4">
+                        <details class="asset-candidate-details">
+                          <summary>展开另外 ${extraAssets.length} 条候选</summary>
+                          <table class="table-lite">
+                            <thead><tr><th>#</th><th>素材</th><th>分数</th><th>下载</th></tr></thead>
+                            <tbody>${extraRows}</tbody>
+                          </table>
+                        </details>
+                      </td>
+                    </tr>
+                  ` : ''}
+                `;
+              }).join('')
             : `<tr><td colspan="5" class="hint">当前没有命中素材</td></tr>`;
           const graphHtml = `
             <div class="graph-browser">
@@ -1135,16 +1257,18 @@
                 <button class="view-chip" type="button" onclick="toggleActionGraphView('${escAttr(item.verb || '')}', 'graph', this)">图谱视图</button>
               </div>
               <div id="actionGraphList_${escAttr(item.verb || '')}">
-                <div class="kv-lite">父级节点：${escHtml((parentNode.genre || data.genre || '-') + ' -> ' + (parentNode.verb_head || item.verb || '-'))}</div>
-                <div class="kv-lite">原句片段：${escHtml(item.sentence_excerpt || '无')}</div>
-                <div class="kv-lite">图谱命中：${escHtml(
+                <div class="kv-lite"><span class="kv-title">父级节点</span>${escHtml((parentNode.genre || data.genre || '-') + ' -> ' + (parentNode.verb_head || item.verb || '-'))}</div>
+                <div class="kv-lite"><span class="kv-title">原句片段</span>${escHtml(item.sentence_excerpt || '无')}</div>
+                <div class="kv-lite"><span class="kv-title">图谱命中</span>${escHtml(
                   graphSource
                     ? `通用层=${graphSource.common_hit ? '是' : '否'} / 赛道层=${graphSource.genre_hit ? '是' : '否'}`
                     : '未标注'
                 )}</div>
-                <div class="kv-lite">子级语义：${renderPills(childNode.semantic_terms || item.semantic_terms || [])}</div>
-                <div class="kv-lite">子级音效：${sfxBuckets.all}</div>
-                <div class="kv-lite">待补子级音效：${sfxBuckets.missing}</div>
+                <div class="kv-lite"><span class="kv-title">语义扩展词</span>${semanticTermItems.length ? renderTermItemsWithSource(semanticTermItems) : renderPills(childNode.semantic_terms || item.semantic_terms || [])}</div>
+                <div class="kv-lite"><span class="kv-title">直达音效来源(可下载)</span>${directTermItems.length ? renderTermItemsWithSource(directTermItems) : renderPills(childNode.direct_sfx_terms || [])}</div>
+                <div class="kv-lite"><span class="kv-title">组合音效来源(可下载)</span>${compositeTermItems.length ? renderTermItemsWithSource(compositeTermItems, '（组合）') : renderPills((childNode.composite_sfx_terms || []).map(x => `${x}（组合）`))}</div>
+                <div class="kv-lite"><span class="kv-title">待补子级音效</span>${sfxBuckets.missing}</div>
+                <div class="kv-lite"><span class="kv-title">素材覆盖</span>已覆盖 ${escHtml((childNode.covered_sfx_terms || []).length)} 个音效词，当前命中 ${escHtml(assetGroups.length)} 个词、共 ${escHtml(assets.length)} 条素材候选</div>
                 <div class="explain-box">
                   <h5>为什么推荐这些音效</h5>
                   <ul class="reason-list">
@@ -1152,7 +1276,7 @@
                   </ul>
                 </div>
                 <table class="table-lite" style="margin-top:8px;">
-                  <thead><tr><th>#</th><th>命中词</th><th>素材</th><th>分数</th><th>下载</th></tr></thead>
+                  <thead><tr><th>#</th><th>音效词</th><th>最佳素材</th><th>分数</th><th>下载</th></tr></thead>
                   <tbody>${assetRows}</tbody>
                 </table>
               </div>
@@ -1535,10 +1659,6 @@
         return window.fetch(url, opts);
       }
 
-      function reportMode() {
-        return document.getElementById('reportMode').value;
-      }
-
       function escHtml(s) {
         return String(s ?? '')
           .replaceAll('&', '&amp;')
@@ -1669,7 +1789,7 @@
         await runAction('音乐分析', async () => {
           const form = new FormData();
           form.append('file', f);
-          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/audio?report_mode=${encodeURIComponent(reportMode())}`, { method: 'POST', body: form });
+          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/audio`, { method: 'POST', body: form });
           show(await readApiResponse(res));
         });
       }
@@ -1683,7 +1803,6 @@
         await runAction('文本分析+演绎时间轴', async () => {
           const form = new FormData();
           form.append('text', text);
-          form.append('report_mode', reportMode());
           form.append('file', f);
           const res = await apiFetch(`${apiBase()}/analysis/${projectId}/text-narration`, { method: 'POST', body: form });
           show(await readApiResponse(res));
@@ -1697,10 +1816,10 @@
         const promptFile = ACTION_PROMPT_BY_GENRE[genre] || 'V3-action_verbs_xuanhuan_task.txt';
         if (!text) return show('请先输入文本');
         await runAction('人物动作提取', async () => {
-          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/action-verbs?report_mode=${encodeURIComponent(reportMode())}`, {
+          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/action-verbs`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text, genre, prompt_file: promptFile, report_mode: reportMode() }),
+            body: JSON.stringify({ text, genre, prompt_file: promptFile }),
           });
           const data = await readApiResponse(res);
           latestActionVerbData = data;
@@ -1778,7 +1897,6 @@
             if (textVal && narrFile) {
               const form = new FormData();
               form.append('text', textVal);
-              form.append('report_mode', reportMode());
               form.append('file', narrFile);
               const autoCombined = await apiFetch(`${apiBase()}/analysis/${projectId}/text-narration`, {
                 method: 'POST',
@@ -1789,7 +1907,7 @@
               throw new Error('请先执行第3步：文本分析+演绎时间轴（需同时提供文本和演绎音频）');
             }
           }
-          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/fusion?report_mode=${encodeURIComponent(reportMode())}`, { method: 'POST' });
+          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/fusion`, { method: 'POST' });
           show(await readApiResponse(res));
         });
       }
