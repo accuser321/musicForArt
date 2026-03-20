@@ -177,21 +177,34 @@ def _normalize_audio_report_json(report_json: dict | None, features: dict, repor
     merged = dict(base)
     merged.update({k: v for k, v in report_json.items() if v is not None})
 
-    # 保留 LLM 的完整输出，不在此处裁剪；仅在缺失或类型错误时回退到基础值。
-    if not isinstance(merged.get('fit_genres'), list):
+    # 保留 LLM 的完整输出；但如果只是空壳值，就不要覆盖规则基线。
+    if not isinstance(merged.get('title'), str) or not str(merged.get('title') or '').strip():
+        merged['title'] = base['title']
+    if not isinstance(merged.get('summary'), str) or not str(merged.get('summary') or '').strip():
+        merged['summary'] = base['summary']
+    if not isinstance(merged.get('fit_genres'), list) or not [str(x).strip() for x in (merged.get('fit_genres') or []) if str(x).strip()]:
         merged['fit_genres'] = base['fit_genres']
-    if not isinstance(merged.get('risk_genres'), list):
+    if not isinstance(merged.get('risk_genres'), list) or not [str(x).strip() for x in (merged.get('risk_genres') or []) if str(x).strip()]:
         merged['risk_genres'] = base['risk_genres']
-    if not isinstance(merged.get('sections'), list):
+    if not isinstance(merged.get('sections'), list) or not merged.get('sections'):
         merged['sections'] = base['sections']
-    if not isinstance(merged.get('hit_points'), list):
+    if not isinstance(merged.get('hit_points'), list) or not merged.get('hit_points'):
         merged['hit_points'] = base['hit_points']
-    if not isinstance(merged.get('mix_notes'), list):
+    if not isinstance(merged.get('mix_notes'), list) or not [str(x).strip() for x in (merged.get('mix_notes') or []) if str(x).strip()]:
         merged['mix_notes'] = base['mix_notes']
-    if not isinstance(merged.get('key_points'), list):
+    if not isinstance(merged.get('key_points'), list) or not [str(x).strip() for x in (merged.get('key_points') or []) if str(x).strip()]:
         merged['key_points'] = base['key_points']
-    if not isinstance(merged.get('structure_logic'), dict):
+    structure_logic = merged.get('structure_logic')
+    if (
+        not isinstance(structure_logic, dict)
+        or not str(structure_logic.get('pattern_guess') or '').strip()
+        or not str(structure_logic.get('progression_comment') or '').strip()
+    ):
         merged['structure_logic'] = base['structure_logic']
+    elif not isinstance(structure_logic.get('repeat_groups'), list):
+        merged['structure_logic']['repeat_groups'] = base['structure_logic'].get('repeat_groups', [])
+    if not isinstance(merged.get('markdown'), str) or not str(merged.get('markdown') or '').strip():
+        merged['markdown'] = base['markdown']
     return merged
 
 
@@ -199,6 +212,7 @@ def analyze_audio_for_audiobook(
     file_path: str,
     report_mode: str | None = None,
     debug_prompt: bool = True,
+    llm_provider_override: str = '',
 ) -> dict:
     file_path = str(Path(file_path).resolve())
     mode = report_mode or settings.report_mode_default
@@ -222,6 +236,7 @@ def analyze_audio_for_audiobook(
     payload = {
         'kind': 'audio',
         'audio_features': features,
+        'llm_provider_override': llm_provider_override,
     }
     report_json, report_markdown, llm_meta = generate_report(mode, payload, debug_prompt=debug_prompt)
     trace = llm_meta.get('llm_trace') or []
@@ -251,7 +266,9 @@ def analyze_audio_for_audiobook(
         'report_json': report_json,
         'analysis_mode': 'llm+features' if llm_hit else 'rules-only',
         'llm_structured': bool(report_json),
-        'llm_enabled': llm_enabled(),
+        'llm_enabled': llm_enabled(llm_provider_override),
+        'llm_provider_used': llm_meta.get('llm_provider_used'),
+        'llm_model_used': llm_meta.get('llm_model_used'),
         'report_mode': mode,
         'effective_report_mode': llm_meta.get('effective_mode'),
         'llm_fallback_applied': llm_meta.get('fallback_applied', False),

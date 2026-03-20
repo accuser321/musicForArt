@@ -180,6 +180,7 @@ def analyze_text_for_audiobook(
     report_mode: str | None = None,
     audio_context: dict | None = None,
     debug_prompt: bool = True,
+    llm_provider_override: str = '',
 ) -> dict:
     mode = report_mode or settings.report_mode_default
     sentence_items = _split_sentences_with_span(text)
@@ -245,6 +246,7 @@ def analyze_text_for_audiobook(
         'music_analysis_text': str((audio_context or {}).get('report_markdown') or ''),
         'audio_context': audio_context or {},
         'scenes': scenes,
+        'llm_provider_override': llm_provider_override,
     }
     llm_json, llm_md, llm_meta = generate_report(mode, payload, debug_prompt=debug_prompt)
     if llm_md:
@@ -289,7 +291,9 @@ def analyze_text_for_audiobook(
         'report_json': report_json,
         'analysis_mode': analysis_mode,
         'llm_structured': llm_structured,
-        'llm_enabled': llm_enabled(),
+        'llm_enabled': llm_enabled(llm_provider_override),
+        'llm_provider_used': llm_meta.get('llm_provider_used'),
+        'llm_model_used': llm_meta.get('llm_model_used'),
         'report_mode': mode,
         'effective_report_mode': effective_mode,
         'llm_fallback_applied': llm_fallback,

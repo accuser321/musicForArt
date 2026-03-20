@@ -12,7 +12,7 @@
 3) 输出必须能指导实际剪辑，而不是抽象建议。
 
 输出 JSON（必须完整）：
-- title
+- title（固定写为“后期执行单”）
 - fit_verdict: {verdict, score, reasons[]}
 - key_points: [string]
 - sections: [{section_no,section_type,label,start_sec,end_sec,instruments[],new_instruments_vs_prev[],energy_level,layer_progression}]
@@ -29,6 +29,7 @@
 3) 每个主要场景都要有“文字区间 -> 音乐区间”建议。
 4) 若 narration_timeline 存在，优先据此给时间。
 5) dialogue_music_ratio 必须是明确比例（如70/30）。
+6) title 字段固定写为“后期执行单”，不得省略、不得改名、不得留空。
 
 长度约束：
 1) sections<=8，music_entry_plan<=12，hit_points<=10。

@@ -1,0 +1,3058 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Music For Art · 场景搭建后台</title>
+    <style>
+      :root {
+        --bg: #0b1220;
+        --panel: #111b31;
+        --panel2: #0d172b;
+        --line: #2a436f;
+        --ink: #ebf3ff;
+        --muted: #9fb5d8;
+        --accent: #f2a93b;
+        --accent2: #ffd47a;
+        --ok: #5bd3a8;
+        --warn: #ffbf69;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(900px 420px at 90% -10%, rgba(242,169,59,.16) 0%, transparent 60%),
+          radial-gradient(800px 360px at -10% 110%, rgba(255,212,122,.10) 0%, transparent 55%),
+          var(--bg);
+      }
+      .wrap { max-width: 1280px; margin: 20px auto; padding: 0 14px; }
+      .top, .card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(17, 27, 49, 0.94);
+      }
+      .top {
+        padding: 16px;
+        margin-bottom: 14px;
+        background: linear-gradient(120deg, #121b2f, #1c2947);
+      }
+      h1 { margin: 0 0 8px; font-size: 24px; }
+      h2, h3, h4 { margin: 0; }
+      .muted { color: var(--muted); font-size: 12px; line-height: 1.7; }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; }
+      .cell { flex: 1 1 220px; }
+      input, textarea, button, select {
+        width: 100%;
+        padding: 10px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: #0d1628;
+        color: var(--ink);
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+        border: none;
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
+        color: #312000;
+        font-weight: 700;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: .58;
+        filter: grayscale(.18);
+      }
+      .ghost-btn {
+        width: auto;
+        display: inline-block;
+        padding: 8px 12px;
+        background: #13203a;
+        border: 1px solid var(--line);
+        color: var(--ink);
+      }
+      .ghost-btn.is-active {
+        background: linear-gradient(90deg, rgba(242,169,59,.22), rgba(255,212,122,.18));
+        border-color: rgba(242,169,59,.55);
+        color: #fff3d3;
+      }
+      .grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 14px; }
+      .wide { grid-column: 1 / -1; }
+      .card { padding: 14px; }
+      .hero {
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 14px;
+        align-items: stretch;
+      }
+      .hero-box {
+        border: 1px solid rgba(242,169,59,.38);
+        border-radius: 14px;
+        padding: 14px;
+        background: linear-gradient(180deg, rgba(242,169,59,.08), rgba(255,212,122,.04));
+      }
+      .hero-box h2 { margin-bottom: 8px; font-size: 20px; }
+      .badge-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+      .badge, .pill, .status-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        font-size: 12px;
+      }
+      .scene-badge-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 6px 0 8px;
+      }
+      .scene-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        font-size: 12px;
+        background: rgba(255,255,255,.03);
+        color: var(--muted);
+      }
+      .scene-badge.ok {
+        border-color: #2d745b;
+        color: #dffef2;
+        background: rgba(28, 97, 74, 0.35);
+      }
+      .scene-badge.source {
+        border-color: rgba(242,169,59,.55);
+        color: #fff3d3;
+        background: rgba(242,169,59,.14);
+      }
+      .scene-badge.warn {
+        border-color: #c7884a;
+        color: #fff2df;
+        background: rgba(74,42,14,.92);
+      }
+      .scene-badge.template {
+        border-color: #6ea6df;
+        color: #e8f8ff;
+        background: rgba(19, 63, 106, 0.9);
+      }
+      .scene-badge.collection {
+        border-color: #49c58e;
+        color: #e9fff4;
+        background: rgba(15, 58, 39, 0.9);
+      }
+      .badge, .status-chip { color: var(--muted); background: rgba(255,255,255,.03); }
+      .pill { gap: 6px; background: #13203a; }
+      .quick-nav {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 0 0 14px;
+      }
+      .quick-nav a {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: #13203a;
+        color: var(--ink);
+        text-decoration: none;
+        font-size: 12px;
+      }
+      .quick-nav a:hover {
+        border-color: rgba(242,169,59,.45);
+        color: #fff2cf;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .stat {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px;
+        background: #0d182c;
+      }
+      .stat .k { color: var(--muted); font-size: 11px; margin-bottom: 4px; }
+      .stat .v { font-size: 22px; font-weight: 700; }
+      .section-box {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--panel2);
+        padding: 10px;
+        margin-top: 10px;
+      }
+      .section-box h4 { margin-bottom: 8px; font-size: 13px; color: var(--muted); }
+      .todo { color: var(--muted); font-size: 13px; line-height: 1.65; }
+      .callout {
+        border: 1px solid rgba(242,169,59,.32);
+        background: rgba(242,169,59,.08);
+        border-radius: 12px;
+        padding: 10px 12px;
+        font-size: 13px;
+        color: #ffe6b8;
+        line-height: 1.7;
+      }
+      .callout strong { color: #fff3d3; }
+      .login-state {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .scene-group {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+        background: #0b1730;
+        margin-bottom: 12px;
+      }
+      .scene-card-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .scene-group.is-collapsed .scene-card-body {
+        display: none;
+      }
+      .scene-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 10px;
+        transition: background .16s ease, border-color .16s ease;
+      }
+      .scene-head:hover {
+        background: rgba(242,169,59,.08);
+      }
+      .scene-head:focus-visible {
+        outline: 2px solid rgba(242,169,59,.55);
+        outline-offset: 2px;
+      }
+      .scene-title { font-size: 16px; font-weight: 700; }
+      .scene-meta { color: var(--muted); font-size: 12px; line-height: 1.7; }
+      .scene-collapse-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(242,169,59,.35);
+        background: rgba(242,169,59,.08);
+        color: #ffe6b8;
+        font-size: 12px;
+      }
+      .excerpt-fold {
+        border: 1px solid rgba(34,64,109,.7);
+        border-radius: 10px;
+        background: rgba(9,23,44,.42);
+        padding: 8px 10px;
+      }
+      .excerpt-fold summary {
+        cursor: pointer;
+        color: #ffe6b8;
+        font-size: 12px;
+        font-weight: 700;
+        outline: none;
+      }
+      .excerpt-fold[open] summary {
+        margin-bottom: 8px;
+      }
+      .excerpt-preview {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.7;
+        margin-top: 8px;
+      }
+      .excerpt-full {
+        color: var(--ink);
+        font-size: 12px;
+        line-height: 1.8;
+      }
+      .progress-line {
+        height: 8px;
+        background: #081223;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        overflow: hidden;
+        margin-top: 6px;
+      }
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
+      }
+      .pill-list, .asset-list { display: flex; gap: 8px; flex-wrap: wrap; }
+      .term-preview {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+        min-height: 28px;
+      }
+      .term-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: #13203a;
+        color: var(--ink);
+        font-size: 12px;
+      }
+      .field-tools {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+      .field-tools .ghost-btn {
+        padding: 4px 10px;
+        font-size: 12px;
+      }
+      .asset-card {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px;
+        background: #10203c;
+        min-width: 220px;
+      }
+      .ops-box {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px;
+        background: #0d182c;
+        margin-top: 10px;
+      }
+      .inline-status {
+        font-size: 12px;
+        color: var(--muted);
+        min-height: 20px;
+        align-self: center;
+      }
+      .inline-status.is-loading { color: #ffe6b8; }
+      .inline-status.is-success { color: #dffef2; }
+      .inline-status.is-error { color: #ffd0c7; }
+      .inline-status.is-info { color: var(--muted); }
+      .doc-anchor-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .doc-anchor-item {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #0d182c;
+        padding: 10px 12px;
+      }
+      .doc-anchor-path {
+        color: #fff2cf;
+        font-size: 12px;
+        font-weight: 700;
+        word-break: break-all;
+      }
+      .doc-anchor-name {
+        color: var(--ink);
+        font-size: 13px;
+        font-weight: 700;
+        margin-top: 4px;
+      }
+      .doc-anchor-desc {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.7;
+        margin-top: 4px;
+      }
+      .asset-name { font-weight: 700; font-size: 13px; }
+      .asset-meta { color: var(--muted); font-size: 11px; line-height: 1.6; margin-top: 4px; }
+      .status-chip.ok { border-color: #2d745b; color: #dffef2; background: rgba(28, 97, 74, 0.35); }
+      .status-chip.warn { border-color: #8a6a22; color: #fff0cd; background: rgba(124, 93, 19, 0.28); }
+      .table-wrap {
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #0a1426;
+      }
+      table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      th, td {
+        border-bottom: 1px solid rgba(42, 67, 111, 0.7);
+        padding: 10px 8px;
+        text-align: left;
+        vertical-align: top;
+      }
+      th { color: var(--muted); font-weight: 600; background: rgba(255,255,255,.02); }
+      pre {
+        margin: 0;
+        padding: 10px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: #09111f;
+        min-height: 100px;
+        max-height: 480px;
+        overflow: auto;
+        white-space: pre-wrap;
+      }
+      @media (max-width: 1080px) {
+        .hero, .grid { grid-template-columns: 1fr; }
+        .scene-card-grid { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 1200px) {
+        .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <section class="top">
+        <h1>Music For Art · 场景搭建后台</h1>
+        <div class="muted">用于处理场景补充单、场景图谱、场景模板与场景集合维护。</div>
+        <div class="login-state" id="loginState">未登录</div>
+      </section>
+
+      <section class="card" style="margin-bottom:14px;">
+        <div class="hero">
+          <div class="hero-box">
+            <h2>本地文档锚点</h2>
+            <div class="muted">用于快速定位场景搭建模块相关文档，便于运营复测、培训与排查。</div>
+            <div id="sceneDocsOut" class="doc-anchor-list" style="margin-top:10px;"></div>
+          </div>
+
+          <div class="hero-box">
+            <h2>管理员登录</h2>
+            <div class="row">
+              <div class="cell"><input id="apiBase" value="http://127.0.0.1:8090/api" /></div>
+            </div>
+            <div class="row" style="margin-top:8px;">
+              <div class="cell"><input id="phone" placeholder="管理员手机号" oninput="updateSceneAuthButtons()" /></div>
+              <div class="cell"><input id="code" placeholder="验证码" oninput="updateSceneAuthButtons()" /></div>
+            </div>
+            <div class="row" style="margin-top:8px;">
+              <div class="cell"><button id="sceneSendCodeBtn" onclick="sendCode()">请先输入手机号</button></div>
+              <div class="cell"><button id="sceneLoginBtn" onclick="login()">请先输入验证码</button></div>
+            </div>
+            <div class="section-box">
+              <h4>返回动作后台</h4>
+              <a class="ghost-btn" href="/admin.html">打开动作分析后台</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <nav class="quick-nav">
+        <a href="#sceneSuppSection">场景补充单</a>
+        <a href="#sceneGraphSection">场景图谱</a>
+        <a href="#sceneCollectionSection">场景集合</a>
+        <a href="#sceneTemplateSection">场景模板</a>
+        <a href="#sceneNeo4jSection">Scene Neo4j</a>
+        <a href="#sceneDebugSection">请求回显</a>
+      </nav>
+
+      <section class="grid">
+        <div class="card wide" id="sceneSuppSection">
+          <h3>场景补充单运营</h3>
+          <div class="callout">先查看缺口场景音效，再决定补库与通知。</div>
+          <div class="row" style="margin-top:10px;">
+            <div class="cell">
+              <label class="muted" for="sceneDays">最近多少天</label>
+              <input id="sceneDays" value="30" oninput="updateSceneSupplementToolbarButtons()" />
+            </div>
+            <div class="cell">
+              <label class="muted" for="sceneStatus">状态筛选</label>
+              <select id="sceneStatus" onchange="updateSceneSupplementToolbarButtons()">
+                <option value="">全部状态</option>
+                <option value="pending">pending</option>
+                <option value="partial">partial</option>
+                <option value="ready_to_notify">ready_to_notify</option>
+              </select>
+            </div>
+            <div class="cell">
+              <label class="muted" for="sceneLevelFilter">补充单层级</label>
+              <select id="sceneLevelFilter" onchange="updateSceneSupplementToolbarButtons(); renderSceneSupplements({ items: latestSceneSupplements, summary: latestSceneSuppSummary, count: latestSceneSupplements.length })">
+                <option value="">全部层级</option>
+                <option value="review_graph">先复核图谱</option>
+                <option value="decide_scope">先判定版本</option>
+                <option value="ready_material">优先补素材</option>
+                <option value="continue_material">继续补素材</option>
+                <option value="done">已补齐</option>
+              </select>
+            </div>
+            <div class="cell">
+              <label class="muted" for="sceneView">展示模式</label>
+              <select id="sceneView" onchange="updateSceneSupplementToolbarButtons()">
+                <option value="cards">卡片视图</option>
+                <option value="table">表格视图</option>
+                <option value="raw">原始数据</option>
+              </select>
+            </div>
+            <div class="cell" style="flex: 0 0 220px;">
+              <label class="muted">&nbsp;</label>
+              <label class="muted" style="display:flex; gap:8px; align-items:center; border:1px solid var(--line); border-radius:10px; padding:10px; background:#0d1628;">
+                <input id="sceneOnlyPending" type="checkbox" style="width:auto;" onchange="updateSceneSupplementToolbarButtons(); renderSceneSupplements({ items: latestSceneSupplements, summary: latestSceneSuppSummary, count: latestSceneSupplements.length })" />
+                仅看仍有待补词的补充单
+              </label>
+            </div>
+            <div class="cell" style="flex: 0 0 180px;">
+              <label class="muted">&nbsp;</label>
+              <button id="sceneSuppResetBtn" class="ghost-btn" onclick="resetSceneSupplementFilters()">清空当前筛选</button>
+            </div>
+            <div class="cell">
+              <label class="muted">&nbsp;</label>
+              <button id="sceneSuppLoadBtn" onclick="loadSceneSupplements()">请先登录后加载</button>
+            </div>
+          </div>
+
+          <div class="stats" id="sceneStats" style="margin-top:12px;"></div>
+          <div class="muted" id="sceneSuppFilterHint" style="margin-top:8px;">这里的筛选只影响当前页面展示，不会修改补充单状态。</div>
+          <div class="badge-row" id="sceneLevelQuickFilters" style="margin-top:8px;"></div>
+
+          <div id="sceneSupplementsOut" style="margin-top:12px;"></div>
+        </div>
+
+        <div class="card wide" id="sceneGraphSection">
+          <h3>场景图谱维护</h3>
+          <div class="callout">先维护可复用的大场景，再回到补充单补素材。</div>
+          <div class="row" style="margin-top:10px;">
+            <div class="cell">
+              <label class="muted" for="sceneGraphLayer">层级</label>
+              <select id="sceneGraphLayer" onchange="renderSceneGraphPicker()">
+                <option value="common">通用层</option>
+                <option value="genre">赛道层</option>
+              </select>
+            </div>
+            <div class="cell">
+              <label class="muted" for="sceneGraphGenre">赛道</label>
+              <select id="sceneGraphGenre" onchange="renderSceneGraphPicker()">
+                <option value="玄幻">玄幻</option>
+                <option value="言情">言情</option>
+                <option value="悬疑">悬疑</option>
+                <option value="科幻">科幻</option>
+              </select>
+            </div>
+            <div class="cell">
+              <label class="muted" for="sceneGraphNode">场景节点</label>
+              <select id="sceneGraphNode" onchange="renderSceneGraphPicker()"></select>
+            </div>
+            <div class="cell">
+              <label class="muted" for="sceneGraphSearch">搜索场景节点</label>
+                <input id="sceneGraphSearch" placeholder="输入场景名 / 模板 / 集合筛选" oninput="renderSceneGraphPicker()" />
+            </div>
+            <div class="cell" style="flex: 0 0 200px;">
+              <label class="muted">&nbsp;</label>
+              <label class="muted" style="display:flex; gap:8px; align-items:center; border:1px solid var(--line); border-radius:10px; padding:10px; background:#0d1628;">
+                <input id="sceneGraphOnlySupp" type="checkbox" style="width:auto;" onchange="renderSceneGraphPicker()" />
+                仅看有补充单节点
+              </label>
+            </div>
+            <div class="cell" style="flex: 0 0 180px;">
+              <label class="muted">&nbsp;</label>
+              <button id="sceneGraphResetBtn" class="ghost-btn" onclick="resetSceneGraphFilters()">当前无需清空</button>
+            </div>
+            <div class="cell" style="flex: 0 0 220px;">
+              <label class="muted">&nbsp;</label>
+              <button id="sceneGraphTopBtn" onclick="loadSceneGraphTopPriority()">加载当前最高优先节点</button>
+            </div>
+            <div class="cell" style="flex: 0 0 180px;">
+              <label class="muted">&nbsp;</label>
+              <button id="sceneGraphLoadBtn" onclick="loadSceneGraphNode()">加载场景节点</button>
+            </div>
+          </div>
+          <div class="muted" id="sceneGraphPickerHint" style="margin-top:8px;">当前目录：等待加载。</div>
+          <div class="muted" id="sceneGraphQuickHint" style="margin-top:4px;">当前还没有可直接加载的优先节点。</div>
+          <div class="muted" id="sceneGraphSeedHint" style="margin-top:4px;">场景基础种子摘要待加载。</div>
+          <div id="sceneGraphSeedStats" style="margin-top:8px;"></div>
+          <div id="sceneGraphSeedActions" style="margin-top:8px;"></div>
+          <div class="row" style="margin-top:8px;">
+            <div class="cell">
+              <label class="muted" for="sceneGraphNewNode">新建场景节点</label>
+              <input id="sceneGraphNewNode" placeholder="如：山林夜路 / 雨夜街巷" oninput="updateSceneGraphEditorButtons()" />
+            </div>
+            <div class="cell" style="max-width:220px;">
+              <label class="muted">&nbsp;</label>
+              <button id="sceneGraphCreateBtn" class="ghost-btn" onclick="createSceneGraphNode()">请先输入节点名</button>
+            </div>
+          </div>
+          <div class="section-box">
+            <h4>当前节点</h4>
+            <div class="muted" id="sceneGraphExplain">先选择层级、赛道和场景节点，再加载场景图谱维护数据。</div>
+          </div>
+          <div class="section-box" style="margin-top:10px;">
+            <h4>节点摘要</h4>
+            <div class="muted" id="sceneGraphDigest">加载节点后，这里会汇总模板、场景集合、来源状态和主要影响范围。</div>
+          </div>
+          <div class="section-box" style="margin-top:10px;">
+            <h4>节点来源解释</h4>
+            <div class="muted" id="sceneGraphSourceCard">加载节点后，这里会说明当前节点为什么会出现在这个层级/赛道视角里，以及更适合的维护方向。</div>
+          </div>
+          <div class="section-box" style="margin-top:10px;">
+            <h4>相关场景补充单</h4>
+            <div class="muted" id="sceneGraphSupplementHint">加载节点后，这里会提示当前节点是否已经产生场景补充单，方便决定先校准图谱还是先补素材。</div>
+          </div>
+          <div class="row" style="margin-top:10px;">
+            <div class="cell">
+              <label class="muted" for="sceneTemplateName">模板名称</label>
+              <input id="sceneTemplateName" placeholder="如：海边类 / 夜林类" oninput="syncSceneCollectionFromTemplateField()" />
+            </div>
+            <div class="cell">
+              <label class="muted" for="sceneCollectionName">场景集合</label>
+              <input id="sceneCollectionName" placeholder="如：自然场景集合 / 校园场景集合" oninput="loadSceneTermSuggestions()" />
+            </div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <div class="cell">
+              <div class="field-tools">
+                <label class="muted" for="sceneBackgroundElements">背景元素</label>
+                <button class="ghost-btn" type="button" onclick="clearSceneField('sceneBackgroundElements')">清空</button>
+              </div>
+              <textarea id="sceneBackgroundElements" rows="4" placeholder="一行一个，或用逗号分隔" oninput="renderSceneFieldPreview('sceneBackgroundElements', 'sceneBackgroundPreview')"></textarea>
+              <div class="term-preview" id="sceneBackgroundPreview"></div>
+            </div>
+            <div class="cell">
+              <div class="field-tools">
+                <label class="muted" for="sceneFeatureElements">特征元素</label>
+                <button class="ghost-btn" type="button" onclick="clearSceneField('sceneFeatureElements')">清空</button>
+              </div>
+              <textarea id="sceneFeatureElements" rows="4" placeholder="一行一个，或用逗号分隔" oninput="renderSceneFieldPreview('sceneFeatureElements', 'sceneFeaturePreview')"></textarea>
+              <div class="term-preview" id="sceneFeaturePreview"></div>
+            </div>
+            <div class="cell">
+              <div class="field-tools">
+                <label class="muted" for="sceneDetailElements">细节元素</label>
+                <button class="ghost-btn" type="button" onclick="clearSceneField('sceneDetailElements')">清空</button>
+              </div>
+              <textarea id="sceneDetailElements" rows="4" placeholder="一行一个，或用逗号分隔" oninput="renderSceneFieldPreview('sceneDetailElements', 'sceneDetailPreview')"></textarea>
+              <div class="term-preview" id="sceneDetailPreview"></div>
+            </div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <div class="cell">
+              <div class="field-tools">
+                <label class="muted" for="sceneSupportingTerms">支撑场景音效</label>
+                <button class="ghost-btn" type="button" onclick="clearSceneField('sceneSupportingTerms')">清空</button>
+              </div>
+              <textarea id="sceneSupportingTerms" rows="4" placeholder="一行一个，或用逗号分隔" oninput="renderSceneFieldPreview('sceneSupportingTerms', 'sceneSupportingPreview')"></textarea>
+              <div class="term-preview" id="sceneSupportingPreview"></div>
+            </div>
+            <div class="cell">
+              <div class="field-tools">
+                <label class="muted" for="sceneDetailTerms">补充层次音效</label>
+                <button class="ghost-btn" type="button" onclick="clearSceneField('sceneDetailTerms')">清空</button>
+              </div>
+              <textarea id="sceneDetailTerms" rows="4" placeholder="一行一个，或用逗号分隔" oninput="renderSceneFieldPreview('sceneDetailTerms', 'sceneDetailTermPreview')"></textarea>
+              <div class="term-preview" id="sceneDetailTermPreview"></div>
+            </div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <div class="cell" style="flex:0 0 260px;">
+              <button id="sceneGraphSaveBtn" onclick="saveSceneGraphLayer()">请先选择或新建节点</button>
+            </div>
+            <div class="cell inline-status" id="sceneGraphSaveStatus"></div>
+          </div>
+          <div class="section-box" style="margin-top:12px;">
+            <h4>快速加入常用项</h4>
+            <div class="muted" id="sceneSuggestionHint">加载节点后，会根据当前模板和场景集合，从已有图谱里聚合常用元素与音效词。</div>
+            <div class="row" style="margin-top:8px;">
+              <div class="cell">
+                <div class="muted">背景元素</div>
+                <div class="term-preview" id="sceneSuggestionBackground"></div>
+              </div>
+              <div class="cell">
+                <div class="muted">特征元素</div>
+                <div class="term-preview" id="sceneSuggestionFeature"></div>
+              </div>
+              <div class="cell">
+                <div class="muted">细节元素</div>
+                <div class="term-preview" id="sceneSuggestionDetail"></div>
+              </div>
+            </div>
+            <div class="row" style="margin-top:8px;">
+              <div class="cell">
+                <div class="muted">支撑场景音效</div>
+                <div class="term-preview" id="sceneSuggestionSupporting"></div>
+              </div>
+              <div class="cell">
+                <div class="muted">补充层次音效</div>
+                <div class="term-preview" id="sceneSuggestionDetailTerms"></div>
+              </div>
+            </div>
+          </div>
+          <div class="section-box" style="margin-top:12px;">
+            <h4>节点级迁移</h4>
+            <div class="muted" id="sceneGraphMoveExplain">加载节点后，这里会根据当前视角显示可用的迁移操作。</div>
+            <div class="row" style="margin-top:8px;">
+              <div class="cell" style="max-width:220px;">
+                <label class="muted" for="sceneMoveTargetGenre">目标赛道</label>
+                <select id="sceneMoveTargetGenre">
+                  <option value="玄幻">玄幻</option>
+                  <option value="言情">言情</option>
+                  <option value="悬疑">悬疑</option>
+                  <option value="科幻">科幻</option>
+                </select>
+              </div>
+              <div class="cell" style="flex:0 0 280px;">
+                <button id="scenePromoteKeepBtn" onclick="promoteSceneNode(true)">迁移到通用层，并保留赛道层</button>
+              </div>
+              <div class="cell" style="flex:0 0 280px;">
+                <button id="scenePromoteOnlyBtn" onclick="promoteSceneNode(false)">迁移到通用层，并从赛道层移除</button>
+              </div>
+            </div>
+            <div class="row" style="margin-top:8px;">
+              <div class="cell" style="flex:0 0 280px;">
+                <button id="sceneDemoteKeepBtn" onclick="demoteSceneNode(true)">迁移到赛道层，并保留通用层</button>
+              </div>
+              <div class="cell" style="flex:0 0 280px;">
+                <button id="sceneDemoteOnlyBtn" onclick="demoteSceneNode(false)">迁移到赛道层，并从通用层移除</button>
+              </div>
+              <div class="cell inline-status" id="sceneGraphMoveStatus"></div>
+            </div>
+            <div class="row" style="margin-top:8px;">
+              <div class="cell" style="flex:0 0 280px;">
+                <button id="sceneDeleteNodeBtn" class="ghost-btn" onclick="deleteSceneCurrentLayerNode()">删除当前层节点</button>
+              </div>
+              <div class="cell inline-status" id="sceneGraphDeleteStatus"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card wide" id="sceneCollectionSection">
+          <h3>大场景集合预览</h3>
+          <div class="callout">查看并整理当前已沉淀的场景集合。</div>
+          <div class="row" style="margin-top:10px;">
+            <div class="cell">
+              <label class="muted" for="sceneCollectionPick">当前集合</label>
+              <select id="sceneCollectionPick" onchange="fillSceneCollectionFormFromPick()"></select>
+            </div>
+            <div class="cell">
+              <label class="muted" for="sceneCollectionRename">集合新名称</label>
+              <input id="sceneCollectionRename" placeholder="如：自然大场景集合" oninput="updateSceneCollectionButtons()" />
+            </div>
+            <div class="cell" style="max-width:220px;">
+              <label class="muted">&nbsp;</label>
+              <button id="sceneCollectionRenameBtn" onclick="renameSceneCollection()">请先选择集合</button>
+            </div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <div class="cell" style="flex:0 0 260px;">
+              <button id="sceneCollectionDeleteBtn" class="ghost-btn" onclick="deleteSceneCollection()">请先选择集合</button>
+            </div>
+            <div class="cell inline-status" id="sceneCollectionStatus"></div>
+          </div>
+          <div class="muted" id="sceneCollectionHint" style="margin-top:8px;">选择集合后，这里会说明改名或清空引用会影响多少节点与模板。</div>
+          <div id="sceneCollectionsOut" style="margin-top:12px;"></div>
+        </div>
+
+        <div class="card wide" id="sceneTemplateSection">
+          <h3>场景模板维护</h3>
+          <div class="callout">模板用于沉淀可复制的大场景别名，并映射到图谱节点。</div>
+          <div class="row" style="margin-top:10px;">
+            <div class="cell">
+              <label class="muted" for="sceneTemplatePick">模板</label>
+              <select id="sceneTemplatePick" onchange="fillSceneTemplateFormFromPick()"></select>
+            </div>
+            <div class="cell">
+              <label class="muted" for="sceneTemplateEditName">模板名称</label>
+              <input id="sceneTemplateEditName" placeholder="如：夜林类 / 海边类" oninput="updateSceneTemplateButtons()" />
+            </div>
+            <div class="cell">
+              <label class="muted" for="sceneTemplateEditCollection">所属场景集合</label>
+              <input id="sceneTemplateEditCollection" placeholder="如：自然场景集合" oninput="updateSceneTemplateButtons()" />
+            </div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <div class="cell">
+              <label class="muted" for="sceneTemplateAliases">模板别名</label>
+              <textarea id="sceneTemplateAliases" rows="4" placeholder="一行一个，或用逗号分隔" oninput="updateSceneTemplateButtons()"></textarea>
+            </div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <div class="cell" style="flex:0 0 260px;">
+              <button id="sceneTemplateSaveBtn" onclick="saveSceneTemplate()">请先输入模板名称</button>
+            </div>
+            <div class="cell" style="flex:0 0 260px;">
+              <button id="sceneTemplateDeleteBtn" class="ghost-btn" onclick="deleteSceneTemplate()">请先选择模板</button>
+            </div>
+            <div class="cell inline-status" id="sceneTemplateSaveStatus"></div>
+          </div>
+          <div class="muted" id="sceneTemplateHint" style="margin-top:8px;">选择模板后，这里会说明当前模板被多少个节点引用，以及删除模板的影响范围。</div>
+          <div id="sceneTemplatesOut" style="margin-top:12px;"></div>
+        </div>
+
+        <div class="card wide" id="sceneNeo4jSection">
+          <h3>Scene Neo4j</h3>
+          <div class="callout">查看场景图谱 Neo4j 状态与同步结果。</div>
+          <div class="row" style="margin-top:10px;">
+            <div class="cell" style="flex:0 0 220px;"><button id="sceneNeo4jLoadBtn" onclick="loadSceneNeo4jStatus()">查看 Neo4j 状态</button></div>
+            <div class="cell" style="flex:0 0 220px;"><button id="sceneNeo4jSyncBtn" onclick="syncSceneNeo4j()">先查看 Neo4j 状态</button></div>
+            <div class="cell inline-status" id="sceneNeo4jStatusInline"></div>
+          </div>
+          <div class="muted" id="sceneNeo4jHint" style="margin-top:8px;">建议先读取状态，再决定是否同步场景图谱。</div>
+          <pre id="sceneNeo4jOut" style="margin-top:12px;">等待操作...</pre>
+        </div>
+
+        <div class="card wide" id="sceneDebugSection">
+          <h3>请求回显</h3>
+          <details>
+            <summary style="cursor:pointer; color: var(--muted); margin-bottom:8px;">展开查看最近一次请求与返回</summary>
+            <pre id="sceneDebugOut">等待加载...</pre>
+          </details>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      let token = localStorage.getItem('mfa_scene_token') || localStorage.getItem('mfa_admin_token') || '';
+      let loginPhone = localStorage.getItem('mfa_scene_phone') || localStorage.getItem('mfa_admin_phone') || '';
+      let latestSceneSupplements = [];
+      let latestSceneSupplementsFiltered = [];
+      let sceneGraphCatalog = { common: [], genres: [], templates: [] };
+      let latestSceneGraphNode = null;
+      let latestSceneGraphDisplayItems = [];
+      let latestSceneSuppSummary = {};
+      let sceneTemplateCatalog = { items: [] };
+      let sceneCollectionCatalog = { items: [] };
+      let sceneTermSuggestionCatalog = { suggestions: {} };
+      let latestSceneNeo4jStatus = null;
+      let sceneSupplementsLoading = false;
+      const SCENE_DOC_ANCHORS = [
+        {
+          path: 'docs/SCENE_BUILDING_MODULE_STRATEGY.md',
+          name: '场景搭建模块策略',
+          desc: '记录场景搭建模块的产品边界、核心目标、双核心模块定位，以及与动作分析模块的关系。'
+        },
+        {
+          path: 'docs/SCENE_BUILDING_OUTPUT_SCHEMA.md',
+          name: '场景搭建输出结构',
+          desc: '定义场景搭建分析结果的 JSON 结构，是后端返回、前端展示和后续图谱映射的基础。'
+        },
+        {
+          path: 'docs/SCENE_BUILDING_PROMPT_V1.md',
+          name: '场景搭建提示词 V1',
+          desc: '沉淀老师逐字稿提炼出的提示词方案，用于约束 LLM 输出场景分析、场景元素与音效推荐。'
+        },
+        {
+          path: 'docs/SCENE_MODULE_DECOUPLING_PLAN.md',
+          name: '场景模块解耦方案',
+          desc: '说明 scene 模块为何与动作分析后台分离建设，以及后端、数据库、Neo4j、运营端的解耦设计。'
+        },
+        {
+          path: 'docs/OPS_ACTION_GRAPH_AND_SUPPLEMENTS_GUIDE.md',
+          name: '运营总手册',
+          desc: '统一整理动作分析与场景搭建后台的核心操作顺序、功能用途和运营主链路。'
+        },
+        {
+          path: 'docs/OPS_ACTION_GRAPH_AND_SUPPLEMENTS_QA.md',
+          name: '运营问答手册',
+          desc: '按运营人员真实疑问记录问题、答案和操作指引，适合复测和培训时快速查阅。'
+        }
+      ];
+
+      function base() {
+        return document.getElementById('apiBase').value.replace(/\/$/, '');
+      }
+
+      function h(extra = {}) {
+        const headers = { ...(extra || {}) };
+        if (token) headers.Authorization = `Bearer ${token}`;
+        if (loginPhone) headers['X-User-Phone'] = loginPhone;
+        return headers;
+      }
+
+      function setState() {
+        const node = document.getElementById('loginState');
+        if (!node) return;
+        node.textContent = loginPhone ? `${loginPhone} 已登录` : '未登录';
+      }
+
+      async function read(res) {
+        const text = await res.text();
+        try { return JSON.parse(text); } catch { return text; }
+      }
+
+      function show(id, data) {
+        const node = document.getElementById(id);
+        if (!node) return;
+        node.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      }
+
+      function escHtml(s) {
+        return String(s ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+      function escAttr(s) {
+        return escHtml(s).replaceAll('`', '&#96;');
+      }
+      function middleEllipsis(text, head = 28, tail = 22) {
+        const raw = String(text || '').trim();
+        if (!raw) return '暂无片段';
+        if (raw.length <= head + tail + 10) return raw;
+        return `${raw.slice(0, head)}..........${raw.slice(-tail)}`;
+      }
+
+      function normalizePhoneInput(raw) {
+        let phone = String(raw || '').replace(/\D/g, '');
+        if (phone.startsWith('86') && phone.length === 13) phone = phone.slice(2);
+        return phone;
+      }
+
+      function isValidPhoneInput(raw) {
+        return /^1\d{10}$/.test(normalizePhoneInput(raw));
+      }
+
+      function updateSceneAuthButtons() {
+        const phoneInput = document.getElementById('phone');
+        const codeInput = document.getElementById('code');
+        const sendBtn = document.getElementById('sceneSendCodeBtn');
+        const loginBtn = document.getElementById('sceneLoginBtn');
+        const phone = normalizePhoneInput((phoneInput?.value || '').trim());
+        const code = String(codeInput?.value || '').trim();
+        const phoneValid = isValidPhoneInput(phone);
+        if (sendBtn) {
+          sendBtn.disabled = !phoneValid;
+          sendBtn.textContent = phoneValid ? '发送验证码' : '请先输入手机号';
+        }
+        if (loginBtn) {
+          loginBtn.disabled = !phoneValid || !code;
+          loginBtn.textContent = (!phoneValid || !code) ? '请先输入验证码' : '登录后台';
+        }
+      }
+
+      function updateSceneSupplementToolbarButtons() {
+        const loadBtn = document.getElementById('sceneSuppLoadBtn');
+        const resetBtn = document.getElementById('sceneSuppResetBtn');
+        const hasToken = Boolean(token);
+        const days = String(document.getElementById('sceneDays')?.value || '').trim();
+        const status = String(document.getElementById('sceneStatus')?.value || '').trim();
+        const level = String(document.getElementById('sceneLevelFilter')?.value || '').trim();
+        const view = String(document.getElementById('sceneView')?.value || 'cards').trim();
+        const onlyPending = Boolean(document.getElementById('sceneOnlyPending')?.checked);
+        const hasActiveSuppFilters = days !== '30' || status !== '' || level !== '' || view !== 'cards' || onlyPending;
+        if (loadBtn) {
+          if (sceneSupplementsLoading) {
+            loadBtn.disabled = true;
+            loadBtn.textContent = '加载中...';
+          } else {
+            loadBtn.disabled = !hasToken || !days;
+            loadBtn.textContent = !hasToken ? '请先登录后加载' : (!days ? '请先输入天数' : '加载场景补充单');
+          }
+        }
+        if (resetBtn) {
+          resetBtn.disabled = !hasToken || !hasActiveSuppFilters;
+          resetBtn.textContent = !hasToken ? '请先登录后操作' : (hasActiveSuppFilters ? '清空当前筛选' : '当前无需清空');
+        }
+        renderSceneSupplementFilterHint();
+      }
+
+      function renderSceneSupplementFilterHint() {
+        const box = document.getElementById('sceneSuppFilterHint');
+        if (!box) return;
+        const days = String(document.getElementById('sceneDays')?.value || '30').trim() || '30';
+        const status = String(document.getElementById('sceneStatus')?.value || '').trim();
+        const level = String(document.getElementById('sceneLevelFilter')?.value || '').trim();
+        const view = String(document.getElementById('sceneView')?.value || 'cards').trim();
+        const onlyPending = Boolean(document.getElementById('sceneOnlyPending')?.checked);
+        const levelLabelMap = {
+          review_graph: '先复核图谱',
+          decide_scope: '先判定版本',
+          ready_material: '优先补素材',
+          continue_material: '继续补素材',
+          done: '已补齐',
+        };
+        const parts = [`最近 ${days} 天`];
+        parts.push(status ? `状态：${status}` : '状态：全部');
+        parts.push(level ? `层级：${levelLabelMap[level] || level}` : '层级：全部');
+        parts.push(onlyPending ? '仅看仍有待补词' : '包含已补齐单');
+        parts.push(view === 'cards' ? '卡片视图' : (view === 'table' ? '表格视图' : '原始数据'));
+        box.textContent = `当前筛选：${parts.join(' ｜ ')}。补充单列表已按处理优先级自动排序。`;
+        renderSceneSupplementQuickFilters(level);
+      }
+
+      function renderSceneSupplementQuickFilters(activeLevel = '') {
+        const box = document.getElementById('sceneLevelQuickFilters');
+        if (!box) return;
+        const onlyPending = Boolean(document.getElementById('sceneOnlyPending')?.checked);
+        const baseItems = onlyPending
+          ? latestSceneSupplements.filter(item => Number(item?.progress?.pending_count || 0) > 0)
+          : latestSceneSupplements;
+        const counter = {
+          review_graph: 0,
+          decide_scope: 0,
+          ready_material: 0,
+          continue_material: 0,
+          done: 0,
+        };
+        baseItems.forEach(item => {
+          const key = getSceneSupplementLevelKey(item);
+          if (key && Object.prototype.hasOwnProperty.call(counter, key)) counter[key] += 1;
+        });
+        const items = [
+          ['', '全部层级', baseItems.length],
+          ['review_graph', '先复核图谱', counter.review_graph],
+          ['decide_scope', '先判定版本', counter.decide_scope],
+          ['ready_material', '优先补素材', counter.ready_material],
+          ['continue_material', '继续补素材', counter.continue_material],
+          ['done', '已补齐', counter.done],
+        ];
+        box.innerHTML = items.map(([value, label, count]) => `
+          <button
+            type="button"
+            class="ghost-btn ${activeLevel === value ? 'is-active' : ''}"
+            onclick="applySceneSupplementLevelFilter('${value}')"
+            ${value && !count ? 'disabled' : ''}
+          >${escHtml(`${label} (${count || 0})`)}</button>
+        `).join('');
+      }
+
+      function applySceneSupplementLevelFilter(level) {
+        const select = document.getElementById('sceneLevelFilter');
+        if (select) select.value = String(level || '');
+        updateSceneSupplementToolbarButtons();
+        renderSceneSupplements({ items: latestSceneSupplements, summary: latestSceneSuppSummary, count: latestSceneSupplements.length });
+      }
+
+      function updateSceneGraphToolbarButtons() {
+        const resetBtn = document.getElementById('sceneGraphResetBtn');
+        const search = String(document.getElementById('sceneGraphSearch')?.value || '').trim();
+        const onlySupp = Boolean(document.getElementById('sceneGraphOnlySupp')?.checked);
+        const hasActiveGraphFilters = !!search || onlySupp;
+        if (resetBtn) {
+          resetBtn.disabled = !hasActiveGraphFilters;
+          resetBtn.textContent = hasActiveGraphFilters ? '清空当前筛选' : '当前无需清空';
+        }
+      }
+
+      async function sendCode() {
+        const phone = normalizePhoneInput((document.getElementById('phone').value || '').trim());
+        document.getElementById('phone').value = phone;
+        if (!phone) return show('sceneDebugOut', '请输入手机号');
+        if (!isValidPhoneInput(phone)) return show('sceneDebugOut', '请输入有效的11位手机号');
+        setButtonBusy('sceneSendCodeBtn', '发送中...');
+        try {
+          const res = await fetch(`${base()}/auth/request-code`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone }),
+          });
+          const data = await read(res);
+          if (data && data.code) document.getElementById('code').value = data.code;
+          show('sceneDebugOut', data);
+        } finally {
+          updateSceneAuthButtons();
+        }
+      }
+
+      async function login() {
+        const phone = normalizePhoneInput((document.getElementById('phone').value || '').trim());
+        const code = (document.getElementById('code').value || '').trim();
+        document.getElementById('phone').value = phone;
+        if (!isValidPhoneInput(phone)) return show('sceneDebugOut', '请输入有效的11位手机号');
+        setButtonBusy('sceneLoginBtn', '登录中...');
+        try {
+          const res = await fetch(`${base()}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone, code }),
+          });
+          const data = await read(res);
+          if (res.ok && data.token) {
+            token = data.token;
+            loginPhone = data.user.phone;
+            localStorage.setItem('mfa_scene_token', token);
+            localStorage.setItem('mfa_scene_phone', loginPhone);
+            setState();
+            updateSceneSupplementToolbarButtons();
+            updateSceneNeo4jButtons();
+            await loadSceneSupplements();
+            await loadSceneGraphCatalog();
+            await loadSceneCollections();
+            await loadSceneTemplates();
+          }
+          show('sceneDebugOut', data);
+        } finally {
+          updateSceneAuthButtons();
+        }
+      }
+
+      function renderPills(list) {
+        const arr = Array.isArray(list) ? list.filter(Boolean) : [];
+        if (!arr.length) return '<span class="muted">无</span>';
+        return arr.map(item => `<span class="pill">${escHtml(item)}</span>`).join('');
+      }
+
+      function sceneScopeLabel(scope, genre) {
+        return String(scope || '') === 'common' ? '通用版' : `${genre || '当前赛道'}版`;
+      }
+
+      function getSceneTermMeta(item, term) {
+        const value = String(term || '').trim();
+        const items = Array.isArray(item?.missing_sfx_term_items) && item.missing_sfx_term_items.length
+          ? item.missing_sfx_term_items
+          : (Array.isArray(item?.sfx_term_items) ? item.sfx_term_items : []);
+        return items.find(row => String(row?.term || '').trim() === value) || null;
+      }
+
+      function summarizeSceneTermSources(item) {
+        const items = Array.isArray(item?.missing_sfx_term_items) && item.missing_sfx_term_items.length
+          ? item.missing_sfx_term_items
+          : (Array.isArray(item?.sfx_term_items) ? item.sfx_term_items : []);
+        const counter = { common: 0, genre: 0, 'common+genre': 0, unknown: 0 };
+        for (const row of items) {
+          const key = String(row?.source || 'unknown').trim() || 'unknown';
+          if (!(key in counter)) counter.unknown += 1;
+          else counter[key] += 1;
+        }
+        const parts = [];
+        if (counter.common) parts.push(`通用层 ${counter.common}`);
+        if (counter.genre) parts.push(`赛道层 ${counter.genre}`);
+        if (counter['common+genre']) parts.push(`通用+赛道 ${counter['common+genre']}`);
+        if (counter.unknown) parts.push(`未标注 ${counter.unknown}`);
+        return parts.length ? parts.join(' ｜ ') : '当前没有待补词来源信息';
+      }
+
+      function getSceneSupplementLevelMeta(item) {
+        const pendingCount = Number(item?.progress?.pending_count || item?.missing_count || 0);
+        const status = String(item?.status || '').trim();
+        const sourceSummary = summarizeSceneTermSources(item);
+        if (pendingCount <= 0) {
+          return {
+            label: '补充单层级：已补齐',
+            cls: 'ok',
+            note: '当前补充单已经没有待补词，可继续检查通知与入库状态。',
+          };
+        }
+        if (status === 'ready_to_notify') {
+          return {
+            label: '补充单层级：优先补素材',
+            cls: 'source',
+            note: `当前缺口已经比较明确，适合直接继续补素材。来源摘要：${sourceSummary}`,
+          };
+        }
+        if (String(sourceSummary || '').includes('未标注')) {
+          return {
+            label: '补充单层级：先复核图谱',
+            cls: 'warn',
+            note: `当前仍有来源未标注，建议先回场景图谱核对后再补素材。来源摘要：${sourceSummary}`,
+          };
+        }
+        if (String(sourceSummary || '').includes('通用+赛道')) {
+          return {
+            label: '补充单层级：先判定版本',
+            cls: 'template',
+            note: `当前同时存在通用层和赛道层来源，补素材前请先判断版本归属。来源摘要：${sourceSummary}`,
+          };
+        }
+        return {
+          label: '补充单层级：继续补素材',
+          cls: 'collection',
+          note: `当前方向基本明确，可继续补素材；如结果不理想，再回图谱微调。来源摘要：${sourceSummary}`,
+        };
+      }
+
+      function getSceneSupplementPriority(item) {
+        const label = String(getSceneSupplementLevelMeta(item)?.label || '').trim();
+        if (label === '补充单层级：先复核图谱') return 1;
+        if (label === '补充单层级：先判定版本') return 2;
+        if (label === '补充单层级：优先补素材') return 3;
+        if (label === '补充单层级：继续补素材') return 4;
+        if (label === '补充单层级：已补齐') return 5;
+        return 9;
+      }
+
+      function getSceneSupplementLevelKey(item) {
+        const label = String(getSceneSupplementLevelMeta(item)?.label || '').trim();
+        if (label === '补充单层级：先复核图谱') return 'review_graph';
+        if (label === '补充单层级：先判定版本') return 'decide_scope';
+        if (label === '补充单层级：优先补素材') return 'ready_material';
+        if (label === '补充单层级：继续补素材') return 'continue_material';
+        if (label === '补充单层级：已补齐') return 'done';
+        return '';
+      }
+
+      function summarizeSceneSupplementLoadForNode(item, layer, genre) {
+        const targetLayer = String(layer || '').trim();
+        const targetGenre = String(genre || '').trim();
+        const nodeKey = String(item?.node_key || '').trim();
+        const sceneName = String(item?.scene_name || '').trim();
+        const sourceRows = Array.isArray(latestSceneSupplementsFiltered) && latestSceneSupplementsFiltered.length
+          ? latestSceneSupplementsFiltered
+          : (Array.isArray(latestSceneSupplements) ? latestSceneSupplements : []);
+        const related = sourceRows.filter(row => {
+          const rowNodeKey = String(row?.node_key || '').trim();
+          const rowSceneName = String(row?.scene_name || row?.target_scene || '').trim();
+          const rowGenre = String(row?.genre || '').trim();
+          if (targetLayer === 'common') {
+            return sceneName && rowSceneName === sceneName;
+          }
+          if (nodeKey && rowNodeKey === nodeKey) return true;
+          return sceneName && rowSceneName === sceneName && (!targetGenre || !rowGenre || rowGenre === targetGenre);
+        });
+        const itemCount = related.length;
+        const pendingCount = related.reduce((sum, row) => sum + Number(row?.progress?.pending_count || 0), 0);
+        return { itemCount, pendingCount };
+      }
+
+      function summarizeSceneSeedCoverageByNodeKey(nodeKey) {
+        const key = String(nodeKey || '').trim();
+        if (!key) return { label: '未建补充单', cls: '' };
+        const related = latestSceneSupplements.filter(row => String(row?.node_key || '').trim() === key);
+        if (!related.length) return { label: '未建补充单', cls: '' };
+        const pendingCount = related.reduce((sum, row) => sum + Number(row?.progress?.pending_count || 0), 0);
+        const coveredCount = related.reduce((sum, row) => sum + Number(row?.progress?.covered_count || 0), 0);
+        if (pendingCount > 0) return { label: `待补 ${pendingCount}`, cls: 'warn' };
+        if (coveredCount > 0) return { label: `已覆盖 ${coveredCount}`, cls: 'ok' };
+        return { label: '已建补充单', cls: '' };
+      }
+      function sceneSeedStatusPriority(label) {
+        const text = String(label || '').trim();
+        if (text.startsWith('待补')) return 0;
+        if (text === '未建补充单') return 1;
+        if (text.startsWith('已覆盖')) return 2;
+        return 3;
+      }
+      function summarizeSceneSeedStatuses(items) {
+        const rows = Array.isArray(items) ? items : [];
+        const summary = { pending: 0, untracked: 0, covered: 0, created: 0 };
+        rows.forEach(item => {
+          const status = summarizeSceneSeedCoverageByNodeKey(item?.node_key).label;
+          if (status.startsWith('待补')) summary.pending += 1;
+          else if (status === '未建补充单') summary.untracked += 1;
+          else if (status.startsWith('已覆盖')) summary.covered += 1;
+          else summary.created += 1;
+        });
+        return summary;
+      }
+      function renderSceneSeedStats(summary) {
+        const node = document.getElementById('sceneGraphSeedStats');
+        if (!node) return;
+        const data = summary || { pending: 0, untracked: 0, covered: 0, created: 0 };
+        node.innerHTML = `
+          <div class="status-bar">
+            <span class="status-chip" title="已经进入场景补充链路，当前仍缺素材">待补 ${escHtml(data.pending || 0)}</span>
+            <span class="status-chip" title="基础场景种子已预置，但还没被真实文本触发验证">待验证 ${escHtml(data.untracked || 0)}</span>
+            <span class="status-chip" title="当前已有基础场景素材覆盖">已覆盖 ${escHtml(data.covered || 0)}</span>
+          </div>
+        `;
+      }
+      function sceneSeedNextStep(nodeKey) {
+        const status = summarizeSceneSeedCoverageByNodeKey(nodeKey).label;
+        if (status.startsWith('待补')) return '建议下一步：先去补充单补支撑场景音效，再回看细节音效。';
+        if (status === '未建补充单') return '建议下一步：先等待真实用户文本命中验证，命中后再进入场景补充链路。';
+        if (status.startsWith('已覆盖')) return '建议下一步：优先回看场景图谱与模板是否还需继续扩充。';
+        return '建议下一步：先检查场景图谱，再决定是否补素材。';
+      }
+      function sceneSeedStatusExplain(label) {
+        const text = String(label || '').trim();
+        if (text.startsWith('待补')) return '已进入补充链路，当前仍缺场景素材。';
+        if (text === '未建补充单') return '当前还缺真实用户命中验证，属于待验证基础场景种子。';
+        if (text.startsWith('已覆盖')) return '当前已有基础场景素材，可继续观察是否还需补细节层。';
+        return '当前已进入补充链路，可继续按业务状态跟进。';
+      }
+
+      function refreshSceneMergeState(itemId) {
+        const item = latestSceneSupplements.find(row => Number(row?.id) === Number(itemId));
+        const termSel = document.getElementById(`sceneTerm-${itemId}`);
+        const scopeSel = document.getElementById(`sceneScope-${itemId}`);
+        const fileInput = document.getElementById(`sceneFile-${itemId}`);
+        const mergeBtn = document.getElementById(`sceneMergeBtn-${itemId}`);
+        const hintNode = document.getElementById(`sceneScopeHint-${itemId}`);
+        if (!item || !termSel || !scopeSel || !fileInput || !mergeBtn || !hintNode) return;
+        const meta = getSceneTermMeta(item, termSel.value);
+        const termChosen = Boolean(String(termSel.value || '').trim());
+        const hasFile = Boolean(fileInput.files?.[0]);
+        const scopeValue = String(scopeSel.value || '').trim();
+        const requiresExplicitScope = ['common+genre', 'unknown'].includes(String(meta?.source || '').trim());
+        let hint = String(meta?.scope_hint || '请选择场景音效词后，再确认素材版本。');
+        let disabled = false;
+        if (!token) {
+          disabled = true;
+          hint = '请先登录后上传并合并。';
+        } else if (!termChosen) {
+          disabled = true;
+          hint = '请先选择场景音效词。';
+        } else if (requiresExplicitScope && !scopeValue) {
+          disabled = true;
+          hint = String(meta?.scope_hint || '当前词需要先明确素材版本。');
+        } else if (!hasFile) {
+          disabled = true;
+          hint = `${hint} 还需要选择音效文件后才能入库。`;
+        }
+        mergeBtn.disabled = disabled;
+        hintNode.textContent = hint;
+        hintNode.style.color = requiresExplicitScope ? 'var(--warn)' : 'var(--muted)';
+      }
+
+      function initializeSceneSupplementCard(itemId) {
+        const item = latestSceneSupplements.find(row => Number(row?.id) === Number(itemId));
+        const termSel = document.getElementById(`sceneTerm-${itemId}`);
+        if (!item || !termSel) return;
+        const pendingItems = Array.isArray(item?.missing_sfx_term_items) && item.missing_sfx_term_items.length
+          ? item.missing_sfx_term_items
+          : [];
+        if (pendingItems.length === 1 && !String(termSel.value || '').trim()) {
+          termSel.value = String(pendingItems[0]?.term || '').trim();
+        }
+        syncSceneAssetScopeForItem(itemId);
+      }
+
+      function syncSceneAssetScopeForItem(itemId) {
+        const item = latestSceneSupplements.find(row => Number(row?.id) === Number(itemId));
+        const termSel = document.getElementById(`sceneTerm-${itemId}`);
+        const scopeSel = document.getElementById(`sceneScope-${itemId}`);
+        if (!item || !termSel || !scopeSel) return;
+        const meta = getSceneTermMeta(item, termSel.value);
+        const defaultScope = String(meta?.default_asset_scope || '').trim();
+        if (defaultScope === 'common' || defaultScope === 'genre') {
+          scopeSel.value = defaultScope;
+        } else {
+          scopeSel.value = '';
+        }
+        refreshSceneMergeState(itemId);
+      }
+
+      function splitSceneTerms(raw) {
+        return String(raw || '')
+          .replaceAll('，', '\n')
+          .replaceAll(',', '\n')
+          .replaceAll('、', '\n')
+          .split('\n')
+          .map(x => String(x || '').trim())
+          .filter(Boolean);
+      }
+
+      function setButtonBusy(id, busyText) {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.disabled = true;
+        btn.textContent = busyText;
+      }
+
+      function setInlineStatus(id, text) {
+        const node = document.getElementById(id);
+        if (!node) return;
+        const message = String(text || '').trim();
+        node.textContent = message;
+        node.classList.remove('is-loading', 'is-success', 'is-error', 'is-info');
+        if (!message) return;
+        const isLoading = /(中\.\.\.|正在|读取中|同步中|保存中|迁移中|删除中|上传并合并中|发送通知中|定位中|加载中)/.test(message);
+        const isError = /(失败|请先|未找到|未命中|不可|为空|无结果|无法|错误)/.test(message);
+        const isSuccess = /(已完成|已更新|已清空|已删除|已保存|已入库|已标记|已跳到|已定位|已创建|已带出)/.test(message);
+        if (isLoading) node.classList.add('is-loading');
+        else if (isError) node.classList.add('is-error');
+        else if (isSuccess) node.classList.add('is-success');
+        else node.classList.add('is-info');
+      }
+
+      function renderDocAnchors(outId, docs) {
+        const box = document.getElementById(outId);
+        if (!box) return;
+        const rows = Array.isArray(docs) ? docs : [];
+        box.innerHTML = rows.map(doc => `
+          <div class="doc-anchor-item">
+            <div class="doc-anchor-path">${escHtml(`/Users/demo/Documents/New project/musicForArt/${doc.path}`)}</div>
+            <div class="doc-anchor-name">${escHtml(doc.name || doc.path)}</div>
+            <div class="doc-anchor-desc">${escHtml(doc.desc || '')}</div>
+          </div>
+        `).join('') || '<div class="muted">当前没有可展示的本地文档锚点。</div>';
+      }
+
+      function toggleSceneSupplementCard(itemId) {
+        const group = document.getElementById(`scene-supp-${itemId}`);
+        const status = document.getElementById(`sceneCardToggle-${itemId}`);
+        if (!group || !status) return;
+        const collapsed = group.classList.toggle('is-collapsed');
+        status.textContent = collapsed ? '点击展开补充单详情' : '点击收起补充单详情';
+      }
+
+      function renderSceneFieldPreview(inputId, previewId) {
+        const input = document.getElementById(inputId);
+        const preview = document.getElementById(previewId);
+        if (!input || !preview) return;
+        const terms = splitSceneTerms(input.value);
+        preview.innerHTML = terms.length
+          ? terms.map(term => `<span class="term-chip">${escHtml(term)}</span>`).join('')
+          : '<span class="muted">当前为空</span>';
+      }
+
+      function clearSceneField(inputId) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        input.value = '';
+        const previewMap = {
+          sceneBackgroundElements: 'sceneBackgroundPreview',
+          sceneFeatureElements: 'sceneFeaturePreview',
+          sceneDetailElements: 'sceneDetailPreview',
+          sceneSupportingTerms: 'sceneSupportingPreview',
+          sceneDetailTerms: 'sceneDetailTermPreview',
+        };
+        renderSceneFieldPreview(inputId, previewMap[inputId]);
+      }
+
+      function resetSceneSupplementFilters() {
+        const days = document.getElementById('sceneDays');
+        const status = document.getElementById('sceneStatus');
+        const level = document.getElementById('sceneLevelFilter');
+        const view = document.getElementById('sceneView');
+        const onlyPending = document.getElementById('sceneOnlyPending');
+        if (days) days.value = '30';
+        if (status) status.value = '';
+        if (level) level.value = '';
+        if (view) view.value = 'cards';
+        if (onlyPending) onlyPending.checked = false;
+        updateSceneSupplementToolbarButtons();
+        renderSceneSupplements({ items: latestSceneSupplements, summary: latestSceneSuppSummary, count: latestSceneSupplements.length });
+      }
+
+      function resetSceneGraphFilters() {
+        const search = document.getElementById('sceneGraphSearch');
+        const onlySupp = document.getElementById('sceneGraphOnlySupp');
+        if (search) search.value = '';
+        if (onlySupp) onlySupp.checked = false;
+        updateSceneGraphToolbarButtons();
+        renderSceneGraphPicker();
+      }
+
+      function addSceneTermToField(inputId, previewId, term) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        const current = splitSceneTerms(input.value);
+        const value = String(term || '').trim();
+        if (!value) return;
+        if (!current.includes(value)) current.push(value);
+        input.value = current.join('\n');
+        renderSceneFieldPreview(inputId, previewId);
+      }
+
+      function addSceneTermToFieldEncoded(inputId, previewId, encodedTerm) {
+        addSceneTermToField(inputId, previewId, decodeURIComponent(String(encodedTerm || '')));
+      }
+
+      function renderAllSceneFieldPreviews() {
+        renderSceneFieldPreview('sceneBackgroundElements', 'sceneBackgroundPreview');
+        renderSceneFieldPreview('sceneFeatureElements', 'sceneFeaturePreview');
+        renderSceneFieldPreview('sceneDetailElements', 'sceneDetailPreview');
+        renderSceneFieldPreview('sceneSupportingTerms', 'sceneSupportingPreview');
+        renderSceneFieldPreview('sceneDetailTerms', 'sceneDetailTermPreview');
+      }
+
+      function renderSceneTermSuggestions(data) {
+        sceneTermSuggestionCatalog = data || { suggestions: {} };
+        const suggestions = sceneTermSuggestionCatalog.suggestions || {};
+        const renderSuggestionGroup = (targetId, fieldId, previewId, items) => {
+          const node = document.getElementById(targetId);
+          if (!node) return;
+          const terms = Array.isArray(items) ? items : [];
+          node.innerHTML = terms.length
+            ? terms.map(term => `<button type="button" class="ghost-btn" style="width:auto;" onclick="addSceneTermToFieldEncoded('${fieldId}','${previewId}','${encodeURIComponent(String(term || ''))}')">${escHtml(term)}</button>`).join('')
+            : '<span class="muted">暂无建议</span>';
+        };
+        renderSuggestionGroup('sceneSuggestionBackground', 'sceneBackgroundElements', 'sceneBackgroundPreview', suggestions.background_elements);
+        renderSuggestionGroup('sceneSuggestionFeature', 'sceneFeatureElements', 'sceneFeaturePreview', suggestions.feature_elements);
+        renderSuggestionGroup('sceneSuggestionDetail', 'sceneDetailElements', 'sceneDetailPreview', suggestions.detail_elements);
+        renderSuggestionGroup('sceneSuggestionSupporting', 'sceneSupportingTerms', 'sceneSupportingPreview', suggestions.supporting_sfx_terms);
+        renderSuggestionGroup('sceneSuggestionDetailTerms', 'sceneDetailTerms', 'sceneDetailTermPreview', suggestions.detail_sfx_terms);
+      }
+
+      async function loadSceneTermSuggestions() {
+        const templateName = String(document.getElementById('sceneTemplateName')?.value || '').trim();
+        const collectionName = String(document.getElementById('sceneCollectionName')?.value || '').trim();
+        const hint = document.getElementById('sceneSuggestionHint');
+        if (!templateName && !collectionName) {
+          renderSceneTermSuggestions({ suggestions: {} });
+          if (hint) hint.textContent = '填写模板或场景集合后，这里会聚合常用项。';
+          return;
+        }
+        if (!token) {
+          renderSceneTermSuggestions({ suggestions: {} });
+          if (hint) hint.textContent = '请先登录后读取常用项建议。';
+          return;
+        }
+        const params = new URLSearchParams();
+        if (templateName) params.set('template_name', templateName);
+        if (collectionName) params.set('collection_name', collectionName);
+        const res = await fetch(`${base()}/scene-graph/term-suggestions?${params.toString()}`, { headers: h() });
+        const data = await read(res);
+        renderSceneTermSuggestions(data);
+        if (hint) {
+          hint.textContent = `当前建议池：模板=${templateName || '未指定'} ｜ 集合=${collectionName || '未指定'}。点击下方常用项可直接加入对应字段。`;
+        }
+      }
+
+      function currentSceneGraphNodeKey() {
+        const layer = String(document.getElementById('sceneGraphLayer')?.value || 'common');
+        const genre = String(document.getElementById('sceneGraphGenre')?.value || '玄幻');
+        const nodeKey = String(document.getElementById('sceneGraphNode')?.value || '').trim();
+        if (nodeKey) return nodeKey;
+        const rawScene = String(
+          (latestSceneGraphNode?.scene_name)
+          || (document.getElementById('sceneGraphNewNode')?.value || '')
+        ).trim();
+        if (!rawScene) return '';
+        return `${layer === 'common' ? 'common' : genre}::${rawScene}`;
+      }
+
+      function updateSceneGraphEditorButtons() {
+        const createBtn = document.getElementById('sceneGraphCreateBtn');
+        const saveBtn = document.getElementById('sceneGraphSaveBtn');
+        const newNodeValue = String(document.getElementById('sceneGraphNewNode')?.value || '').trim();
+        const nodeKey = currentSceneGraphNodeKey();
+        if (createBtn) {
+          createBtn.disabled = !newNodeValue;
+          createBtn.textContent = newNodeValue ? '新建空白节点' : '请先输入节点名';
+        }
+        if (saveBtn) {
+          saveBtn.disabled = !nodeKey;
+          saveBtn.textContent = nodeKey ? '保存当前层' : '请先选择或新建节点';
+        }
+      }
+
+      function createSceneGraphNode() {
+        const layer = String(document.getElementById('sceneGraphLayer')?.value || 'common');
+        const genre = String(document.getElementById('sceneGraphGenre')?.value || '玄幻');
+        const sceneName = String(document.getElementById('sceneGraphNewNode')?.value || '').trim();
+        if (!sceneName) return setInlineStatus('sceneGraphSaveStatus', '请先输入新建节点名称');
+        const data = {
+          ok: true,
+          node_key: `${layer === 'common' ? 'common' : genre}::${sceneName}`,
+          scene_name: sceneName,
+          view_layer: layer === 'common' ? 'common' : 'genre',
+          view_genre: layer === 'common' ? '' : genre,
+          common_layer: { exists: false, template_name: '', collection_name: '', background_elements: [], feature_elements: [], detail_elements: [], supporting_sfx_terms: [], detail_sfx_terms: [] },
+          genre_layer: { exists: false, template_name: '', collection_name: '', background_elements: [], feature_elements: [], detail_elements: [], supporting_sfx_terms: [], detail_sfx_terms: [] },
+          merged: { template_name: '', collection_name: '', background_elements: [], feature_elements: [], detail_elements: [], supporting_sfx_terms: [], detail_sfx_terms: [] },
+          source_explanation: layer === 'common' ? '新建通用层节点' : '新建赛道层节点',
+        };
+        const nodeSel = document.getElementById('sceneGraphNode');
+        if (nodeSel) nodeSel.value = '';
+        fillSceneGraphForm(data);
+        renderAllSceneFieldPreviews();
+        updateSceneGraphEditorButtons();
+        setInlineStatus('sceneGraphSaveStatus', '空白节点已创建，请填写内容后保存当前层');
+      }
+
+      function updateSceneCollectionButtons() {
+        const pickValue = String(document.getElementById('sceneCollectionPick')?.value || '').trim();
+        const renameValue = String(document.getElementById('sceneCollectionRename')?.value || '').trim();
+        const renameBtn = document.getElementById('sceneCollectionRenameBtn');
+        const deleteBtn = document.getElementById('sceneCollectionDeleteBtn');
+        if (renameBtn) {
+          renameBtn.disabled = !pickValue || !renameValue;
+          renameBtn.textContent = !pickValue ? '请先选择集合' : (!renameValue ? '请先输入新名称' : '修改集合名称');
+        }
+        if (deleteBtn) {
+          deleteBtn.disabled = !pickValue;
+          deleteBtn.textContent = pickValue ? '清空当前集合引用' : '请先选择集合';
+        }
+      }
+
+      function renderSceneCollections(data) {
+        sceneCollectionCatalog = data || { items: [] };
+        const box = document.getElementById('sceneCollectionsOut');
+        const pick = document.getElementById('sceneCollectionPick');
+        if (!box) return;
+        const items = Array.isArray(data?.items) ? data.items : [];
+        if (pick) {
+          pick.innerHTML = [
+            '<option value="">请选择场景集合</option>',
+            ...items.map(item => {
+              const commonCount = Array.isArray(item.common_scenes) ? item.common_scenes.length : 0;
+              const genreCount = Array.isArray(item.genre_scenes) ? item.genre_scenes.length : 0;
+              return `<option value="${escHtml(item.collection_name || '')}">${escHtml(`${item.collection_name || ''}（通用${commonCount} / 赛道${genreCount}）`)}</option>`;
+            }),
+          ].join('');
+        }
+        updateSceneCollectionButtons();
+        if (!items.length) {
+          box.innerHTML = '<div class="muted">当前还没有已沉淀的场景集合。</div>';
+          return;
+        }
+        box.innerHTML = items.map(item => `
+          <div class="section-box" style="margin-top:8px;">
+            <h4>${escHtml(item.collection_name || '未命名集合')}</h4>
+            <div class="muted">通用层：${escHtml((item.common_scenes || []).join('、') || '无')}</div>
+            <div class="muted">赛道层：${escHtml((item.genre_scenes || []).join('、') || '无')}</div>
+          </div>
+        `).join('');
+      }
+
+      async function loadSceneCollections() {
+        if (!token) {
+          setInlineStatus('sceneCollectionStatus', '请先登录后查看场景集合');
+          return;
+        }
+        const res = await fetch(`${base()}/scene-graph/collections`, { headers: h() });
+        const data = await read(res);
+        renderSceneCollections(data);
+      }
+
+      function fillSceneCollectionFormFromPick() {
+        const name = String(document.getElementById('sceneCollectionPick')?.value || '').trim();
+        const hint = document.getElementById('sceneCollectionHint');
+        const row = (Array.isArray(sceneCollectionCatalog?.items) ? sceneCollectionCatalog.items : []).find(item => String(item.collection_name || '').trim() === name) || null;
+        document.getElementById('sceneCollectionRename').value = name;
+        updateSceneCollectionButtons();
+        setInlineStatus('sceneCollectionStatus', name ? `当前准备维护集合：${name}` : '');
+        if (hint) {
+          if (!row) {
+            hint.textContent = name ? '当前未找到集合详情。' : '选择集合后，这里会说明改名或清空引用会影响多少节点与模板。';
+          } else {
+            const commonCount = Array.isArray(row.common_scenes) ? row.common_scenes.length : 0;
+            const genreCount = Array.isArray(row.genre_scenes) ? row.genre_scenes.length : 0;
+            hint.textContent = `当前集合引用：通用层节点 ${commonCount} 个，赛道层节点 ${genreCount} 个。改名会同步更新这些节点与相关模板；清空引用只移除集合名，不删除节点或模板。`;
+          }
+        }
+      }
+
+      async function renameSceneCollection() {
+        if (!token) {
+          updateSceneCollectionButtons();
+          return setInlineStatus('sceneCollectionStatus', '请先登录后修改集合');
+        }
+        const oldName = String(document.getElementById('sceneCollectionPick')?.value || '').trim();
+        const newName = String(document.getElementById('sceneCollectionRename')?.value || '').trim();
+        if (!oldName) return setInlineStatus('sceneCollectionStatus', '请先选择场景集合');
+        if (!newName) return setInlineStatus('sceneCollectionStatus', '请先输入新名称');
+        setInlineStatus('sceneCollectionStatus', '修改中...');
+        setButtonBusy('sceneCollectionRenameBtn', '修改中...');
+        try {
+          const res = await fetch(`${base()}/scene-graph/collection-rename`, {
+            method: 'POST',
+            headers: h({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ old_name: oldName, new_name: newName }),
+          });
+          const data = await read(res);
+          setInlineStatus(
+            'sceneCollectionStatus',
+            res.ok
+              ? `集合改名已完成（节点 ${data?.updated_node_count || 0} / 模板 ${data?.updated_template_count || 0}）`
+              : String(data?.detail || '集合改名失败')
+          );
+          if (res.ok) {
+            await loadSceneCollections();
+            await loadSceneTemplates();
+          }
+          show('sceneDebugOut', data);
+        } finally {
+          updateSceneCollectionButtons();
+        }
+      }
+
+      async function deleteSceneCollection() {
+        if (!token) {
+          updateSceneCollectionButtons();
+          return setInlineStatus('sceneCollectionStatus', '请先登录后清空集合引用');
+        }
+        const name = String(document.getElementById('sceneCollectionPick')?.value || '').trim();
+        if (!name) return setInlineStatus('sceneCollectionStatus', '请先选择场景集合');
+        if (!window.confirm(`确认清空集合“${name}”的所有引用吗？这会移除节点和模板上的集合名，但不会删除节点或模板本身。`)) return;
+        setInlineStatus('sceneCollectionStatus', '清空中...');
+        setButtonBusy('sceneCollectionDeleteBtn', '清空中...');
+        try {
+          const res = await fetch(`${base()}/scene-graph/collection-delete`, {
+            method: 'POST',
+            headers: h({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ collection_name: name }),
+          });
+          const data = await read(res);
+          setInlineStatus(
+            'sceneCollectionStatus',
+            res.ok
+              ? `集合引用已清空（节点 ${data?.updated_node_count || 0} / 模板 ${data?.updated_template_count || 0}）`
+              : String(data?.detail || '集合清空失败')
+          );
+          if (res.ok) {
+            document.getElementById('sceneCollectionPick').value = '';
+            document.getElementById('sceneCollectionRename').value = '';
+            updateSceneCollectionButtons();
+            await loadSceneCollections();
+            await loadSceneTemplates();
+          }
+          show('sceneDebugOut', data);
+        } finally {
+          updateSceneCollectionButtons();
+        }
+      }
+
+      function updateSceneTemplateButtons() {
+        const pickValue = String(document.getElementById('sceneTemplatePick')?.value || '').trim();
+        const templateName = String(document.getElementById('sceneTemplateEditName')?.value || '').trim();
+        const saveBtn = document.getElementById('sceneTemplateSaveBtn');
+        const deleteBtn = document.getElementById('sceneTemplateDeleteBtn');
+        if (saveBtn) {
+          saveBtn.disabled = !templateName;
+          saveBtn.textContent = templateName ? '保存模板' : '请先输入模板名称';
+        }
+        if (deleteBtn) {
+          deleteBtn.disabled = !pickValue && !templateName;
+          deleteBtn.textContent = (pickValue || templateName) ? '删除当前模板' : '请先选择模板';
+        }
+      }
+
+      function renderSceneTemplates(data) {
+        sceneTemplateCatalog = data || { items: [] };
+        const items = Array.isArray(data?.items) ? data.items : [];
+        const pick = document.getElementById('sceneTemplatePick');
+        const box = document.getElementById('sceneTemplatesOut');
+        if (pick) {
+          pick.innerHTML = [
+            '<option value="">请选择模板</option>',
+            ...items.map(item => `<option value="${escHtml(item.template_name || '')}">${escHtml(item.template_name || '')}</option>`),
+          ].join('');
+        }
+        updateSceneTemplateButtons();
+        if (box) {
+          box.innerHTML = items.length ? items.map(item => `
+            <div class="section-box" style="margin-top:8px;">
+              <h4>${escHtml(item.template_name || '未命名模板')}</h4>
+              <div class="muted">场景集合：${escHtml(item.collection_name || '未标注')}</div>
+              <div class="muted">模板别名：${escHtml((item.aliases || []).join('、') || '无')}</div>
+              <div class="muted">引用节点数：${escHtml(item.referenced_node_count || 0)}</div>
+              <div class="muted">引用节点：${escHtml((item.referenced_nodes || []).join('、') || '无')}</div>
+            </div>
+          `).join('') : '<div class="muted">当前还没有模板数据。</div>';
+        }
+      }
+
+      async function loadSceneTemplates() {
+        if (!token) {
+          setInlineStatus('sceneTemplateSaveStatus', '请先登录后查看场景模板');
+          return;
+        }
+        const res = await fetch(`${base()}/scene-graph/templates`, { headers: h() });
+        const data = await read(res);
+        renderSceneTemplates(data);
+      }
+
+      function fillSceneTemplateFormFromPick() {
+        const name = String(document.getElementById('sceneTemplatePick')?.value || '').trim();
+        const row = (Array.isArray(sceneTemplateCatalog?.items) ? sceneTemplateCatalog.items : []).find(item => String(item.template_name || '') === name) || {};
+        const hint = document.getElementById('sceneTemplateHint');
+        document.getElementById('sceneTemplateEditName').value = row.template_name || '';
+        document.getElementById('sceneTemplateEditCollection').value = row.collection_name || '';
+        document.getElementById('sceneTemplateAliases').value = (row.aliases || []).join('\n');
+        updateSceneTemplateButtons();
+        setInlineStatus('sceneTemplateSaveStatus', row.template_name ? `当前模板已被 ${row.referenced_node_count || 0} 个节点引用` : '');
+        if (hint) {
+          hint.textContent = row.template_name
+            ? `当前模板引用节点 ${row.referenced_node_count || 0} 个。保存模板会更新模板自身信息；删除模板不会删除节点，只会移除模板本身。`
+            : '选择模板后，这里会说明当前模板被多少个节点引用，以及删除模板的影响范围。';
+        }
+      }
+
+      function findSceneTemplateRowByName(name) {
+        const templateName = String(name || '').trim();
+        return (Array.isArray(sceneTemplateCatalog?.items) ? sceneTemplateCatalog.items : []).find(
+          item => String(item.template_name || '').trim() === templateName
+        ) || null;
+      }
+
+      function syncSceneCollectionFromTemplateField() {
+        const templateName = String(document.getElementById('sceneTemplateName')?.value || '').trim();
+        const row = findSceneTemplateRowByName(templateName);
+        if (!row) return;
+        const collectionInput = document.getElementById('sceneCollectionName');
+        if (collectionInput && !String(collectionInput.value || '').trim()) {
+          collectionInput.value = row.collection_name || '';
+          setInlineStatus('sceneGraphSaveStatus', row.collection_name ? '已按模板自动带出场景集合' : '');
+        }
+        loadSceneTermSuggestions();
+      }
+
+      async function saveSceneTemplate() {
+        if (!token) {
+          updateSceneTemplateButtons();
+          return setInlineStatus('sceneTemplateSaveStatus', '请先登录后保存模板');
+        }
+        const templateName = String(document.getElementById('sceneTemplateEditName')?.value || '').trim();
+        if (!templateName) return setInlineStatus('sceneTemplateSaveStatus', '请先输入模板名称');
+        setInlineStatus('sceneTemplateSaveStatus', '保存中...');
+        setButtonBusy('sceneTemplateSaveBtn', '保存中...');
+        try {
+          const res = await fetch(`${base()}/scene-graph/template`, {
+            method: 'POST',
+            headers: h({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({
+              template_name: templateName,
+              collection_name: document.getElementById('sceneTemplateEditCollection').value,
+              aliases: splitSceneTerms(document.getElementById('sceneTemplateAliases').value),
+            }),
+          });
+          const data = await read(res);
+          setInlineStatus('sceneTemplateSaveStatus', res.ok ? '模板保存已完成' : String(data?.detail || '模板保存失败'));
+          if (res.ok) {
+            await loadSceneTemplates();
+            await loadSceneCollections();
+          }
+          show('sceneDebugOut', data);
+        } finally {
+          updateSceneTemplateButtons();
+        }
+      }
+
+      async function deleteSceneTemplate() {
+        if (!token) {
+          updateSceneTemplateButtons();
+          return setInlineStatus('sceneTemplateSaveStatus', '请先登录后删除模板');
+        }
+        const templateName = String(document.getElementById('sceneTemplateEditName')?.value || document.getElementById('sceneTemplatePick')?.value || '').trim();
+        if (!templateName) return setInlineStatus('sceneTemplateSaveStatus', '请先选择模板');
+        if (!window.confirm(`确认删除模板“${templateName}”吗？这不会自动删除已引用该模板的场景节点，但会移除模板本身。`)) return;
+        setInlineStatus('sceneTemplateSaveStatus', '删除中...');
+        setButtonBusy('sceneTemplateDeleteBtn', '删除中...');
+        try {
+          const res = await fetch(`${base()}/scene-graph/template-delete`, {
+            method: 'POST',
+            headers: h({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ template_name: templateName }),
+          });
+          const data = await read(res);
+          setInlineStatus(
+            'sceneTemplateSaveStatus',
+            res.ok
+              ? `模板删除已完成${data?.affected_node_count ? `（影响 ${data.affected_node_count} 个节点引用）` : ''}`
+              : String(data?.detail || '模板删除失败')
+          );
+          if (res.ok) {
+            document.getElementById('sceneTemplatePick').value = '';
+            document.getElementById('sceneTemplateEditName').value = '';
+            document.getElementById('sceneTemplateEditCollection').value = '';
+            document.getElementById('sceneTemplateAliases').value = '';
+            updateSceneTemplateButtons();
+            await loadSceneTemplates();
+          }
+          show('sceneDebugOut', data);
+        } finally {
+          updateSceneTemplateButtons();
+        }
+      }
+
+      async function loadSceneNeo4jStatus() {
+        if (!token) {
+          updateSceneNeo4jButtons();
+          setInlineStatus('sceneNeo4jStatusInline', '请先登录后查看');
+          return;
+        }
+        const loadBtn = document.getElementById('sceneNeo4jLoadBtn');
+        if (loadBtn) {
+          loadBtn.disabled = true;
+          loadBtn.textContent = '读取中...';
+        }
+        setInlineStatus('sceneNeo4jStatusInline', '读取中...');
+        const res = await fetch(`${base()}/scene-graph/neo4j-status`, { headers: h() });
+        const data = await read(res);
+        latestSceneNeo4jStatus = res.ok ? (data || {}) : null;
+        updateSceneNeo4jButtons();
+        setInlineStatus('sceneNeo4jStatusInline', res.ok ? '状态已更新' : String(data?.detail || '读取失败'));
+        show('sceneNeo4jOut', data);
+      }
+
+      async function syncSceneNeo4j() {
+        if (!token) {
+          updateSceneNeo4jButtons();
+          setInlineStatus('sceneNeo4jStatusInline', '请先登录后同步');
+          return;
+        }
+        const syncBtn = document.getElementById('sceneNeo4jSyncBtn');
+        if (syncBtn) {
+          syncBtn.disabled = true;
+          syncBtn.textContent = '同步中...';
+        }
+        setInlineStatus('sceneNeo4jStatusInline', '同步中...');
+        const res = await fetch(`${base()}/scene-graph/neo4j-sync`, {
+          method: 'POST',
+          headers: h(),
+        });
+        const data = await read(res);
+        updateSceneNeo4jButtons();
+        setInlineStatus('sceneNeo4jStatusInline', res.ok ? '同步已完成' : String(data?.detail || '同步失败'));
+        show('sceneNeo4jOut', data);
+      }
+
+      function updateSceneNeo4jButtons() {
+        const loadBtn = document.getElementById('sceneNeo4jLoadBtn');
+        const syncBtn = document.getElementById('sceneNeo4jSyncBtn');
+        const hint = document.getElementById('sceneNeo4jHint');
+        const hasToken = Boolean(token);
+        const status = latestSceneNeo4jStatus && typeof latestSceneNeo4jStatus === 'object' ? latestSceneNeo4jStatus : null;
+        const configured = Boolean(status?.neo4j_configured);
+        const connected = Boolean(status?.neo4j_connected);
+
+        if (loadBtn) {
+          loadBtn.disabled = !hasToken;
+          loadBtn.textContent = hasToken ? '查看 Neo4j 状态' : '请先登录后查看';
+        }
+        if (syncBtn) {
+          if (!hasToken) {
+            syncBtn.disabled = true;
+            syncBtn.textContent = '请先登录后同步';
+          } else if (!status) {
+            syncBtn.disabled = true;
+            syncBtn.textContent = '先查看 Neo4j 状态';
+          } else if (!configured) {
+            syncBtn.disabled = true;
+            syncBtn.textContent = 'Neo4j 未配置';
+          } else {
+            syncBtn.disabled = false;
+            syncBtn.textContent = connected ? '同步场景图谱到 Neo4j' : 'Neo4j 未连接，仍尝试同步';
+          }
+        }
+        if (hint) {
+          if (!hasToken) {
+            hint.textContent = '请先登录 scene 后台，再读取 Neo4j 状态。';
+          } else if (!status) {
+            hint.textContent = '建议先读取状态，再决定是否同步场景图谱。';
+          } else if (!configured) {
+            hint.textContent = '当前 scene Neo4j 尚未配置，同步按钮已禁用。';
+          } else if (!connected) {
+            hint.textContent = '当前已配置 Neo4j，但暂未连通；如已修复环境，可继续尝试同步。';
+          } else {
+            hint.textContent = '当前 scene Neo4j 已配置且连通，可继续同步场景图谱。';
+          }
+        }
+      }
+
+      function renderSceneGraphPicker() {
+        const layer = String(document.getElementById('sceneGraphLayer')?.value || 'common');
+        const genre = String(document.getElementById('sceneGraphGenre')?.value || '玄幻');
+        const genreSel = document.getElementById('sceneGraphGenre');
+        const nodeSel = document.getElementById('sceneGraphNode');
+        const topBtn = document.getElementById('sceneGraphTopBtn');
+        const loadBtn = document.getElementById('sceneGraphLoadBtn');
+        const hint = document.getElementById('sceneGraphPickerHint');
+        const quickHint = document.getElementById('sceneGraphQuickHint');
+        const seedHint = document.getElementById('sceneGraphSeedHint');
+        const seedActions = document.getElementById('sceneGraphSeedActions');
+        const onlySupp = Boolean(document.getElementById('sceneGraphOnlySupp')?.checked);
+        const search = String(document.getElementById('sceneGraphSearch')?.value || '').trim().toLowerCase();
+        const currentValue = String(nodeSel?.value || '').trim();
+        updateSceneGraphToolbarButtons();
+        if (genreSel) genreSel.disabled = layer === 'common';
+        if (!nodeSel) return;
+        if (seedHint) {
+          const commonCount = Array.isArray(sceneGraphCatalog.common) ? sceneGraphCatalog.common.length : 0;
+          const templateCount = Array.isArray(sceneTemplateCatalog?.items) ? sceneTemplateCatalog.items.length : (sceneGraphCatalog?.templates ? Object.keys(sceneGraphCatalog.templates).length : 0);
+          const genreSectionCount = Array.isArray(sceneGraphCatalog.genres) ? sceneGraphCatalog.genres.filter(section => Array.isArray(section?.items) && section.items.length > 0).length : 0;
+          const preferredScenes = ['街道', '房间', '卧室', '走廊', '海边', '山林', '雨夜街巷'];
+          const commonItems = Array.isArray(sceneGraphCatalog.common) ? sceneGraphCatalog.common : [];
+          const quickItems = preferredScenes
+            .map(name => commonItems.find(item => String(item?.scene_name || '').trim() === name))
+            .filter(Boolean)
+            .sort((a, b) => {
+              const aStatus = summarizeSceneSeedCoverageByNodeKey(a.node_key).label;
+              const bStatus = summarizeSceneSeedCoverageByNodeKey(b.node_key).label;
+              const prio = sceneSeedStatusPriority(aStatus) - sceneSeedStatusPriority(bStatus);
+              if (prio !== 0) return prio;
+              return String(a?.scene_name || '').localeCompare(String(b?.scene_name || ''), 'zh-CN');
+            });
+          const quickSummary = summarizeSceneSeedStatuses(quickItems);
+          seedHint.textContent = `基础种子摘要：当前通用场景约 ${commonCount} 个、模板约 ${templateCount} 个、已落样板赛道 ${genreSectionCount} 个。优先种子中待补 ${quickSummary.pending} 个、待用户命中验证 ${quickSummary.untracked} 个、已覆盖 ${quickSummary.covered} 个。上线前建议优先补“街道、房间、卧室、走廊、海边、山林、雨夜街巷”这类高复用基础场景素材。`;
+          renderSceneSeedStats(quickSummary);
+          if (seedActions) {
+            seedActions.innerHTML = quickItems.length
+              ? `<div class="muted" style="margin-bottom:6px;">建议优先补库：先补支撑音效稳定场景，再跟进“待用户命中验证”的基础场景种子，最后回看已覆盖场景的细节层。</div><div class="muted" style="margin-bottom:6px;">说明：待用户命中验证不是异常，而是上线前预置好的基础场景种子，后续需等真实文本命中后再进入场景补充链路。</div>${quickItems.map(item => {
+                  const status = summarizeSceneSeedCoverageByNodeKey(item.node_key);
+                  const canJumpSupp = status.label !== '未建补充单';
+                  const nextStep = canJumpSupp ? '先去补充单补素材' : '先等待真实用户文本命中验证';
+                  return `
+                    <div style="display:inline-flex; gap:6px; align-items:center; margin:0 6px 6px 0;">
+                      <button type="button" class="ghost-btn" onclick="openSceneSeedNode('${encodeURIComponent(String(item.node_key || ''))}')">${escHtml(item.scene_name || item.node_key || '')} <span class="muted">(${escHtml(status.label)}｜支撑${escHtml((item.supporting_sfx_terms || []).length)}｜细节${escHtml((item.detail_sfx_terms || []).length)}｜${escHtml(sceneSeedStatusExplain(status.label))}｜${escHtml(nextStep)})</span></button>
+                      ${canJumpSupp ? `<button type="button" class="ghost-btn" onclick="scrollToSceneSupplements(); focusSceneSupplementByNode('${escAttr(String(item.node_key || ''))}')">去补充单</button>` : ''}
+                    </div>
+                  `;
+                }).join('')}`
+              : '<div class="muted">当前还没有可直接跳转的基础场景种子。</div>';
+          }
+        }
+        let items = [];
+        if (layer === 'common') {
+          items = Array.isArray(sceneGraphCatalog.common) ? sceneGraphCatalog.common : [];
+        } else {
+          const section = (Array.isArray(sceneGraphCatalog.genres) ? sceneGraphCatalog.genres : []).find(x => String(x.genre_key || '') === genre);
+          items = Array.isArray(section?.items) ? section.items : [];
+        }
+        const rankedItems = [...items].sort((a, b) => {
+          const aLoad = summarizeSceneSupplementLoadForNode(a, layer, genre);
+          const bLoad = summarizeSceneSupplementLoadForNode(b, layer, genre);
+          if (bLoad.pendingCount !== aLoad.pendingCount) return bLoad.pendingCount - aLoad.pendingCount;
+          if (bLoad.itemCount !== aLoad.itemCount) return bLoad.itemCount - aLoad.itemCount;
+          return String(a?.scene_name || a?.node_key || '').localeCompare(String(b?.scene_name || b?.node_key || ''), 'zh-CN');
+        });
+        const displayItems = rankedItems.filter(item => {
+          const supplementLoad = summarizeSceneSupplementLoadForNode(item, layer, genre);
+          if (onlySupp && supplementLoad.itemCount <= 0) return false;
+          if (!search) return true;
+          const haystack = [
+            String(item?.scene_name || ''),
+            String(item?.node_key || ''),
+            String(item?.template_name || ''),
+            String(item?.collection_name || ''),
+          ].join(' ').toLowerCase();
+          return haystack.includes(search);
+        });
+        latestSceneGraphDisplayItems = displayItems;
+        nodeSel.disabled = displayItems.length === 0;
+        nodeSel.innerHTML = [
+          '<option value="">请选择场景节点</option>',
+          ...displayItems.map(item => {
+            const stateLabel = item.has_genre && item.has_common ? '通用+赛道' : item.has_genre ? '赛道真实节点' : '通用继承';
+            const templatePart = item.template_name ? `｜模板:${item.template_name}` : '';
+            const collectionPart = item.collection_name ? `｜集合:${item.collection_name}` : '';
+            const supplementLoad = summarizeSceneSupplementLoadForNode(item, layer, genre);
+            const supplementPart = supplementLoad.itemCount ? `｜补充单:${supplementLoad.itemCount}｜待补:${supplementLoad.pendingCount}` : '';
+            return `<option value="${escHtml(item.node_key || '')}">${escHtml(`${item.scene_name || item.node_key || ''}（${stateLabel}）${templatePart}${collectionPart}${supplementPart}`)}</option>`;
+          }),
+        ].join('');
+        if (currentValue && displayItems.some(item => String(item.node_key || '') === currentValue)) {
+          nodeSel.value = currentValue;
+        }
+        updateSceneGraphEditorButtons();
+        if (topBtn) {
+          topBtn.disabled = displayItems.length === 0;
+          topBtn.textContent = displayItems.length ? '加载当前最高优先节点' : '当前没有优先节点';
+        }
+        if (loadBtn) {
+          const selectedValue = String(nodeSel.value || '').trim();
+          loadBtn.disabled = !selectedValue;
+          loadBtn.textContent = selectedValue ? '加载场景节点' : '请先选择场景节点';
+        }
+        if (hint) {
+          const summary = sceneGraphCatalog.summary || {};
+          const currentCount = displayItems.length;
+          const supplementTouchedCount = rankedItems.filter(item => summarizeSceneSupplementLoadForNode(item, layer, genre).itemCount > 0).length;
+          const baseText = layer === 'common'
+            ? `当前目录：通用层节点 ${currentCount} 个｜含补充单节点 ${supplementTouchedCount} 个｜全局模板 ${summary.template_count || 0} 个`
+            : `当前目录：${genre} 可维护节点 ${currentCount} 个（含赛道真实节点与通用继承节点）｜含补充单节点 ${supplementTouchedCount} 个｜通用层节点 ${summary.common_node_count || 0} 个`;
+          hint.textContent = `${baseText}｜已按待补优先级排序${onlySupp ? '｜当前仅显示含补充单节点' : ''}${search ? '｜当前已按关键词筛选' : ''}｜补充单热度跟随当前补充单筛选口径。`;
+        }
+        if (quickHint) {
+          const top = displayItems[0];
+          if (top) {
+            const load = summarizeSceneSupplementLoadForNode(top, layer, genre);
+            quickHint.textContent = `当前最高优先节点：${top.scene_name || top.node_key}（补充单 ${load.itemCount} / 待补 ${load.pendingCount}）`;
+          } else {
+            quickHint.textContent = onlySupp
+              ? '当前筛选条件下没有“含补充单”的场景节点。可取消“仅看有补充单节点”后再查看完整目录。'
+              : (search
+                  ? '当前关键词下没有匹配的场景节点。可清空搜索后查看完整目录。'
+                  : '当前筛选条件下没有可直接加载的场景节点。');
+          }
+        }
+      }
+
+      async function openSceneSeedNode(encodedNodeKey) {
+        const nodeKey = decodeURIComponent(String(encodedNodeKey || '').trim());
+        if (!nodeKey) return;
+        const layerSel = document.getElementById('sceneGraphLayer');
+        const nodeSel = document.getElementById('sceneGraphNode');
+        if (layerSel) layerSel.value = 'common';
+        renderSceneGraphPicker();
+        if (nodeSel) nodeSel.value = nodeKey;
+        document.getElementById('sceneGraphSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        await loadSceneGraphNode();
+        setInlineStatus('sceneGraphSaveStatus', sceneSeedNextStep(nodeKey));
+      }
+
+      async function loadSceneGraphTopPriority() {
+        if (!token) {
+          renderSceneGraphPicker();
+          return setInlineStatus('sceneGraphSaveStatus', '请先登录后加载优先节点');
+        }
+        const nodeSel = document.getElementById('sceneGraphNode');
+        const top = Array.isArray(latestSceneGraphDisplayItems) ? latestSceneGraphDisplayItems[0] : null;
+        if (!nodeSel || !top?.node_key) return setInlineStatus('sceneGraphSaveStatus', '当前筛选条件下没有可加载的优先节点');
+        nodeSel.value = String(top.node_key || '');
+        setButtonBusy('sceneGraphTopBtn', '加载中...');
+        try {
+          const loadBtn = document.getElementById('sceneGraphLoadBtn');
+          if (loadBtn) {
+            loadBtn.disabled = false;
+            loadBtn.textContent = '加载场景节点';
+          }
+          await loadSceneGraphNode();
+        } finally {
+          renderSceneGraphPicker();
+        }
+      }
+
+      async function loadSceneGraphCatalog() {
+        if (!token) {
+          const hint = document.getElementById('sceneGraphPickerHint');
+          if (hint) hint.textContent = '请先登录后加载场景图谱目录。';
+          return;
+        }
+        const res = await fetch(`${base()}/scene-graph/catalog`, { headers: h() });
+        const data = await read(res);
+        sceneGraphCatalog = data || { common: [], genres: [], templates: [] };
+        renderSceneGraphPicker();
+      }
+
+      function findSceneCatalogItemByNodeKey(nodeKey, genre) {
+        const key = String(nodeKey || '').trim();
+        const genreKey = String(genre || '').trim();
+        const commonItems = Array.isArray(sceneGraphCatalog.common) ? sceneGraphCatalog.common : [];
+        const genreSections = Array.isArray(sceneGraphCatalog.genres) ? sceneGraphCatalog.genres : [];
+        const commonItem = commonItems.find(item => String(item.node_key || '') === key);
+        if (commonItem) return { layer: 'common', item: commonItem };
+        const genreSection = genreSections.find(section => String(section.genre_key || '') === genreKey);
+        const genreItem = Array.isArray(genreSection?.items) ? genreSection.items.find(item => String(item.node_key || '') === key) : null;
+        if (genreItem) return { layer: 'genre', item: genreItem };
+        return null;
+      }
+
+      async function openSceneGraphFromSupplement(itemId, nodeKeyEncoded, genreEncoded, sceneNameEncoded) {
+        const statusId = `sceneGraphJumpStatus-${itemId}`;
+        if (!token) {
+          renderSceneSupplements({ items: latestSceneSupplements, summary: latestSceneSuppSummary, count: latestSceneSupplements.length });
+          return setInlineStatus(statusId, '请先登录后定位场景图谱');
+        }
+        setButtonBusy(`sceneGraphJumpBtn-${itemId}`, '定位中...');
+        const key = decodeURIComponent(String(nodeKeyEncoded || '').trim());
+        const genreKey = decodeURIComponent(String(genreEncoded || '').trim()) || '玄幻';
+        const scene = decodeURIComponent(String(sceneNameEncoded || '').trim());
+        setInlineStatus(statusId, '正在定位图谱...');
+        try {
+          if (!sceneGraphCatalog || (!Array.isArray(sceneGraphCatalog.common) && !Array.isArray(sceneGraphCatalog.genres))) {
+            await loadSceneGraphCatalog();
+          }
+          let hit = findSceneCatalogItemByNodeKey(key, genreKey);
+          if (!hit && scene) {
+            const commonItems = Array.isArray(sceneGraphCatalog.common) ? sceneGraphCatalog.common : [];
+            const commonByName = commonItems.find(item => String(item.scene_name || '').trim() === scene);
+            if (commonByName) hit = { layer: 'common', item: commonByName };
+          }
+
+          if (hit?.layer === 'common') {
+            document.getElementById('sceneGraphLayer').value = 'common';
+            renderSceneGraphPicker();
+            document.getElementById('sceneGraphNode').value = String(hit.item.node_key || '');
+            document.getElementById('sceneGraphSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            await loadSceneGraphNode();
+            setInlineStatus(statusId, '已跳到通用层图谱维护');
+            return;
+          }
+
+          document.getElementById('sceneGraphLayer').value = 'genre';
+          document.getElementById('sceneGraphGenre').value = genreKey;
+          renderSceneGraphPicker();
+          if (hit?.item?.node_key) {
+            document.getElementById('sceneGraphNode').value = String(hit.item.node_key || '');
+            document.getElementById('sceneGraphSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            await loadSceneGraphNode();
+            setInlineStatus(statusId, '已跳到赛道层图谱维护');
+            return;
+          }
+
+          document.getElementById('sceneGraphNewNode').value = scene;
+          updateSceneGraphEditorButtons();
+          document.getElementById('sceneGraphSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          const explain = document.getElementById('sceneGraphExplain');
+          if (explain) explain.textContent = `当前补充单还没有命中现成图谱节点，已为你定位到 ${genreKey} 赛道的新建场景节点入口：${scene || '未命名场景'}。`;
+          setInlineStatus(statusId, '未命中现成节点，已定位到新建入口');
+        } finally {
+          renderSceneSupplements({ items: latestSceneSupplements, summary: latestSceneSuppSummary, count: latestSceneSupplements.length });
+        }
+      }
+
+      function fillSceneGraphForm(data) {
+        latestSceneGraphNode = data;
+        const merged = data?.merged || {};
+        document.getElementById('sceneTemplateName').value = merged.template_name || '';
+        document.getElementById('sceneCollectionName').value = merged.collection_name || '';
+        document.getElementById('sceneBackgroundElements').value = (merged.background_elements || []).join('\n');
+        document.getElementById('sceneFeatureElements').value = (merged.feature_elements || []).join('\n');
+        document.getElementById('sceneDetailElements').value = (merged.detail_elements || []).join('\n');
+        document.getElementById('sceneSupportingTerms').value = (merged.supporting_sfx_terms || []).join('\n');
+        document.getElementById('sceneDetailTerms').value = (merged.detail_sfx_terms || []).join('\n');
+        const explain = document.getElementById('sceneGraphExplain');
+        if (explain) {
+          explain.textContent = `维护节点：${data?.scene_name || '未命名'} ｜ ${data?.source_explanation || '未标注'} ｜ 通用层=${data?.common_layer?.exists ? '已配置' : '未配置'} ｜ 赛道层=${data?.genre_layer?.exists ? '已配置' : '未配置'}`;
+        }
+        syncSceneCollectionFromTemplateField();
+        renderAllSceneFieldPreviews();
+        loadSceneTermSuggestions();
+        renderSceneGraphDigest(data);
+        renderSceneGraphSourceCard(data);
+        renderSceneGraphSupplementHint(data);
+        renderSceneGraphMoveControls(data);
+        updateSceneGraphEditorButtons();
+      }
+
+      function renderSceneGraphDigest(data) {
+        const node = document.getElementById('sceneGraphDigest');
+        if (!node) return;
+        const merged = data?.merged || {};
+        const inheritanceScope = data?.inheritance_scope || {};
+        const inheritingGenres = Array.isArray(inheritanceScope.inheriting_genres) ? inheritanceScope.inheriting_genres : [];
+        const realGenreNodes = Array.isArray(inheritanceScope.real_genre_nodes) ? inheritanceScope.real_genre_nodes : [];
+        const supportingCount = Array.isArray(merged.supporting_sfx_terms) ? merged.supporting_sfx_terms.length : 0;
+        const detailCount = Array.isArray(merged.detail_sfx_terms) ? merged.detail_sfx_terms.length : 0;
+        const lines = [
+          `模板：${merged.template_name || '未标注'} ｜ 场景集合：${merged.collection_name || '未标注'}`,
+          `来源状态：${data?.source_explanation || '未标注'} ｜ 当前视角：${data?.view_layer === 'common' ? '通用层' : `${data?.view_genre || '当前赛道'}赛道层`}`,
+          `补库顺序：先支撑场景音效 ${supportingCount} 项，再补充层次音效 ${detailCount} 项`,
+          `影响继承赛道：${inheritingGenres.length ? inheritingGenres.join('、') : '无'}`,
+          `已存在真实赛道节点：${realGenreNodes.length ? realGenreNodes.join('、') : '无'}`,
+        ];
+        node.innerHTML = lines.map(line => `<div style="margin-top:4px;">${escHtml(line)}</div>`).join('');
+      }
+
+      function renderSceneGraphSourceCard(data) {
+        const node = document.getElementById('sceneGraphSourceCard');
+        if (!node) return;
+        const sceneName = String(data?.scene_name || '').trim() || '未命名场景';
+        const commonExists = Boolean(data?.common_layer?.exists);
+        const genreExists = Boolean(data?.genre_layer?.exists);
+        const viewLayer = String(data?.view_layer || '');
+        const viewGenre = String(data?.view_genre || '').trim();
+        const inheritanceScope = data?.inheritance_scope || {};
+        const inheritingGenres = Array.isArray(inheritanceScope.inheriting_genres) ? inheritanceScope.inheriting_genres : [];
+        const realGenreNodes = Array.isArray(inheritanceScope.real_genre_nodes) ? inheritanceScope.real_genre_nodes : [];
+        const supportingCount = Array.isArray(data?.merged?.supporting_sfx_terms) ? data.merged.supporting_sfx_terms.length : 0;
+        const detailCount = Array.isArray(data?.merged?.detail_sfx_terms) ? data.merged.detail_sfx_terms.length : 0;
+
+        let sourceType = '未标注';
+        let reason = '当前还未形成明确来源解释。';
+        let suggestion = '建议先补齐当前层内容，再决定是否需要迁移。';
+        let impact = '';
+
+        if (viewLayer === 'common') {
+          sourceType = commonExists ? '通用层真实节点' : '空白通用层节点';
+          reason = commonExists
+            ? `“${sceneName}” 当前真实存在于通用层，可被多个赛道继承复用。`
+            : `“${sceneName}” 当前还没有正式写入通用层，这里是一个待保存的空白节点视角。`;
+          suggestion = commonExists
+            ? '如果它只是基础共性场景，就继续维护在通用层；如果某个赛道需要独立表达，再迁移到对应赛道层。'
+            : '请先填写模板、场景集合、元素和音效，再保存通用层。';
+          if (commonExists) {
+            impact = `当前会直接影响的赛道继承：${inheritingGenres.length ? inheritingGenres.join('、') : '无'}；已拥有真实节点的赛道：${realGenreNodes.length ? realGenreNodes.join('、') : '无'}。`;
+          }
+        } else if (commonExists && genreExists) {
+          sourceType = '通用层 + 赛道层';
+          reason = `“${sceneName}” 在 ${viewGenre || '当前赛道'} 已有真实节点，同时通用层也保留了一份。`;
+          suggestion = '如果当前赛道只是借用通用场景，可删除当前赛道层节点；如果确实有赛道特化内容，保留双层即可。';
+          impact = `若删除当前赛道层节点，${viewGenre || '当前赛道'} 会回退为通用层继承；其他赛道不受这次删除影响。`;
+        } else if (genreExists) {
+          sourceType = '赛道真实节点';
+          reason = `“${sceneName}” 当前在 ${viewGenre || '当前赛道'} 有独立真实节点，不依赖通用层继承。`;
+          suggestion = '如果它已经适合跨赛道复用，可以提升到通用层；否则继续作为赛道场景维护。';
+          impact = `当前赛道真实节点的修改只影响 ${viewGenre || '当前赛道'}，不会直接改动其他赛道。`;
+        } else if (commonExists) {
+          sourceType = '通用层继承';
+          reason = `“${sceneName}” 当前并没有 ${viewGenre || '当前赛道'} 的真实节点，它之所以显示在这里，是因为通用层允许该赛道继承。`;
+          suggestion = '如果这个赛道只是在借用通用场景，就不要误以为已经有赛道真实节点；若需要赛道特化，请迁移到赛道层。';
+          impact = `当前赛道只是继承展示。若直接删除通用层节点，会同时影响仍在继承它的赛道：${inheritingGenres.length ? inheritingGenres.join('、') : '无'}。`;
+        }
+
+        node.innerHTML = `
+          <div><strong style="color: var(--accent2);">来源类型：${escHtml(sourceType)}</strong></div>
+          <div style="margin-top:6px;">${escHtml(reason)}</div>
+          <div style="margin-top:6px;">给运营的提示：${escHtml(suggestion)}</div>
+          <div style="margin-top:6px;">补库顺序提示：${escHtml(`先补支撑场景音效 ${supportingCount} 项，再根据场景是否已经站住，决定是否继续补充细节音效 ${detailCount} 项。`)}</div>
+          ${impact ? `<div style="margin-top:6px;">影响范围：${escHtml(impact)}</div>` : ''}
+        `;
+      }
+
+      function scrollToSceneSupplements() {
+        document.getElementById('sceneSuppSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+
+      function focusSceneSupplementByNode(nodeKey) {
+        const key = String(nodeKey || '').trim();
+        if (!key) return scrollToSceneSupplements();
+        const target = document.querySelector(`[data-scene-node-key="${CSS.escape(key)}"]`);
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          target.style.boxShadow = '0 0 0 2px rgba(242,169,59,0.7)';
+          setTimeout(() => { target.style.boxShadow = ''; }, 1800);
+        } else {
+          scrollToSceneSupplements();
+        }
+      }
+
+      function renderSceneGraphSupplementHint(data) {
+        const node = document.getElementById('sceneGraphSupplementHint');
+        if (!node) return;
+        const nodeKey = String(data?.node_key || '').trim();
+        const sceneName = String(data?.scene_name || '').trim();
+        const genre = String(data?.view_genre || '').trim();
+        const items = Array.isArray(latestSceneSupplements) ? latestSceneSupplements : [];
+        const related = items.filter(item => {
+          const itemNodeKey = String(item?.node_key || '').trim();
+          const itemSceneName = String(item?.scene_name || item?.target_scene || '').trim();
+          const itemGenre = String(item?.genre || '').trim();
+          if (nodeKey && itemNodeKey && itemNodeKey === nodeKey) return true;
+          if (sceneName && itemSceneName === sceneName && (!genre || !itemGenre || itemGenre === genre)) return true;
+          return false;
+        });
+        if (!related.length) {
+          node.innerHTML = `
+            <div>当前节点还没有加载到相关场景补充单。</div>
+            <div style="margin-top:6px;">${escHtml(sceneSeedNextStep(nodeKey))}</div>
+          `;
+          return;
+        }
+        const pending = related.reduce((sum, item) => sum + Number(item?.progress?.pending_count || 0), 0);
+        const ready = related.filter(item => String(item?.status || '') === 'ready_to_notify').length;
+        let nextStep = '建议下一步：优先去场景补充单补素材。';
+        if (pending > 0) nextStep = '建议下一步：先补支撑场景音效，再根据结果决定是否继续补细节音效。';
+        else if (ready > 0) nextStep = '建议下一步：素材已补齐，可直接回到补充单区通知用户。';
+        node.innerHTML = `
+          <div>当前节点已关联 <strong>${escHtml(related.length)}</strong> 条场景补充单，待补词共 <strong>${escHtml(pending)}</strong> 个，可通知 <strong>${escHtml(ready)}</strong> 条。</div>
+          <div style="margin-top:6px;">${escHtml(nextStep)}</div>
+          <div style="margin-top:6px;">
+            <button class="ghost-btn" type="button" onclick="scrollToSceneSupplements()">回到场景补充单区查看</button>
+          </div>
+        `;
+      }
+
+      function setSceneGraphMoveButtonState({ hasNode = false, viewLayer = '', commonExists = false, genreExists = false } = {}) {
+        const moveTarget = document.getElementById('sceneMoveTargetGenre');
+        const promoteKeepBtn = document.getElementById('scenePromoteKeepBtn');
+        const promoteOnlyBtn = document.getElementById('scenePromoteOnlyBtn');
+        const demoteKeepBtn = document.getElementById('sceneDemoteKeepBtn');
+        const demoteOnlyBtn = document.getElementById('sceneDemoteOnlyBtn');
+        const deleteBtn = document.getElementById('sceneDeleteNodeBtn');
+
+        if (!hasNode) {
+          if (moveTarget) moveTarget.disabled = true;
+          if (promoteKeepBtn) {
+            promoteKeepBtn.disabled = true;
+            promoteKeepBtn.textContent = '请先加载节点';
+          }
+          if (promoteOnlyBtn) {
+            promoteOnlyBtn.disabled = true;
+            promoteOnlyBtn.textContent = '请先加载节点';
+          }
+          if (demoteKeepBtn) {
+            demoteKeepBtn.disabled = true;
+            demoteKeepBtn.textContent = '请先加载节点';
+          }
+          if (demoteOnlyBtn) {
+            demoteOnlyBtn.disabled = true;
+            demoteOnlyBtn.textContent = '请先加载节点';
+          }
+          if (deleteBtn) {
+            deleteBtn.disabled = true;
+            deleteBtn.textContent = '请先加载节点';
+          }
+          return;
+        }
+
+        if (viewLayer === 'common') {
+          if (moveTarget) moveTarget.disabled = !commonExists;
+          if (promoteKeepBtn) {
+            promoteKeepBtn.disabled = true;
+            promoteKeepBtn.textContent = '通用层视角不可上迁';
+          }
+          if (promoteOnlyBtn) {
+            promoteOnlyBtn.disabled = true;
+            promoteOnlyBtn.textContent = '通用层视角不可上迁';
+          }
+          if (demoteKeepBtn) {
+            demoteKeepBtn.disabled = !commonExists;
+            demoteKeepBtn.textContent = '迁移到赛道层，并保留通用层';
+          }
+          if (demoteOnlyBtn) {
+            demoteOnlyBtn.disabled = !commonExists;
+            demoteOnlyBtn.textContent = '迁移到赛道层，并从通用层移除';
+          }
+          if (deleteBtn) {
+            deleteBtn.disabled = !commonExists;
+            deleteBtn.textContent = '删除当前通用层节点';
+          }
+          return;
+        }
+
+        if (moveTarget) moveTarget.disabled = true;
+        if (promoteKeepBtn) {
+          promoteKeepBtn.disabled = !genreExists;
+          promoteKeepBtn.textContent = '迁移到通用层，并保留赛道层';
+        }
+        if (promoteOnlyBtn) {
+          promoteOnlyBtn.disabled = !genreExists;
+          promoteOnlyBtn.textContent = '迁移到通用层，并从赛道层移除';
+        }
+        if (demoteKeepBtn) {
+          demoteKeepBtn.disabled = true;
+          demoteKeepBtn.textContent = '赛道层视角不可下迁';
+        }
+        if (demoteOnlyBtn) {
+          demoteOnlyBtn.disabled = true;
+          demoteOnlyBtn.textContent = '赛道层视角不可下迁';
+        }
+        if (deleteBtn) {
+          deleteBtn.disabled = !genreExists;
+          deleteBtn.textContent = '删除当前赛道层节点';
+        }
+      }
+
+      function renderSceneGraphMoveControls(data) {
+        const moveExplain = document.getElementById('sceneGraphMoveExplain');
+        const moveTarget = document.getElementById('sceneMoveTargetGenre');
+        const viewLayer = String(data?.view_layer || '');
+        const viewGenre = String(data?.view_genre || '');
+        const commonExists = Boolean(data?.common_layer?.exists);
+        const genreExists = Boolean(data?.genre_layer?.exists);
+        if (moveTarget) {
+          moveTarget.value = viewGenre || moveTarget.value || '玄幻';
+        }
+        setSceneGraphMoveButtonState({ hasNode: true, viewLayer, commonExists, genreExists });
+        if (viewLayer === 'common') {
+          if (moveExplain) {
+            moveExplain.textContent = commonExists
+              ? '当前是通用层节点视角。选择目标赛道后，可将该场景节点下沉到赛道层，并决定是否保留通用层；删除当前层会影响所有继承该通用层的赛道。'
+              : '当前通用层节点不存在，暂时不能执行下沉迁移。';
+          }
+        } else {
+          if (moveExplain) {
+            moveExplain.textContent = genreExists
+              ? '当前是赛道层节点视角。可将该场景节点提升到通用层，并决定是否继续保留当前赛道层；删除当前层只会删除当前赛道下的真实节点。'
+              : '当前赛道只显示通用层继承结果，还没有真实赛道层节点，暂时不能执行提升迁移。';
+          }
+        }
+      }
+
+      async function loadSceneGraphNode() {
+        if (!token) {
+          renderSceneGraphPicker();
+          return setInlineStatus('sceneGraphSaveStatus', '请先登录后加载场景节点');
+        }
+        const nodeKey = currentSceneGraphNodeKey();
+        if (!nodeKey) return setInlineStatus('sceneGraphSaveStatus', '请先选择场景节点');
+        setButtonBusy('sceneGraphLoadBtn', '加载中...');
+        try {
+          const res = await fetch(`${base()}/scene-graph/node-layers?node_key=${encodeURIComponent(nodeKey)}`, { headers: h() });
+          const data = await read(res);
+          fillSceneGraphForm(data);
+          show('sceneDebugOut', data);
+        } finally {
+          renderSceneGraphPicker();
+        }
+      }
+
+      async function saveSceneGraphLayer() {
+        if (!token) {
+          updateSceneGraphEditorButtons();
+          return setInlineStatus('sceneGraphSaveStatus', '请先登录后保存当前层');
+        }
+        const layer = String(document.getElementById('sceneGraphLayer')?.value || 'common');
+        const genre = String(document.getElementById('sceneGraphGenre')?.value || '玄幻');
+        const nodeSelVal = String(document.getElementById('sceneGraphNode')?.value || '').trim();
+        const sceneName = String((latestSceneGraphNode?.scene_name) || (nodeSelVal.includes('::') ? nodeSelVal.split('::', 2)[1] : '') || '').trim();
+        const nodeKey = nodeSelVal || `${layer === 'common' ? 'common' : genre}::${sceneName}`;
+        if (!nodeKey || !sceneName) return setInlineStatus('sceneGraphSaveStatus', '请先加载场景节点');
+        setInlineStatus('sceneGraphSaveStatus', '保存中...');
+        setButtonBusy('sceneGraphSaveBtn', '保存中...');
+        try {
+          const res = await fetch(`${base()}/scene-graph/node-layer`, {
+            method: 'POST',
+            headers: h({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({
+              node_key: nodeKey,
+              layer,
+              template_name: document.getElementById('sceneTemplateName').value,
+              collection_name: document.getElementById('sceneCollectionName').value || (findSceneTemplateRowByName(document.getElementById('sceneTemplateName').value)?.collection_name || ''),
+              background_elements: splitSceneTerms(document.getElementById('sceneBackgroundElements').value),
+              feature_elements: splitSceneTerms(document.getElementById('sceneFeatureElements').value),
+              detail_elements: splitSceneTerms(document.getElementById('sceneDetailElements').value),
+              supporting_sfx_terms: splitSceneTerms(document.getElementById('sceneSupportingTerms').value),
+              detail_sfx_terms: splitSceneTerms(document.getElementById('sceneDetailTerms').value),
+            }),
+          });
+          const data = await read(res);
+          setInlineStatus('sceneGraphSaveStatus', res.ok ? `保存${layer === 'common' ? '通用层' : '赛道层'}已完成` : String(data?.detail || '保存失败'));
+          if (res.ok) {
+            fillSceneGraphForm(data);
+            await loadSceneGraphCatalog();
+            await loadSceneCollections();
+          }
+          show('sceneDebugOut', data);
+        } finally {
+          updateSceneGraphEditorButtons();
+        }
+      }
+
+      async function promoteSceneNode(retainGenre) {
+        if (!token) {
+          if (latestSceneGraphNode) {
+            renderSceneGraphMoveControls(latestSceneGraphNode);
+          } else {
+            setSceneGraphMoveButtonState({ hasNode: false });
+          }
+          return setInlineStatus('sceneGraphMoveStatus', '请先登录后执行迁移');
+        }
+        const nodeKey = String(latestSceneGraphNode?.node_key || currentSceneGraphNodeKey() || '').trim();
+        if (!nodeKey) return setInlineStatus('sceneGraphMoveStatus', '请先加载场景节点');
+        setInlineStatus('sceneGraphMoveStatus', '迁移中...');
+        setButtonBusy(retainGenre ? 'scenePromoteKeepBtn' : 'scenePromoteOnlyBtn', '迁移中...');
+        try {
+          const res = await fetch(`${base()}/scene-graph/promote`, {
+            method: 'POST',
+            headers: h({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({
+              node_key: nodeKey,
+              retain_genre: Boolean(retainGenre),
+            }),
+          });
+          const data = await read(res);
+          setInlineStatus('sceneGraphMoveStatus', res.ok ? '迁移到通用层已完成' : String(data?.detail || '迁移失败'));
+          if (res.ok) {
+            fillSceneGraphForm(data);
+            await loadSceneGraphCatalog();
+            await loadSceneCollections();
+          }
+          show('sceneDebugOut', data);
+        } finally {
+          if (latestSceneGraphNode) {
+            renderSceneGraphMoveControls(latestSceneGraphNode);
+          } else {
+            setSceneGraphMoveButtonState({ hasNode: false });
+          }
+        }
+      }
+
+      async function demoteSceneNode(retainCommon) {
+        if (!token) {
+          if (latestSceneGraphNode) {
+            renderSceneGraphMoveControls(latestSceneGraphNode);
+          } else {
+            setSceneGraphMoveButtonState({ hasNode: false });
+          }
+          return setInlineStatus('sceneGraphMoveStatus', '请先登录后执行迁移');
+        }
+        const nodeKey = String(latestSceneGraphNode?.node_key || currentSceneGraphNodeKey() || '').trim();
+        const targetGenre = String(document.getElementById('sceneMoveTargetGenre')?.value || '').trim();
+        if (!nodeKey) return setInlineStatus('sceneGraphMoveStatus', '请先加载场景节点');
+        if (!targetGenre) return setInlineStatus('sceneGraphMoveStatus', '请先选择目标赛道');
+        setInlineStatus('sceneGraphMoveStatus', '迁移中...');
+        setButtonBusy(retainCommon ? 'sceneDemoteKeepBtn' : 'sceneDemoteOnlyBtn', '迁移中...');
+        try {
+          const res = await fetch(`${base()}/scene-graph/demote`, {
+            method: 'POST',
+            headers: h({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({
+              node_key: nodeKey,
+              target_genre: targetGenre,
+              retain_common: Boolean(retainCommon),
+            }),
+          });
+          const data = await read(res);
+          setInlineStatus('sceneGraphMoveStatus', res.ok ? '迁移到赛道层已完成' : String(data?.detail || '迁移失败'));
+          if (res.ok) {
+            document.getElementById('sceneGraphLayer').value = 'genre';
+            document.getElementById('sceneGraphGenre').value = targetGenre;
+            await loadSceneGraphCatalog();
+            renderSceneGraphPicker();
+            document.getElementById('sceneGraphNode').value = data?.node_key || `${targetGenre}::${data?.scene_name || ''}`;
+            fillSceneGraphForm(data);
+            await loadSceneCollections();
+          }
+          show('sceneDebugOut', data);
+        } finally {
+          if (latestSceneGraphNode) {
+            renderSceneGraphMoveControls(latestSceneGraphNode);
+          } else {
+            setSceneGraphMoveButtonState({ hasNode: false });
+          }
+        }
+      }
+
+      async function deleteSceneCurrentLayerNode() {
+        if (!token) {
+          if (latestSceneGraphNode) {
+            renderSceneGraphMoveControls(latestSceneGraphNode);
+          } else {
+            setSceneGraphMoveButtonState({ hasNode: false });
+          }
+          return setInlineStatus('sceneGraphDeleteStatus', '请先登录后删除当前层节点');
+        }
+        const nodeKey = String(latestSceneGraphNode?.node_key || currentSceneGraphNodeKey() || '').trim();
+        const viewLayer = String(latestSceneGraphNode?.view_layer || '').trim();
+        if (!nodeKey) return setInlineStatus('sceneGraphDeleteStatus', '请先加载场景节点');
+        const warning = viewLayer === 'common'
+          ? '确认删除当前通用层节点吗？这会影响所有继承该通用层的赛道展示与推荐。'
+          : '确认删除当前赛道层节点吗？这只会移除当前赛道下的真实节点。';
+        if (!window.confirm(warning)) return;
+        setInlineStatus('sceneGraphDeleteStatus', '删除中...');
+        setButtonBusy('sceneDeleteNodeBtn', '删除中...');
+        try {
+          const res = await fetch(`${base()}/scene-graph/delete-node`, {
+            method: 'POST',
+            headers: h({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({
+              node_key: nodeKey,
+              layer: 'current',
+            }),
+          });
+          const data = await read(res);
+          setInlineStatus('sceneGraphDeleteStatus', res.ok ? '删除当前层节点已完成' : String(data?.detail || '删除失败'));
+          if (res.ok) {
+            latestSceneGraphNode = null;
+            document.getElementById('sceneTemplateName').value = '';
+            document.getElementById('sceneCollectionName').value = '';
+            document.getElementById('sceneBackgroundElements').value = '';
+            document.getElementById('sceneFeatureElements').value = '';
+            document.getElementById('sceneDetailElements').value = '';
+            document.getElementById('sceneSupportingTerms').value = '';
+            document.getElementById('sceneDetailTerms').value = '';
+            const explain = document.getElementById('sceneGraphExplain');
+            if (explain) explain.textContent = '当前层节点已删除，请重新选择场景节点继续维护。';
+            const moveExplain = document.getElementById('sceneGraphMoveExplain');
+            if (moveExplain) moveExplain.textContent = '请先重新加载场景节点，再执行迁移或删除操作。';
+            setSceneGraphMoveButtonState({ hasNode: false });
+            await loadSceneGraphCatalog();
+            renderSceneGraphPicker();
+            await loadSceneCollections();
+          }
+          show('sceneDebugOut', data);
+        } finally {
+          if (latestSceneGraphNode) {
+            renderSceneGraphMoveControls(latestSceneGraphNode);
+          }
+        }
+      }
+
+      async function mergeSceneAsset(itemId) {
+        if (!token) {
+          refreshSceneMergeState(itemId);
+          return setInlineStatus(`sceneMergeStatus-${itemId}`, '请先登录后上传并合并');
+        }
+        const termSel = document.getElementById(`sceneTerm-${itemId}`);
+        const scopeSel = document.getElementById(`sceneScope-${itemId}`);
+        const fileInput = document.getElementById(`sceneFile-${itemId}`);
+        const notify = document.getElementById(`sceneNotify-${itemId}`);
+        const statusId = `sceneMergeStatus-${itemId}`;
+        const assetLabel = String(termSel?.value || '').trim();
+        const assetScope = String(scopeSel?.value || '').trim();
+        const file = fileInput?.files?.[0];
+        if (!assetLabel) return setInlineStatus(statusId, '请先选择场景音效词');
+        if (!assetScope) return setInlineStatus(statusId, '请先选择素材版本');
+        if (!file) return setInlineStatus(statusId, '请先选择音效文件');
+        const form = new FormData();
+        form.append('item_id', String(itemId));
+        form.append('asset_label', assetLabel);
+        form.append('asset_scope', assetScope);
+        form.append('notify_after_merge', notify?.checked ? '1' : '0');
+        form.append('file', file);
+        setInlineStatus(statusId, '上传并合并中...');
+        setButtonBusy(`sceneMergeBtn-${itemId}`, '上传中...');
+        try {
+          const res = await fetch(`${base()}/ops/scene-supplements/merge`, {
+            method: 'POST',
+            headers: h(),
+            body: form,
+          });
+          const data = await read(res);
+          setInlineStatus(statusId, res.ok ? `已入库：${data.asset_display_name || data.asset_label || assetLabel}` : String(data?.detail || '上传失败'));
+          show('sceneDebugOut', data);
+          if (res.ok) await loadSceneSupplements();
+        } finally {
+          refreshSceneMergeState(itemId);
+        }
+      }
+
+      async function notifySceneSupplement(itemId) {
+        const statusId = `sceneNotifyStatus-${itemId}`;
+        if (!token) {
+          renderSceneSupplements({ items: latestSceneSupplements, summary: latestSceneSuppSummary, count: latestSceneSupplements.length });
+          return setInlineStatus(statusId, '请先登录后通知用户');
+        }
+        setInlineStatus(statusId, '发送通知中...');
+        setButtonBusy(`sceneNotifyBtn-${itemId}`, '通知中...');
+        try {
+          const res = await fetch(`${base()}/ops/scene-supplements/notify`, {
+            method: 'POST',
+            headers: h({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ item_ids: [itemId] }),
+          });
+          const data = await read(res);
+          setInlineStatus(statusId, res.ok ? '已标记通知' : String(data?.detail || '通知失败'));
+          show('sceneDebugOut', data);
+          if (res.ok) await loadSceneSupplements();
+        } finally {
+          renderSceneSupplements({ items: latestSceneSupplements, summary: latestSceneSuppSummary, count: latestSceneSupplements.length });
+        }
+      }
+
+      function renderStats(summary = {}, count = 0) {
+        const box = document.getElementById('sceneStats');
+        if (!box) return;
+        const sourceRows = Array.isArray(latestSceneSupplementsFiltered) && latestSceneSupplementsFiltered.length
+          ? latestSceneSupplementsFiltered
+          : (Array.isArray(latestSceneSupplements) ? latestSceneSupplements : []);
+        const levelCounter = {
+          ready_material: 0,
+          review_graph: 0,
+          decide_scope: 0,
+          continue_material: 0,
+          done: 0,
+        };
+        sourceRows.forEach(item => {
+          const label = String(getSceneSupplementLevelMeta(item)?.label || '').trim();
+          if (label === '补充单层级：优先补素材') levelCounter.ready_material += 1;
+          else if (label === '补充单层级：先复核图谱') levelCounter.review_graph += 1;
+          else if (label === '补充单层级：先判定版本') levelCounter.decide_scope += 1;
+          else if (label === '补充单层级：继续补素材') levelCounter.continue_material += 1;
+          else if (label === '补充单层级：已补齐') levelCounter.done += 1;
+        });
+        box.innerHTML = `
+          <div class="stat"><div class="k">补充单数</div><div class="v">${escHtml(count || 0)}</div></div>
+          <div class="stat"><div class="k">用户数</div><div class="v">${escHtml(summary.unique_user_count || 0)}</div></div>
+          <div class="stat"><div class="k">待补词数</div><div class="v">${escHtml(summary.pending_term_count || 0)}</div></div>
+          <div class="stat"><div class="k">已覆盖词数</div><div class="v">${escHtml(summary.covered_term_count || 0)}</div></div>
+          <div class="stat"><div class="k">可通知 / 已通知 / 已入库</div><div class="v" style="font-size:14px;">${escHtml(`${summary.ready_to_notify_count || 0} / ${summary.notified_count || 0} / ${summary.merged_count || 0}`)}</div></div>
+          <div class="stat"><div class="k">优先补素材</div><div class="v">${escHtml(levelCounter.ready_material)}</div></div>
+          <div class="stat"><div class="k">先复核图谱</div><div class="v">${escHtml(levelCounter.review_graph)}</div></div>
+          <div class="stat"><div class="k">先判定版本</div><div class="v">${escHtml(levelCounter.decide_scope)}</div></div>
+          <div class="stat"><div class="k">继续补素材 / 已补齐</div><div class="v" style="font-size:14px;">${escHtml(`${levelCounter.continue_material} / ${levelCounter.done}`)}</div></div>
+        `;
+      }
+
+      function renderSceneCards(items) {
+        if (!items.length) return '<div class="muted">当前没有命中的场景补充单。</div>';
+        return `<div class="scene-card-grid">${items.map(item => {
+          const ratio = Math.max(0, Math.min(100, Math.round((Number(item?.progress?.completion_ratio || 0) || 0) * 100)));
+          const assets = Array.isArray(item.merged_assets) ? item.merged_assets : [];
+          const pendingTermItems = Array.isArray(item.missing_sfx_term_items) && item.missing_sfx_term_items.length
+            ? item.missing_sfx_term_items
+            : (item.missing_sfx_terms || []).map(term => ({ term }));
+          const hasPendingTerms = pendingTermItems.length > 0;
+          const sourceSummary = summarizeSceneTermSources(item);
+          const levelMeta = getSceneSupplementLevelMeta(item);
+          const alreadyNotified = Boolean(item?.notified_at);
+          const canNotify = String(item?.status || '') === 'ready_to_notify' && !alreadyNotified;
+          const notifyLabel = !token ? '请先登录后通知' : (alreadyNotified ? '已通知用户' : (canNotify ? '标记已通知' : '暂不可通知'));
+          const notifyHint = alreadyNotified
+            ? `已通知：${item.notified_at}`
+            : (!token ? '请先登录 scene 后台，再执行通知操作。' : (canNotify ? '当前可通知用户' : '当前未达到可通知状态'));
+          return `
+            <div class="scene-group" id="scene-supp-${item.id}" data-scene-node-key="${escHtml(item.node_key || '')}">
+              <div class="scene-head" role="button" tabindex="0" onclick="toggleSceneSupplementCard(${item.id})" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); toggleSceneSupplementCard(${item.id}); }">
+                <div>
+                  <div class="scene-title">${escHtml(item.scene_name || item.target_scene || '未命名场景')}</div>
+                  <div class="scene-meta">
+                    赛道：${escHtml(item.genre || '未标注')}<br />
+                    节点：${escHtml(item.node_key || '未生成')}<br />
+                    用户：${escHtml(item.user_phone || '未记录')} ｜ 项目：#${escHtml(item.project_id || '')}
+                  </div>
+                  <div class="scene-meta" style="margin-top:8px;">建议先查看场景图谱，再决定是补素材还是先调整场景推荐。</div>
+                  <div class="scene-badge-row" style="margin-top:8px;">
+                    <span class="scene-badge ${escAttr(levelMeta.cls)}">${escHtml(levelMeta.label)}</span>
+                  </div>
+                  <div class="scene-collapse-chip" id="sceneCardToggle-${item.id}">点击收起补充单详情</div>
+                </div>
+                <div style="min-width:260px;">
+                  <div class="status-chip ${item.progress?.pending_count ? 'warn' : 'ok'}">${escHtml(item.status || 'pending')}</div>
+                  <div class="scene-meta" style="margin-top:8px;">
+                    覆盖 ${escHtml(item.progress?.covered_count || 0)} / ${escHtml(item.progress?.target_count || 0)}<br />
+                    待补 ${escHtml(item.progress?.pending_count || 0)} 个词
+                  </div>
+                  <div class="progress-line"><div class="progress-fill" style="width:${ratio}%;"></div></div>
+                </div>
+              </div>
+              <div class="scene-card-body" id="sceneCardBody-${item.id}">
+              <div class="section-box">
+                <h4>原句片段</h4>
+                <details class="excerpt-fold">
+                  <summary>点击展开完整原句片段</summary>
+                  <div class="excerpt-full">${escHtml(item.sentence_excerpt || '暂无片段')}</div>
+                </details>
+                <div class="excerpt-preview">${escHtml(middleEllipsis(item.sentence_excerpt || '暂无片段'))}</div>
+              </div>
+
+              <div class="section-box">
+                <h4>时间词</h4>
+                <div class="pill-list">${renderPills(item.time_terms)}</div>
+              </div>
+
+              <div class="section-box">
+                <h4>地点词</h4>
+                <div class="pill-list">${renderPills(item.location_terms)}</div>
+              </div>
+
+              <div class="section-box">
+                <h4>场景元素</h4>
+                <div class="pill-list">${renderPills(item.scene_elements)}</div>
+              </div>
+
+              <div class="section-box">
+                <h4>场景音效词</h4>
+                <div class="pill-list">${(Array.isArray(item.sfx_term_items) && item.sfx_term_items.length ? item.sfx_term_items : (item.sfx_terms || []).map(term => ({ term }))).map(row => `<span class="pill">${escHtml(row.term || '')}${row.source_label ? ` <span class="muted">(${escHtml(row.source_label)})</span>` : ''}</span>`).join('') || '<span class="muted">无</span>'}</div>
+              </div>
+
+              <div class="section-box">
+                <h4>待补场景音效</h4>
+                <div class="pill-list">${(Array.isArray(item.missing_sfx_term_items) && item.missing_sfx_term_items.length ? item.missing_sfx_term_items : (item.missing_sfx_terms || []).map(term => ({ term }))).map(row => `<span class="pill">${escHtml(row.term || '')}${row.source_label ? ` <span class="muted">(${escHtml(row.source_label)})</span>` : ''}</span>`).join('') || '<span class="muted">无</span>'}</div>
+                <div class="muted" style="margin-top:8px;">来源摘要：${escHtml(sourceSummary)}</div>
+                <div class="muted" style="margin-top:6px;">当前建议：${escHtml(levelMeta.note)}</div>
+              </div>
+
+              <div class="section-box">
+                <h4>已入库素材</h4>
+                ${
+                  assets.length
+                    ? `<div class="asset-list">${assets.map(asset => `
+                      <div class="asset-card">
+                        <div class="asset-name">${escHtml(asset.display_name || asset.file_name || asset.asset_label || '未命名素材')}</div>
+                        <div class="asset-meta">
+                          标签：${escHtml(asset.asset_label || '未标注')}<br />
+                          版本：${escHtml(asset.scope_label || '未标注')}<br />
+                          文件：${escHtml(asset.file_name || '未上传')}
+                        </div>
+                      </div>
+                    `).join('')}</div>`
+                    : '<div class="muted">当前还没有已入库素材。</div>'
+                }
+              </div>
+
+              <div class="ops-box">
+                <h4 style="margin-bottom:8px; color: var(--muted);">场景图谱维护</h4>
+                  <div class="row">
+                      <div class="cell" style="flex: 0 0 220px;">
+                        <button id="sceneGraphJumpBtn-${item.id}" onclick="openSceneGraphFromSupplement(${item.id}, '${encodeURIComponent(String(item.node_key || ''))}', '${encodeURIComponent(String(item.genre || ''))}', '${encodeURIComponent(String(item.scene_name || item.target_scene || ''))}')" ${token ? '' : 'disabled'}>${token ? '查看该场景图谱' : '请先登录后定位'}</button>
+                      </div>
+                  <div class="cell inline-status" id="sceneGraphJumpStatus-${item.id}">${token ? '先核对图谱，再处理素材补充。' : '请先登录 scene 后台，再定位到图谱维护。'}</div>
+                </div>
+              </div>
+
+              ${
+                hasPendingTerms
+                  ? `
+                  <div class="ops-box">
+                    <h4 style="margin-bottom:8px; color: var(--muted);">逐词入库操作</h4>
+                    <div class="row">
+                      <div class="cell">
+                        <select id="sceneTerm-${item.id}" onchange="syncSceneAssetScopeForItem(${item.id})">
+                          <option value="">请选择场景音效词</option>
+                          ${pendingTermItems.map(row => `
+                            <option value="${escHtml(row.term || '')}">${escHtml(`${row.term || ''}${row.source_label ? `（${row.source_label}）` : ''}`)}</option>
+                          `).join('')}
+                        </select>
+                      </div>
+                      <div class="cell">
+                        <select id="sceneScope-${item.id}" onchange="refreshSceneMergeState(${item.id})">
+                          <option value="">请选择素材版本</option>
+                          <option value="genre">${escHtml(sceneScopeLabel('genre', item.genre || '当前赛道'))}</option>
+                          <option value="common">${escHtml(sceneScopeLabel('common', item.genre || '当前赛道'))}</option>
+                        </select>
+                      </div>
+                      <div class="cell">
+                        <input id="sceneFile-${item.id}" type="file" accept=".mp3,.wav,.m4a,.ogg,.flac" onchange="refreshSceneMergeState(${item.id})" />
+                      </div>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                      <div class="cell" style="flex: 0 0 180px;">
+                        <label class="muted" style="display:flex; gap:8px; align-items:center;">
+                          <input id="sceneNotify-${item.id}" type="checkbox" style="width:auto;" />
+                          合并后立刻通知
+                        </label>
+                      </div>
+                      <div class="cell" style="flex: 0 0 220px;">
+                        <button id="sceneMergeBtn-${item.id}" onclick="mergeSceneAsset(${item.id})" disabled>${token ? '上传并合并入库' : '请先登录后上传'}</button>
+                      </div>
+                      <div class="cell inline-status" id="sceneMergeStatus-${item.id}"></div>
+                    </div>
+                    <div class="row" style="margin-top:6px;">
+                      <div class="cell muted" id="sceneScopeHint-${item.id}">请选择场景音效词后，再确认素材版本。</div>
+                    </div>
+                  </div>
+                  `
+                  : `
+                  <div class="ops-box">
+                    <h4 style="margin-bottom:8px; color: var(--muted);">逐词入库操作</h4>
+                    <div class="muted">当前这条场景补充单已经没有待补词，可以直接检查通知状态，或回到场景图谱继续优化推荐。</div>
+                  </div>
+                  `
+              }
+
+              <div class="ops-box">
+                <h4 style="margin-bottom:8px; color: var(--muted);">通知用户</h4>
+                <div class="row">
+                  <div class="cell" style="flex: 0 0 220px;">
+                    <button id="sceneNotifyBtn-${item.id}" onclick="notifySceneSupplement(${item.id})" ${token && canNotify ? '' : 'disabled'}>${escHtml(notifyLabel)}</button>
+                  </div>
+                  <div class="cell inline-status" id="sceneNotifyStatus-${item.id}">
+                    ${escHtml(notifyHint)}
+                  </div>
+                </div>
+              </div>
+              </div>
+            </div>
+          `;
+        }).join('')}</div>`;
+      }
+
+      function renderSceneTable(items) {
+        if (!items.length) return '<div class="muted">当前没有命中的场景补充单。</div>';
+        const renderSourcePills = (rows) => {
+          const items = Array.isArray(rows) ? rows : [];
+          if (!items.length) return '<span class="muted">无</span>';
+          return items.map(row => `<span class="pill">${escHtml(row.term || '')}${row.source_label ? ` <span class="muted">(${escHtml(row.source_label)})</span>` : ''}</span>`).join('');
+        };
+        return `
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>赛道 / 场景</th>
+                  <th>节点</th>
+                  <th>时间词</th>
+                  <th>地点词</th>
+                  <th>场景音效词</th>
+                  <th>待补词</th>
+                  <th>来源摘要</th>
+                  <th>补充单层级</th>
+                  <th>覆盖进度</th>
+                  <th>图谱维护</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${items.map((item, index) => {
+                  const levelMeta = getSceneSupplementLevelMeta(item);
+                  return `
+                  <tr>
+                    <td>${index + 1}</td>
+                    <td>${escHtml(item.genre || '')}<br /><strong>${escHtml(item.scene_name || item.target_scene || '')}</strong></td>
+                    <td>${escHtml(item.node_key || '未生成')}</td>
+                    <td>${renderPills(item.time_terms)}</td>
+                    <td>${renderPills(item.location_terms)}</td>
+                    <td>${renderSourcePills(Array.isArray(item.sfx_term_items) && item.sfx_term_items.length ? item.sfx_term_items : (item.sfx_terms || []).map(term => ({ term })))}</td>
+                    <td>${renderSourcePills(Array.isArray(item.missing_sfx_term_items) && item.missing_sfx_term_items.length ? item.missing_sfx_term_items : (item.missing_sfx_terms || []).map(term => ({ term })))}</td>
+                    <td>${escHtml(summarizeSceneTermSources(item))}</td>
+                    <td><span class="scene-badge ${escAttr(levelMeta.cls)}">${escHtml(levelMeta.label)}</span></td>
+                    <td>${escHtml(item.progress?.covered_count || 0)} / ${escHtml(item.progress?.target_count || 0)}</td>
+                    <td><button id="sceneGraphJumpBtn-${item.id}" onclick="openSceneGraphFromSupplement(${item.id}, '${encodeURIComponent(String(item.node_key || ''))}', '${encodeURIComponent(String(item.genre || ''))}', '${encodeURIComponent(String(item.scene_name || item.target_scene || ''))}')" ${token ? '' : 'disabled'}>${token ? '去图谱维护' : '请先登录后定位'}</button></td>
+                  </tr>
+                `;}).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      function renderSceneSupplements(data) {
+        const box = document.getElementById('sceneSupplementsOut');
+        if (!box) return;
+        const items = Array.isArray(data?.items) ? data.items : [];
+        const onlyPending = Boolean(document.getElementById('sceneOnlyPending')?.checked);
+        const levelFilter = String(document.getElementById('sceneLevelFilter')?.value || '').trim();
+        const view = String(document.getElementById('sceneView')?.value || 'cards');
+        latestSceneSupplements = items;
+        latestSceneSuppSummary = data?.summary || {};
+        updateSceneSupplementToolbarButtons();
+        let displayItems = onlyPending
+          ? items.filter(item => Number(item?.progress?.pending_count || 0) > 0)
+          : items;
+        if (levelFilter) {
+          displayItems = displayItems.filter(item => getSceneSupplementLevelKey(item) === levelFilter);
+        }
+        const sortedDisplayItems = [...displayItems].sort((a, b) => {
+          const priorityDiff = getSceneSupplementPriority(a) - getSceneSupplementPriority(b);
+          if (priorityDiff !== 0) return priorityDiff;
+          const pendingDiff = Number(b?.progress?.pending_count || 0) - Number(a?.progress?.pending_count || 0);
+          if (pendingDiff !== 0) return pendingDiff;
+          const readyDiff = Number(Boolean(b?.status === 'ready_to_notify' && !b?.notified_at)) - Number(Boolean(a?.status === 'ready_to_notify' && !a?.notified_at));
+          if (readyDiff !== 0) return readyDiff;
+          return String(a?.scene_name || a?.target_scene || a?.node_key || '').localeCompare(
+            String(b?.scene_name || b?.target_scene || b?.node_key || ''),
+            'zh-CN'
+          );
+        });
+        latestSceneSupplementsFiltered = sortedDisplayItems;
+        const displaySummary = {
+          ...(latestSceneSuppSummary || {}),
+          item_count: sortedDisplayItems.length,
+          unique_user_count: Array.from(new Set(sortedDisplayItems.map(item => String(item?.user_phone || '').trim()).filter(Boolean))).length,
+          pending_term_count: sortedDisplayItems.reduce((sum, item) => sum + Number(item?.progress?.pending_count || 0), 0),
+          covered_term_count: sortedDisplayItems.reduce((sum, item) => sum + Number(item?.progress?.covered_count || 0), 0),
+          ready_to_notify_count: sortedDisplayItems.filter(item => item?.status === 'ready_to_notify' && !item?.notified_at).length,
+          notified_count: sortedDisplayItems.filter(item => Boolean(item?.notified_at)).length,
+          merged_count: sortedDisplayItems.reduce((sum, item) => sum + Number((item?.merged_assets || []).length), 0),
+        };
+        renderStats(displaySummary, sortedDisplayItems.length);
+        renderSceneGraphPicker();
+        if (latestSceneGraphNode) renderSceneGraphSupplementHint(latestSceneGraphNode);
+        if (!sortedDisplayItems.length) {
+          let reason = '当前筛选条件下没有场景补充单。可调整天数、状态、补充单层级或恢复默认筛选。';
+          if (onlyPending && levelFilter) {
+            reason = '当前同时启用了“仅看仍有待补词”和“补充单层级”筛选，所以列表为空。可取消其中一个筛选再查看。';
+          } else if (onlyPending) {
+            reason = '当前勾选了“仅看仍有待补词的补充单”，所以列表为空。可取消该筛选，查看全部场景补充单。';
+          } else if (levelFilter) {
+            reason = '当前补充单层级筛选下没有结果。可切换为其他层级，或恢复为“全部层级”。';
+          }
+          box.innerHTML = `<div class="hint" style="padding:10px 0;">${escHtml(reason)}</div>`;
+          return;
+        }
+        if (view === 'raw') {
+          box.innerHTML = `<pre>${escHtml(JSON.stringify({ ...data, items: sortedDisplayItems, count: sortedDisplayItems.length, summary: displaySummary }, null, 2))}</pre>`;
+          return;
+        }
+        if (view === 'table') {
+          box.innerHTML = renderSceneTable(sortedDisplayItems);
+          return;
+        }
+        box.innerHTML = renderSceneCards(sortedDisplayItems);
+        sortedDisplayItems.forEach(item => initializeSceneSupplementCard(item.id));
+      }
+
+      async function loadSceneSupplements() {
+        if (!token) {
+          updateSceneSupplementToolbarButtons();
+          show('sceneDebugOut', '请先登录后加载场景补充单');
+          return;
+        }
+        const days = (document.getElementById('sceneDays').value || '30').trim();
+        const status = (document.getElementById('sceneStatus').value || '').trim();
+        const q = new URLSearchParams();
+        if (days) q.set('days', days);
+        if (status) q.set('status', status);
+        sceneSupplementsLoading = true;
+        updateSceneSupplementToolbarButtons();
+        try {
+          const res = await fetch(`${base()}/ops/scene-supplements?${q.toString()}`, { headers: h() });
+          const data = await read(res);
+          renderSceneSupplements(data);
+          show('sceneDebugOut', data);
+        } finally {
+          sceneSupplementsLoading = false;
+          updateSceneSupplementToolbarButtons();
+        }
+      }
+
+      setState();
+      setSceneGraphMoveButtonState({ hasNode: false });
+      updateSceneCollectionButtons();
+      updateSceneTemplateButtons();
+      updateSceneNeo4jButtons();
+      updateSceneAuthButtons();
+      updateSceneSupplementToolbarButtons();
+      renderDocAnchors('sceneDocsOut', SCENE_DOC_ANCHORS);
+      if (token) {
+        loadSceneSupplements().catch(err => show('sceneDebugOut', String(err?.message || err)));
+        loadSceneGraphCatalog().catch(err => show('sceneDebugOut', String(err?.message || err)));
+        loadSceneCollections().catch(err => show('sceneDebugOut', String(err?.message || err)));
+        loadSceneTemplates().catch(err => show('sceneDebugOut', String(err?.message || err)));
+      }
+    </script>
+  </body>
+</html>

@@ -235,6 +235,35 @@
         margin-top:8px; padding:10px; border-radius:10px; border:1px dashed #46648b; background:rgba(9, 20, 37, 0.92);
         color:var(--ink); font-size:13px; line-height:1.6;
       }
+      .doc-anchor-list {
+        display:flex;
+        flex-direction:column;
+        gap:10px;
+      }
+      .doc-anchor-item {
+        border:1px solid var(--line);
+        border-radius:12px;
+        background:#0b1730;
+        padding:10px 12px;
+      }
+      .doc-anchor-path {
+        color:#baf2ff;
+        font-size:12px;
+        font-weight:700;
+        word-break:break-all;
+      }
+      .doc-anchor-name {
+        color:var(--ink);
+        font-size:13px;
+        font-weight:700;
+        margin-top:4px;
+      }
+      .doc-anchor-desc {
+        color:var(--muted);
+        font-size:12px;
+        line-height:1.7;
+        margin-top:4px;
+      }
       .reason-list { margin: 0; padding-left: 18px; color: var(--ink); font-size: 13px; line-height: 1.6; }
       @media (max-width: 980px) {
         .graph-stage { grid-template-columns: 1fr; }
@@ -327,6 +356,11 @@
         </div>
 
         <div class="card">
+          <h3>本地文档锚点</h3>
+          <div id="actionDocsOut" class="doc-anchor-list"></div>
+        </div>
+
+        <div class="card">
           <h3>动作图谱 Neo4j</h3>
           <div class="row">
             <div class="cell"><button onclick="loadActionGraphNeo4jStatus()">图谱状态</button></div>
@@ -397,6 +431,9 @@
           </div>
           <div id="graphInheritanceDashboard" style="margin-top:10px;"></div>
           <div id="graphManagePickerHint" class="muted-sm note-prefix" style="margin-top:6px;">正在加载维护目录...</div>
+          <div id="graphSeedHint" class="muted-sm" style="margin-top:6px;">通用层基础种子摘要待加载。</div>
+          <div id="graphSeedStats" style="margin-top:8px;"></div>
+          <div id="graphSeedActions" style="margin-top:8px;"></div>
           <details style="margin-top:8px;">
             <summary class="muted-sm" style="cursor:pointer;">高级入口：直接输入节点Key</summary>
             <div class="row" style="margin-top:8px;">
@@ -472,6 +509,38 @@
       let graphMaintenanceState = null;
       let graphMaintenanceCatalogState = { genres: [], selectedGenreKey: '', selectedNodeKey: '', verbQuery: '' };
       let inheritanceDashboardState = { blocked_pool: { items: [], count: 0 }, review_pool: { items: [], count: 0, days: 30 } };
+      const ACTION_DOC_ANCHORS = [
+        {
+          path: 'docs/OPS_ACTION_GRAPH_AND_SUPPLEMENTS_GUIDE.md',
+          name: '运营总手册',
+          desc: '整理动作分析与场景搭建后台的核心操作顺序、功能用途和运营主链路。'
+        },
+        {
+          path: 'docs/OPS_ACTION_GRAPH_AND_SUPPLEMENTS_QA.md',
+          name: '运营问答手册',
+          desc: '记录真实运营疑问、系统解释和操作指引，适合后台复测和培训使用。'
+        },
+        {
+          path: 'docs/GRAPH_REASONING.md',
+          name: '图谱推理说明',
+          desc: '说明图谱推荐、命中、覆盖和补充单之间的推理链路，方便排查动作推荐逻辑。'
+        },
+        {
+          path: 'docs/SEMANTIC_MATCH.md',
+          name: '语义匹配说明',
+          desc: '解释动作词、语义扩展词、音效词与素材候选之间的匹配逻辑。'
+        },
+        {
+          path: 'docs/NEO4J_SETUP.md',
+          name: 'Neo4j 使用说明',
+          desc: '用于查看动作图谱与 Neo4j 同步、状态检查、浏览查询等相关说明。'
+        },
+        {
+          path: 'docs/API.md',
+          name: '接口说明',
+          desc: '汇总项目接口，用于对照动作分析后台涉及的查询、补充单和图谱维护接口。'
+        }
+      ];
 
       function base() { return document.getElementById('apiBase').value.replace(/\/$/, ''); }
       function h(extra = {}) {
@@ -502,6 +571,18 @@
         const arr = Array.isArray(list) ? list.filter(Boolean) : [];
         if (!arr.length) return '<span class="muted">无</span>';
         return arr.map(x => `<span class="pill">${escHtml(x)}</span>`).join('');
+      }
+      function renderDocAnchors(outId, docs) {
+        const box = document.getElementById(outId);
+        if (!box) return;
+        const rows = Array.isArray(docs) ? docs : [];
+        box.innerHTML = rows.map(doc => `
+          <div class="doc-anchor-item">
+            <div class="doc-anchor-path">${escHtml(`/Users/demo/Documents/New project/musicForArt/${doc.path}`)}</div>
+            <div class="doc-anchor-name">${escHtml(doc.name || doc.path)}</div>
+            <div class="doc-anchor-desc">${escHtml(doc.desc || '')}</div>
+          </div>
+        `).join('') || '<div class="muted">当前没有可展示的本地文档锚点。</div>';
       }
       function sourceLabel(source) {
         return ({
@@ -594,6 +675,78 @@
           out.push(value);
         }
         return out;
+      }
+      function findSupplementSeedStatus(nodeKey) {
+        const key = String(nodeKey || '').trim();
+        if (!key) return { label: '未建补充单', cls: '' };
+        const related = latestSupplements.filter(item => String(item?.node_key || '').trim() === key);
+        if (!related.length) return { label: '未建补充单', cls: '' };
+        const pending = related.reduce((sum, item) => sum + Number(item?.progress?.pending_count || 0), 0);
+        const covered = related.reduce((sum, item) => sum + Number(item?.progress?.covered_count || 0), 0);
+        if (pending > 0) return { label: `待补 ${pending}`, cls: 'warn' };
+        if (covered > 0) return { label: `已覆盖 ${covered}`, cls: 'ok' };
+        return { label: '已建补充单', cls: '' };
+      }
+      function actionSeedReason(verbHead) {
+        const key = String(verbHead || '').trim();
+        const map = {
+          '走': '基础位移动作，复用频率高',
+          '快走': '常见过渡动作，容易命中脚步缺口',
+          '跳': '动作感强，适合先补起跳与落地',
+          '爬': '手脚并用类动作，素材区分度高',
+          '飞': '高动态动作，常用作强化场面',
+          '抓': '近景互动动作，覆盖面很广',
+          '推': '接触与碰撞类动作，通用性强',
+          '拉': '拉扯拖拽类动作，补库收益高',
+          '摩擦': '布料/表面类通用动效，高复用',
+          '蹲下': '姿态转换动作，适合补细微动作声',
+        };
+        return map[key] || '高复用基础动作';
+      }
+      function actionSeedStatusPriority(label) {
+        const text = String(label || '').trim();
+        if (text.startsWith('待补')) return 0;
+        if (text === '未建补充单') return 1;
+        if (text.startsWith('已覆盖')) return 2;
+        return 3;
+      }
+      function actionSeedNextStep(nodeKey) {
+        const status = findSupplementSeedStatus(nodeKey).label;
+        if (status.startsWith('待补')) return '建议下一步：先去补充单补素材。';
+        if (status === '未建补充单') return '建议下一步：先等待真实用户文本命中验证，命中后再进入补充链路。';
+        if (status.startsWith('已覆盖')) return '建议下一步：优先回看图谱词是否还需继续扩充。';
+        return '建议下一步：先检查图谱维护，再决定是否补素材。';
+      }
+      function actionSeedStatusExplain(label) {
+        const text = String(label || '').trim();
+        if (text.startsWith('待补')) return '已进入补充链路，当前仍缺素材。';
+        if (text === '未建补充单') return '当前还缺真实用户命中验证，属于待验证基础种子。';
+        if (text.startsWith('已覆盖')) return '当前已有基础素材，可继续观察是否还需补细分版本。';
+        return '当前已进入补充链路，可继续按业务状态跟进。';
+      }
+      function summarizeActionSeedStatuses(items) {
+        const rows = Array.isArray(items) ? items : [];
+        const summary = { pending: 0, untracked: 0, covered: 0, created: 0 };
+        rows.forEach(item => {
+          const status = findSupplementSeedStatus(item?.node_key).label;
+          if (status.startsWith('待补')) summary.pending += 1;
+          else if (status === '未建补充单') summary.untracked += 1;
+          else if (status.startsWith('已覆盖')) summary.covered += 1;
+          else summary.created += 1;
+        });
+        return summary;
+      }
+      function renderActionSeedStats(summary) {
+        const node = document.getElementById('graphSeedStats');
+        if (!node) return;
+        const data = summary || { pending: 0, untracked: 0, covered: 0, created: 0 };
+        node.innerHTML = `
+          <div class="status-bar">
+            <span class="status-chip" title="已经进入补充链路，当前仍缺素材">待补 ${escHtml(data.pending || 0)}</span>
+            <span class="status-chip" title="基础种子已预置，但还没被真实文本触发验证">待验证 ${escHtml(data.untracked || 0)}</span>
+            <span class="status-chip" title="当前已有基础素材覆盖">已覆盖 ${escHtml(data.covered || 0)}</span>
+          </div>
+        `;
       }
       function normalizeCompositeTerm(raw) {
         return String(raw || '').trim().replace(/（组合）$/u, '').trim();
@@ -1099,15 +1252,22 @@
         });
       }
 
-      function openGraphMaintenance(nodeKey) {
+      async function openGraphMaintenance(nodeKey) {
         const input = document.getElementById('graphManageNodeKey');
         if (input) input.value = nodeKey;
+        const hintText = actionSeedNextStep(nodeKey);
         if (graphMaintenanceCatalogState?.genres?.length) {
           renderGraphMaintenancePicker(nodeKey);
-          loadGraphMaintenance(nodeKey);
-          return;
+          await loadGraphMaintenance(nodeKey);
+        } else {
+          await loadGraphMaintenanceCatalog(nodeKey);
+          await loadGraphMaintenance(nodeKey);
         }
-        loadGraphMaintenanceCatalog(nodeKey).then(() => loadGraphMaintenance(nodeKey));
+        setGraphMaintenanceUiState({
+          feedbackText: hintText,
+          feedbackLevel: 'info',
+        });
+        renderGraphMaintenance(graphMaintenanceState?.rawData || {});
       }
 
       function nodeKeyToId(nodeKey) {
@@ -1138,6 +1298,8 @@
         const verbQueryInput = document.getElementById('graphManageVerbQuery');
         const verbSel = document.getElementById('graphManageVerb');
         const hint = document.getElementById('graphManagePickerHint');
+        const seedHint = document.getElementById('graphSeedHint');
+        const seedActions = document.getElementById('graphSeedActions');
         const sections = Array.isArray(graphMaintenanceCatalogState?.genres) ? graphMaintenanceCatalogState.genres : [];
         if (!genreSel || !verbSel || !verbQueryInput) return;
         if (!sections.length) {
@@ -1145,7 +1307,44 @@
           verbQueryInput.value = graphMaintenanceCatalogState.verbQuery || '';
           verbSel.innerHTML = '<option value="">暂无动作词</option>';
           if (hint) hint.textContent = '当前还没有可维护的图谱目录。';
+          if (seedHint) seedHint.textContent = '当前还没有基础动作种子摘要。';
+          if (seedActions) seedActions.innerHTML = '';
           return;
+        }
+        if (seedHint) {
+          const commonSection = sections.find(section => String(section.genre_key || '') === 'common');
+          const commonCount = Number(commonSection?.node_count || (Array.isArray(commonSection?.items) ? commonSection.items.length : 0) || 0);
+          const genreCount = sections.filter(section => String(section.genre_key || '') !== 'common').length;
+          const preferredSeeds = ['走', '快走', '跳', '爬', '飞', '抓', '推', '拉', '摩擦', '蹲下'];
+          const commonItems = Array.isArray(commonSection?.items) ? commonSection.items : [];
+          const quickItems = preferredSeeds
+            .map(name => commonItems.find(item => String(item?.verb_head || '').trim() === name))
+            .filter(Boolean)
+            .sort((a, b) => {
+              const aStatus = findSupplementSeedStatus(a.node_key).label;
+              const bStatus = findSupplementSeedStatus(b.node_key).label;
+              const prio = actionSeedStatusPriority(aStatus) - actionSeedStatusPriority(bStatus);
+              if (prio !== 0) return prio;
+              return String(a?.verb_head || '').localeCompare(String(b?.verb_head || ''), 'zh-CN');
+            });
+          const quickSummary = summarizeActionSeedStatuses(quickItems);
+          seedHint.textContent = `基础种子摘要：当前动作通用层约 ${commonCount} 个基础动作词，覆盖 ${genreCount} 个赛道维护目录。优先种子中待补 ${quickSummary.pending} 个、待用户命中验证 ${quickSummary.untracked} 个、已覆盖 ${quickSummary.covered} 个。上线前建议先围绕“走、跳、爬、飞、抓、推、拉、摩擦、蹲下”等高复用动作补基础素材。`;
+          renderActionSeedStats(quickSummary);
+          if (seedActions) {
+            seedActions.innerHTML = quickItems.length
+              ? `<div class="muted-sm" style="margin-bottom:6px;">建议优先补库：先处理“待补”，再跟进“待用户命中验证”的基础种子，最后回看“已覆盖”。</div><div class="muted-sm" style="margin-bottom:6px;">说明：待用户命中验证不是异常，而是上线前预置好的基础动作词，后续需等真实文本命中后再进入补充链路。</div>${quickItems.map(item => {
+                  const status = findSupplementSeedStatus(item.node_key);
+                  const canJumpSupp = status.label !== '未建补充单';
+                  const nextStep = canJumpSupp ? '先去补充单补素材' : '先等待真实用户文本命中验证';
+                  return `
+                    <div style="display:inline-flex; gap:6px; align-items:center; margin:0 6px 6px 0;">
+                      <button class="link-btn" title="${escAttr(actionSeedReason(item.verb_head))}" onclick="openGraphMaintenance('${escAttr(item.node_key || '')}')">${escHtml(item.verb_head || '')} <span class="muted-sm">(${escHtml(status.label)}｜${escHtml(actionSeedReason(item.verb_head))}｜${escHtml(actionSeedStatusExplain(status.label))}｜${escHtml(nextStep)})</span></button>
+                      ${canJumpSupp ? `<button class="link-btn" onclick="jumpToSupplementGroup('${escAttr(item.node_key || '')}', 'pending')">去补充</button>` : ''}
+                    </div>
+                  `;
+                }).join('')}`
+              : '<div class="muted-sm">当前还没有可直接跳转的基础动作种子。</div>';
+          }
         }
         const preferred = splitGraphManageNodeKey(preferredNodeKey);
         const selectedGenreKey = (
@@ -2873,6 +3072,7 @@
       }
 
       setState();
+      renderDocAnchors('actionDocsOut', ACTION_DOC_ANCHORS);
       updateSupplementStatusHint();
       loadInheritanceDashboard();
       loadGraphMaintenanceCatalog('玄幻::躲闪').then(() => loadGraphMaintenance('玄幻::躲闪'));

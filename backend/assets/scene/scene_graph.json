@@ -1,0 +1,584 @@
+{
+  "common": {
+    "教室": {
+      "template_name": "教室类",
+      "collection_name": "校园场景集合",
+      "background_elements": [
+        "室内底噪"
+      ],
+      "feature_elements": [
+        "读书声",
+        "粉笔声"
+      ],
+      "detail_elements": [
+        "翻书声",
+        "桌椅轻响"
+      ],
+      "supporting_sfx_terms": [
+        "读书声",
+        "粉笔声"
+      ],
+      "detail_sfx_terms": [
+        "翻书声",
+        "桌椅轻响"
+      ]
+    },
+    "操场": {
+      "template_name": "操场类",
+      "collection_name": "校园场景集合",
+      "background_elements": [
+        "空气流动"
+      ],
+      "feature_elements": [
+        "风声",
+        "树叶声"
+      ],
+      "detail_elements": [
+        "远处人声",
+        "脚步声"
+      ],
+      "supporting_sfx_terms": [
+        "风声",
+        "树叶声"
+      ],
+      "detail_sfx_terms": [
+        "远处人声",
+        "脚步声"
+      ]
+    },
+    "海边": {
+      "template_name": "海边类",
+      "collection_name": "自然场景集合",
+      "background_elements": [
+        "空气流动"
+      ],
+      "feature_elements": [
+        "海风",
+        "海浪",
+        "海鸥"
+      ],
+      "detail_elements": [
+        "远处轮船声",
+        "汽笛声",
+        "人群嘈杂声"
+      ],
+      "supporting_sfx_terms": [
+        "海风",
+        "海浪",
+        "海鸥"
+      ],
+      "detail_sfx_terms": [
+        "远处轮船声",
+        "汽笛声",
+        "人群嘈杂声"
+      ]
+    },
+    "街道": {
+      "template_name": "街道类",
+      "collection_name": "城市场景集合",
+      "background_elements": [
+        "城市底噪"
+      ],
+      "feature_elements": [
+        "风声",
+        "脚步声",
+        "远处车流声"
+      ],
+      "detail_elements": [
+        "人群低语声",
+        "自行车掠过声",
+        "店铺门铃声"
+      ],
+      "supporting_sfx_terms": [
+        "风声",
+        "脚步声",
+        "远处车流声"
+      ],
+      "detail_sfx_terms": [
+        "人群低语声",
+        "自行车掠过声",
+        "店铺门铃声"
+      ]
+    },
+    "雨夜街巷": {
+      "template_name": "雨夜街巷类",
+      "collection_name": "城市场景集合",
+      "background_elements": [
+        "潮湿环境底噪"
+      ],
+      "feature_elements": [
+        "雨声",
+        "积水滴答声",
+        "空巷风声"
+      ],
+      "detail_elements": [
+        "远处脚步声",
+        "伞面雨点击打声",
+        "水洼踩踏声"
+      ],
+      "supporting_sfx_terms": [
+        "雨声",
+        "积水滴答声",
+        "空巷风声"
+      ],
+      "detail_sfx_terms": [
+        "远处脚步声",
+        "伞面雨点击打声",
+        "水洼踩踏声"
+      ]
+    },
+    "房间": {
+      "template_name": "居室类",
+      "collection_name": "室内场景集合",
+      "background_elements": [
+        "室内底噪"
+      ],
+      "feature_elements": [
+        "轻微环境底噪",
+        "布料轻擦声"
+      ],
+      "detail_elements": [
+        "翻身声",
+        "物件轻放声",
+        "木地板轻响"
+      ],
+      "supporting_sfx_terms": [
+        "轻微环境底噪",
+        "布料轻擦声"
+      ],
+      "detail_sfx_terms": [
+        "翻身声",
+        "物件轻放声",
+        "木地板轻响"
+      ]
+    },
+    "卧室": {
+      "template_name": "居室类",
+      "collection_name": "室内场景集合",
+      "background_elements": [
+        "室内底噪"
+      ],
+      "feature_elements": [
+        "床铺轻响",
+        "布料摩擦声"
+      ],
+      "detail_elements": [
+        "窗外风声",
+        "脚步轻响",
+        "物件轻放声"
+      ],
+      "supporting_sfx_terms": [
+        "床铺轻响",
+        "布料摩擦声"
+      ],
+      "detail_sfx_terms": [
+        "窗外风声",
+        "脚步轻响",
+        "物件轻放声"
+      ]
+    },
+    "走廊": {
+      "template_name": "走廊类",
+      "collection_name": "室内场景集合",
+      "background_elements": [
+        "空旷底噪"
+      ],
+      "feature_elements": [
+        "脚步回响",
+        "轻微风声"
+      ],
+      "detail_elements": [
+        "门缝风声",
+        "衣料摩擦声",
+        "远处开门声"
+      ],
+      "supporting_sfx_terms": [
+        "脚步回响",
+        "轻微风声"
+      ],
+      "detail_sfx_terms": [
+        "门缝风声",
+        "衣料摩擦声",
+        "远处开门声"
+      ]
+    },
+    "客栈": {
+      "template_name": "客栈类",
+      "collection_name": "古风场景集合",
+      "background_elements": [
+        "室内环境底噪"
+      ],
+      "feature_elements": [
+        "人群低语声",
+        "碗筷轻碰声",
+        "木桌轻响"
+      ],
+      "detail_elements": [
+        "柜台拨算盘声",
+        "脚步来往声",
+        "门帘摆动声"
+      ],
+      "supporting_sfx_terms": [
+        "人群低语声",
+        "碗筷轻碰声",
+        "木桌轻响"
+      ],
+      "detail_sfx_terms": [
+        "柜台拨算盘声",
+        "脚步来往声",
+        "门帘摆动声"
+      ]
+    },
+    "市集": {
+      "template_name": "市集类",
+      "collection_name": "古风场景集合",
+      "background_elements": [
+        "户外人群底噪"
+      ],
+      "feature_elements": [
+        "叫卖声",
+        "人群嘈杂声",
+        "脚步往来声"
+      ],
+      "detail_elements": [
+        "车轮滚动声",
+        "布幡摆动声",
+        "摊位器物轻碰声"
+      ],
+      "supporting_sfx_terms": [
+        "叫卖声",
+        "人群嘈杂声",
+        "脚步往来声"
+      ],
+      "detail_sfx_terms": [
+        "车轮滚动声",
+        "布幡摆动声",
+        "摊位器物轻碰声"
+      ]
+    },
+    "山林": {
+      "template_name": "山林类",
+      "collection_name": "自然场景集合",
+      "background_elements": [
+        "空气流动"
+      ],
+      "feature_elements": [
+        "风声",
+        "树叶声",
+        "虫鸣"
+      ],
+      "detail_elements": [
+        "枯枝轻响",
+        "鸟鸣",
+        "远处流水声"
+      ],
+      "supporting_sfx_terms": [
+        "风声",
+        "树叶声",
+        "虫鸣"
+      ],
+      "detail_sfx_terms": [
+        "枯枝轻响",
+        "鸟鸣",
+        "远处流水声"
+      ]
+    },
+    "河边": {
+      "template_name": "河岸类",
+      "collection_name": "自然场景集合",
+      "background_elements": [
+        "空气流动"
+      ],
+      "feature_elements": [
+        "流水声",
+        "风声",
+        "草叶轻响"
+      ],
+      "detail_elements": [
+        "水滴声",
+        "碎石踩踏声",
+        "远处虫鸣"
+      ],
+      "supporting_sfx_terms": [
+        "流水声",
+        "风声",
+        "草叶轻响"
+      ],
+      "detail_sfx_terms": [
+        "水滴声",
+        "碎石踩踏声",
+        "远处虫鸣"
+      ]
+    }
+  },
+  "genres": {
+    "玄幻": {
+      "山林夜路": {
+        "template_name": "夜林类",
+        "collection_name": "玄幻野外场景集合",
+        "background_elements": [
+          "空气流动"
+        ],
+        "feature_elements": [
+          "夜风",
+          "树叶声",
+          "虫鸣"
+        ],
+        "detail_elements": [
+          "枯枝轻响",
+          "远处鸟鸣",
+          "灵力流动声"
+        ],
+        "supporting_sfx_terms": [
+          "夜风",
+          "树叶声",
+          "虫鸣"
+        ],
+        "detail_sfx_terms": [
+          "枯枝轻响",
+          "远处鸟鸣",
+          "灵力流动声"
+        ]
+      },
+      "宗门大殿": {
+        "template_name": "殿宇类",
+        "collection_name": "玄幻宗门场景集合",
+        "background_elements": [
+          "空旷室内底噪"
+        ],
+        "feature_elements": [
+          "殿内回响",
+          "衣摆轻拂声",
+          "香火轻燃声"
+        ],
+        "detail_elements": [
+          "脚步回响",
+          "器物轻鸣",
+          "灵力低鸣声"
+        ],
+        "supporting_sfx_terms": [
+          "殿内回响",
+          "衣摆轻拂声",
+          "香火轻燃声"
+        ],
+        "detail_sfx_terms": [
+          "脚步回响",
+          "器物轻鸣",
+          "灵力低鸣声"
+        ]
+      }
+    },
+    "言情": {
+      "闺阁深夜": {
+        "template_name": "闺阁类",
+        "collection_name": "言情室内场景集合",
+        "background_elements": [
+          "室内静谧底噪"
+        ],
+        "feature_elements": [
+          "烛火轻响",
+          "窗外夜风声",
+          "布料轻擦声"
+        ],
+        "detail_elements": [
+          "珠帘轻碰声",
+          "翻页声",
+          "脚步轻响"
+        ],
+        "supporting_sfx_terms": [
+          "烛火轻响",
+          "窗外夜风声",
+          "布料轻擦声"
+        ],
+        "detail_sfx_terms": [
+          "珠帘轻碰声",
+          "翻页声",
+          "脚步轻响"
+        ]
+      }
+    },
+    "悬疑": {
+      "废弃走廊": {
+        "template_name": "废弃走廊类",
+        "collection_name": "悬疑空间场景集合",
+        "background_elements": [
+          "空旷底噪"
+        ],
+        "feature_elements": [
+          "脚步回响",
+          "风穿堂声",
+          "远处滴水声"
+        ],
+        "detail_elements": [
+          "铁门轻响",
+          "墙面碎屑掉落声",
+          "电流杂讯"
+        ],
+        "supporting_sfx_terms": [
+          "脚步回响",
+          "风穿堂声",
+          "远处滴水声"
+        ],
+        "detail_sfx_terms": [
+          "铁门轻响",
+          "墙面碎屑掉落声",
+          "电流杂讯"
+        ]
+      }
+    },
+    "科幻": {
+      "舰桥": {
+        "template_name": "舰桥类",
+        "collection_name": "科幻空间场景集合",
+        "background_elements": [
+          "设备底噪"
+        ],
+        "feature_elements": [
+          "电子提示音",
+          "低频嗡鸣",
+          "设备运转声"
+        ],
+        "detail_elements": [
+          "面板轻触声",
+          "数据跳动声",
+          "金属脚步声"
+        ],
+        "supporting_sfx_terms": [
+          "电子提示音",
+          "低频嗡鸣",
+          "设备运转声"
+        ],
+        "detail_sfx_terms": [
+          "面板轻触声",
+          "数据跳动声",
+          "金属脚步声"
+        ]
+      }
+    }
+  },
+  "templates": {
+    "教室类": {
+      "collection_name": "校园场景集合",
+      "aliases": [
+        "教室"
+      ]
+    },
+    "操场类": {
+      "collection_name": "校园场景集合",
+      "aliases": [
+        "操场"
+      ]
+    },
+    "海边类": {
+      "collection_name": "自然场景集合",
+      "aliases": [
+        "海边",
+        "沙滩"
+      ]
+    },
+    "夜林类": {
+      "collection_name": "玄幻野外场景集合",
+      "aliases": [
+        "山林",
+        "树林",
+        "林间"
+      ]
+    },
+    "街道类": {
+      "collection_name": "城市场景集合",
+      "aliases": [
+        "街道",
+        "街边",
+        "路边"
+      ]
+    },
+    "雨夜街巷类": {
+      "collection_name": "城市场景集合",
+      "aliases": [
+        "雨夜街巷",
+        "巷子",
+        "雨巷"
+      ]
+    },
+    "居室类": {
+      "collection_name": "室内场景集合",
+      "aliases": [
+        "房间",
+        "卧室",
+        "室内"
+      ]
+    },
+    "走廊类": {
+      "collection_name": "室内场景集合",
+      "aliases": [
+        "走廊",
+        "长廊",
+        "廊道"
+      ]
+    },
+    "客栈类": {
+      "collection_name": "古风场景集合",
+      "aliases": [
+        "客栈",
+        "酒楼",
+        "大堂"
+      ]
+    },
+    "市集类": {
+      "collection_name": "古风场景集合",
+      "aliases": [
+        "市集",
+        "集市",
+        "街市"
+      ]
+    },
+    "山林类": {
+      "collection_name": "自然场景集合",
+      "aliases": [
+        "山林",
+        "树林",
+        "林中"
+      ]
+    },
+    "河岸类": {
+      "collection_name": "自然场景集合",
+      "aliases": [
+        "河边",
+        "河岸",
+        "溪边"
+      ]
+    },
+    "殿宇类": {
+      "collection_name": "玄幻宗门场景集合",
+      "aliases": [
+        "大殿",
+        "殿内",
+        "宗门大殿"
+      ]
+    },
+    "闺阁类": {
+      "collection_name": "言情室内场景集合",
+      "aliases": [
+        "闺阁",
+        "房中",
+        "深夜房间"
+      ]
+    },
+    "废弃走廊类": {
+      "collection_name": "悬疑空间场景集合",
+      "aliases": [
+        "废弃走廊",
+        "废弃长廊",
+        "空走廊"
+      ]
+    },
+    "舰桥类": {
+      "collection_name": "科幻空间场景集合",
+      "aliases": [
+        "舰桥",
+        "驾驶舱",
+        "控制台"
+      ]
+    }
+  }
+}

@@ -62,7 +62,7 @@ def _build_rule_report(cues: list[dict]) -> str:
     lines = ['# 音乐-文本融合执行单（规则版）', '', '## Cue Sheet']
     for cue in cues:
         lines.append(
-            f"- Scene {cue['scene_no']} -> {cue['target_time_sec']:.2f}s ({cue['marker_label']}) | 比例 {cue['dialogue_music_ratio']} | 音效 {', '.join(cue['recommended_sfx']) or '无'}"
+            f"- Scene {cue['scene_no']} -> {cue['target_time_sec']:.2f}s ({cue['marker_label']})"
         )
     return '\n'.join(lines)
 
@@ -75,6 +75,7 @@ def build_fusion_plan(
     text_context: dict | None = None,
     report_mode: str | None = None,
     debug_prompt: bool = True,
+    llm_provider_override: str = '',
 ) -> dict:
     mode = report_mode or settings.report_mode_default
     if not audio_markers or not scenes:
@@ -147,6 +148,7 @@ def build_fusion_plan(
             'narration_timeline': {'scene_timeline': scene_timeline, 'clause_timeline': clause_timeline},
             'cues': cues,
             'fit': fit,
+            'llm_provider_override': llm_provider_override,
         },
         debug_prompt=debug_prompt,
     )
@@ -181,7 +183,9 @@ def build_fusion_plan(
         'report_json': report_json,
         'analysis_mode': 'llm+rules' if llm_hit else 'rules-only',
         'llm_structured': bool(report_json),
-        'llm_enabled': llm_enabled(),
+        'llm_enabled': llm_enabled(llm_provider_override),
+        'llm_provider_used': llm_meta.get('llm_provider_used'),
+        'llm_model_used': llm_meta.get('llm_model_used'),
         'report_mode': mode,
         'effective_report_mode': llm_meta.get('effective_mode'),
         'llm_fallback_applied': llm_meta.get('fallback_applied', False),

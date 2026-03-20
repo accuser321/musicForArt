@@ -8,6 +8,8 @@ from app.services.llm import (
     _extract_json_blob,
     _load_prompt,
     _load_system_prompt,
+    _normalize_contract_payload,
+    _validate_contract,
     llm_enabled,
 )
 
@@ -164,6 +166,7 @@ def _call_action_verbs_once(
     segment_no: int,
     start_char: int,
     end_char: int,
+    llm_provider_override: str = '',
 ) -> dict:
     payload = {
         'kind': 'action_verbs',
@@ -183,12 +186,20 @@ def _call_action_verbs_once(
         f'证据 JSON:\n{json.dumps(compact, ensure_ascii=False, indent=2)}'
     )
     try:
-        raw_response, call_meta = _chat_completion(system_prompt, user_prompt, evidence_kind='action_verbs')
+        raw_response, call_meta = _chat_completion(system_prompt, user_prompt, evidence_kind='action_verbs', provider_override=llm_provider_override)
         report_json = _extract_json_blob(raw_response) if raw_response else None
     except Exception as e:
         raw_response = None
         report_json = None
         call_meta = {'status': 'service_exception', 'error': f'{type(e).__name__}: {e}'}
+
+    contract_valid = None
+    contract_reason = ''
+    if isinstance(report_json, dict):
+        report_json = _normalize_contract_payload(report_json, evidence_kind='action_verbs')
+        contract_valid, contract_reason = _validate_contract(report_json, evidence_kind='action_verbs')
+        if contract_valid is False:
+            report_json = None
 
     trace = [
         {
@@ -201,23 +212,31 @@ def _call_action_verbs_once(
             'user_prompt': user_prompt,
             'raw_response': raw_response,
             'call_meta': call_meta,
+            'contract_valid': contract_valid,
+            'contract_reason': contract_reason,
             '_source_path': f'segment_reports[{segment_no - 1}]',
         }
     ]
     if isinstance(report_json, dict):
         report_json['genre'] = genre
         report_json.setdefault('markdown', '')
+        fallback_applied = False
     else:
         report_json = _fallback_action_report(segment_text, genre)
+        fallback_applied = True
     return {
         'segment_no': segment_no,
         'start_char': start_char,
         'end_char': end_char,
         'text_length': len(segment_text),
+        'segment_text': segment_text,
         'report_json': report_json,
         'report_markdown': raw_response or '',
         'llm_trace': trace,
         'effective_prompt_file': expected_prompt,
+        'contract_valid': contract_valid,
+        'contract_reason': contract_reason,
+        'fallback_applied': fallback_applied,
     }
 
 
@@ -303,6 +322,7 @@ def analyze_action_verbs(
     prompt_file: str | None = None,
     report_mode: str | None = None,
     debug_prompt: bool = True,
+    llm_provider_override: str = '',
 ) -> dict:
     _ = debug_prompt
     mode = report_mode or settings.report_mode_default
@@ -319,6 +339,7 @@ def analyze_action_verbs(
             segment_no=seg['segment_no'],
             start_char=seg['start_char'],
             end_char=seg['end_char'],
+            llm_provider_override=llm_provider_override,
         )
         segment_reports.append(seg_report)
         all_trace.extend(seg_report.get('llm_trace') or [])
@@ -351,7 +372,9 @@ def analyze_action_verbs(
         'report_markdown': '',
         'analysis_mode': 'llm-action-verbs',
         'llm_structured': True,
-        'llm_enabled': llm_enabled(),
+        'llm_enabled': llm_enabled(llm_provider_override),
+        'llm_provider_used': ((all_trace[0].get('call_meta') or {}).get('provider') if all_trace else ''),
+        'llm_model_used': ((all_trace[0].get('call_meta') or {}).get('model') if all_trace else ''),
         'report_mode': mode,
         'effective_report_mode': expected_prompt,
         'llm_fallback_applied': False,

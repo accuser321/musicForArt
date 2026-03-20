@@ -1,0 +1,122 @@
+你正在重试“场景搭建分析”任务。
+
+本次重试的目标只有一个：返回一个严格符合结构要求的 JSON。
+不要写解释，不要写前言，不要写 markdown 说明，不要写代码块。
+
+请严格执行：
+
+1. 只能输出一个 JSON 对象。
+2. 顶层字段必须全部存在，且字段名必须完全一致：
+   - title
+   - genre
+   - scene_items
+   - summary
+   - graph_model
+   - key_points
+   - risks
+   - markdown
+3. title 固定输出：场景搭建分析
+4. 如果任何字段内容不确定，也必须保留字段名：
+   - 字符串填 ""
+   - 数组填 []
+   - 数字填 0
+   - 布尔填 false
+5. 不允许省略任一顶层字段。
+6. 不允许只返回 scene_items。
+
+scene_items 规则：
+
+1. scene_items 必须是数组。
+2. 每个 scene_item 都必须包含以下字段：
+   - scene_id
+   - scene_name
+   - node_key
+   - sentence_excerpt
+   - is_scene_change
+   - scene_change_reason
+   - time_terms
+   - location_terms
+   - time_inference
+   - location_inference
+   - background_elements
+   - feature_elements
+   - detail_elements
+   - supporting_sfx_terms
+   - detail_sfx_terms
+   - excluded_action_terms
+   - scene_graph_source
+3. scene_graph_source 必须是对象，至少包含：
+   - common_hit
+   - genre_hit
+   - template_hit
+   - has_fallback_terms
+4. 如果 scene_items 为空，仍然必须返回空数组，不允许省略。
+
+场景搭建内容规则：
+
+1. 你只做文本场景搭建分析，不做导演思维、镜头语言、混响、延迟、远近景建议。
+2. supporting_sfx_terms 用于让听众立刻知道是什么场景。
+3. detail_sfx_terms 用于让场景更丰满，不能代替 supporting_sfx_terms。
+4. 如果 supporting_sfx_terms 已有 2-3 个明确标志声，detail_sfx_terms 仍应补充 2-5 个细节音效。
+5. 如果 supporting_sfx_terms 少于 2 个，detail_sfx_terms 可以补充 3-8 个，但 supporting_sfx_terms 仍必须保留。
+6. 人物动作音效不要写进场景搭建模块，应放入 excluded_action_terms 或直接排除。
+
+输出前自查：
+
+1. 是否有 title
+2. 是否有 summary
+3. 是否有 graph_model
+4. scene_items 是否是数组
+5. 每个 scene_item 是否字段完整
+6. 是否只输出了一个 JSON 对象
+
+请按以下结构返回：
+{
+  "title": "场景搭建分析",
+  "genre": "",
+  "scene_items": [
+    {
+      "scene_id": "",
+      "scene_name": "",
+      "node_key": "",
+      "sentence_excerpt": "",
+      "is_scene_change": false,
+      "scene_change_reason": "",
+      "time_terms": [],
+      "location_terms": [],
+      "time_inference": [],
+      "location_inference": [],
+      "background_elements": [],
+      "feature_elements": [],
+      "detail_elements": [],
+      "supporting_sfx_terms": [],
+      "detail_sfx_terms": [],
+      "excluded_action_terms": [],
+      "scene_graph_source": {
+        "common_hit": false,
+        "genre_hit": false,
+        "template_hit": "",
+        "has_fallback_terms": false
+      }
+    }
+  ],
+  "summary": {
+    "scene_count": 0,
+    "asset_count": 0,
+    "gap_count": 0
+  },
+  "graph_model": {
+    "parent": "赛道+场景主节点",
+    "children": [
+      "time_terms",
+      "location_terms",
+      "scene_elements",
+      "scene_sfx_terms",
+      "missing_scene_sfx_terms"
+    ],
+    "node_example": "玄幻::山林夜路"
+  },
+  "key_points": [],
+  "risks": [],
+  "markdown": ""
+}

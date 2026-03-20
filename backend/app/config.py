@@ -25,6 +25,9 @@ class Settings:
     llm_max_tokens: int = int(os.getenv('LLM_MAX_TOKENS', '2600'))
     llm_retry_attempts: int = int(os.getenv('LLM_RETRY_ATTEMPTS', '2'))
     report_mode_default: str = os.getenv('REPORT_MODE_DEFAULT', 'production')
+    qwen_base_url: str = os.getenv('QWEN_BASE_URL', 'https://dashscope.aliyuncs.com/compatible-mode/v1')
+    qwen_api_key: str = os.getenv('QWEN_API_KEY', 'sk-3ef7e910be894e39adc0147839a0c989')
+    qwen_model: str = os.getenv('QWEN_MODEL', 'qwen-plus')
 
     # Semantic matching backend
     semantic_backend: str = os.getenv('SEMANTIC_BACKEND', 'local')  # local | neo4j | hybrid

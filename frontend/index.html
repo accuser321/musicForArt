@@ -10,6 +10,7 @@
         --ink: #1f1f1f;
         --panel: #fff8ee;
         --accent: #8d2b20;
+        --accent2: #b64e42;
         --line: #d4c6ad;
       }
       * { box-sizing: border-box; }
@@ -42,6 +43,12 @@
         background: var(--accent);
         color: #fff;
         font-weight: 700;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        background: #b7c2d0;
+        color: #f8fbff;
+        opacity: 0.9;
       }
       pre {
         white-space: pre-wrap;
@@ -124,6 +131,30 @@
         font-size: 12px;
         background: #fffdf7;
         margin-right: 6px;
+      }
+      .scene-pill.sfx {
+        border-color: #d4b079;
+        background: linear-gradient(135deg, #fff7e9, #ffefd2);
+        color: #77521c;
+        box-shadow: 0 2px 8px rgba(199, 148, 61, 0.12);
+      }
+      .scene-pill.sfx.hit {
+        border-color: #78b08b;
+        background: linear-gradient(135deg, #eefaf2, #dcf4e4);
+        color: #2f6240;
+        box-shadow: 0 2px 8px rgba(79, 155, 105, 0.14);
+      }
+      .scene-pill.sfx.missing {
+        border-color: #c8a65c;
+        background: linear-gradient(135deg, #fff7e7, #ffe9bf);
+        color: #6c5326;
+      }
+      .table-lite tr.asset-hit td {
+        background: #eef9f0;
+        color: #2f6240;
+      }
+      .table-lite tr.asset-hit td:first-child {
+        font-weight: 700;
       }
       .term-state-list {
         display: flex;
@@ -229,6 +260,43 @@
         font-size: 12px;
         background: #fff;
       }
+      .scene-badge-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 6px 0 8px;
+      }
+      .scene-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        border: 1px solid #c9d7e6;
+        background: #f7fbff;
+        color: #31506d;
+      }
+      .scene-badge.source {
+        border-color: #d8c28b;
+        background: #fff8e8;
+        color: #7a5b15;
+      }
+      .scene-badge.template {
+        border-color: #bed2c1;
+        background: #eef9f0;
+        color: #2f6842;
+      }
+      .scene-badge.collection {
+        border-color: #cdbde7;
+        background: #f6f0ff;
+        color: #60448d;
+      }
+      .scene-badge.warn {
+        border-color: #e4c38f;
+        background: #fff4df;
+        color: #8a5a19;
+      }
       .kv-lite {
         font-size: 13px;
         margin: 3px 0;
@@ -250,6 +318,48 @@
         content: "✦";
         font-size: 11px;
         color: #5f88ad;
+      }
+      .scene-field-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-right: 8px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 12px;
+        border: 1px solid #c6d2dd;
+        box-shadow: 0 2px 10px rgba(46, 89, 124, 0.08);
+      }
+      .scene-field-tag::before {
+        width: 16px;
+        height: 16px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 800;
+      }
+      .scene-field-tag.text {
+        border-color: #aebfd1;
+        background: linear-gradient(135deg, #f4f9fd, #e9f2f9);
+        color: #355773;
+      }
+      .scene-field-tag.text::before {
+        content: "书";
+        background: #5f7fa0;
+        color: #fff;
+      }
+      .scene-field-tag.sfx {
+        border-color: #d5b37b;
+        background: linear-gradient(135deg, #fff7e9, #ffefcf);
+        color: #77521c;
+      }
+      .scene-field-tag.sfx::before {
+        content: "♪";
+        background: #c7943d;
+        color: #fff;
       }
       .view-switch {
         display: flex;
@@ -410,6 +520,37 @@
         text-align: left;
       }
       .hint { font-size: 12px; opacity: 0.8; }
+      .flow-group {
+        margin-top: 14px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: rgba(255,255,255,0.62);
+      }
+      .flow-group h4 {
+        margin: 0 0 6px;
+        font-size: 16px;
+      }
+      .flow-group .flow-desc {
+        font-size: 12px;
+        line-height: 1.6;
+        opacity: 0.84;
+        margin-bottom: 8px;
+      }
+      .flow-buttons {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .flow-buttons.single {
+        grid-template-columns: 1fr;
+      }
+      .flow-note {
+        margin-top: 8px;
+        font-size: 12px;
+        line-height: 1.6;
+        color: #6c4b45;
+      }
       .pending-sfx-alert {
         display: inline-flex;
         align-items: center;
@@ -453,7 +594,8 @@
         <section class="card">
           <div class="hint" style="margin-bottom:10px;">
             用户入口：手机号验证码登录后，完成音乐分析、动作提取、动作图谱推荐、文本演绎分析与下载。
-            运营入口请使用 <a href="/admin.html" style="color:#7de8ff;">后台管理系统</a>。
+            动作分析运营入口请使用 <a href="/admin.html" style="color:#7de8ff;">动作后台</a>；
+            场景搭建运营入口请使用 <a href="/scene.html" style="color:#7de8ff;">场景后台</a>。
           </div>
           <label>API 地址</label>
           <input id="apiBase" value="http://127.0.0.1:8090/api" />
@@ -476,29 +618,72 @@
             <option value="悬疑">悬疑</option>
             <option value="科幻">科幻</option>
           </select>
-          <button onclick="createProject()">1) 创建项目</button>
+          <label>LLM 测试模型</label>
+          <select id="llmProvider">
+            <option value="" selected>默认（DeepSeek）</option>
+            <option value="qwen">Qwen（测试）</option>
+          </select>
+          <p class="hint">仅影响当前页面发起的主要分析请求，不会改掉后台默认 DeepSeek 配置。</p>
+          <div class="flow-group">
+            <h4>基础准备</h4>
+            <div class="flow-desc">先创建项目。音乐分析可独立执行；文本与演绎音频是“文本演绎分析”和“后期执行单”的基础输入。</div>
+            <label>上传音乐</label>
+            <input id="audioFile" type="file" accept="audio/*" />
+            <div class="flow-buttons">
+              <button onclick="createProject()">1) 创建项目</button>
+              <button onclick="uploadAudio()">2) 音乐分析（独立）</button>
+            </div>
+          </div>
           <p class="hint">当前项目ID: <span id="projectId">-</span> ｜ 当前赛道: <span id="projectGenreState">-</span></p>
 
           <div class="hint">当前版本：LLM 调用已强制使用核心 Prompt 对（text_with_music + fusion_production），并默认返回 Prompt I/O 调试追踪。</div>
 
-          <label>上传音乐</label>
-          <input id="audioFile" type="file" accept="audio/*" />
-          <button onclick="uploadAudio()">2) 音乐分析</button>
-
           <label>输入文本</label>
           <textarea id="textInput" rows="8" placeholder="输入章节片段，系统会识别动作和音效建议"></textarea>
 
-          <label>上传演绎音频（第3步必传）</label>
+          <label>上传演绎音频（文本演绎分析 / 后期执行单使用）</label>
           <input id="narrationFile" type="file" accept="audio/*" />
-          <button onclick="analyzeActionVerbs()">3) 人物动作提取</button>
-          <button onclick="buildActionSfxGraph()">3.5) 动作图谱推荐</button>
-          <button onclick="buildActionGraphDraft()">3.6) 动作补充单</button>
-          <button onclick="analyzeTextNarration()">4) 文本分析+演绎时间轴</button>
+          <div class="flow-group">
+            <h4>动作模块</h4>
+            <div class="flow-desc">动作模块只依赖“项目 + 文本”。它与场景模块互不依赖，可单独运行。图谱推荐依赖动作提取，动作补充单依赖图谱推荐。</div>
+            <div class="flow-buttons">
+              <button onclick="analyzeActionVerbs()">3) 动作提取</button>
+              <button onclick="buildActionSfxGraph()">4) 动作图谱推荐</button>
+              <button onclick="buildActionGraphDraft()">5) 动作补充单</button>
+            </div>
+            <div class="flow-note">顺序建议：动作提取 → 动作图谱推荐 → 动作补充单。</div>
+          </div>
 
-          <button onclick="buildFusion()">5) 生成融合执行单</button>
-          <button onclick="fetchReport()">6) 拉取完整报告</button>
-          <button onclick="downloadCueCsv()">7) 下载 Cue CSV</button>
-          <button onclick="downloadSfxZip()">8) 下载 SFX ZIP</button>
+          <div class="flow-group">
+            <h4>场景模块</h4>
+            <div class="flow-desc">场景模块也只依赖“项目 + 文本”。它与动作模块并列，不以动作模块为前提。场景音效推荐依赖场景搭建分析，场景补充单依赖场景音效推荐。</div>
+            <div class="flow-buttons">
+              <button id="sceneBuildingBtn" onclick="buildSceneBuilding()">6) 场景搭建分析</button>
+              <button id="sceneSfxBtn" onclick="buildSceneSfxGraph()">7) 场景音效推荐（待第6步）</button>
+              <button id="sceneSupplementBtn" onclick="buildSceneSupplements()">8) 场景补充单（待第7步）</button>
+            </div>
+            <div id="sceneStageHint" class="flow-note">场景模块链路：先做 <code>6) 场景搭建分析</code>，再做 <code>7) 场景音效推荐</code>，最后再生成 <code>8) 场景补充单</code>。</div>
+          </div>
+
+          <div class="flow-group">
+            <h4>文本与执行</h4>
+            <div class="flow-desc">这部分用于后期制作，不依赖动作模块和场景模块，但依赖“文本 + 演绎音频”；其中“后期执行单”还额外依赖音乐分析。</div>
+            <div class="flow-buttons">
+              <button onclick="analyzeTextNarration()">9) 文本演绎分析（含时间轴）</button>
+              <button onclick="buildFusion()">10) 生成后期执行单</button>
+            </div>
+            <div class="flow-note">顺序建议：先做 <code>2) 音乐分析</code>，再做 <code>9) 文本演绎分析（含时间轴）</code>，最后生成 <code>10) 后期执行单</code>。</div>
+          </div>
+
+          <div class="flow-group">
+            <h4>导出与汇总</h4>
+            <div class="flow-desc">这组功能不直接生成新分析，只负责查看和导出当前项目的汇总结果。</div>
+            <div class="flow-buttons">
+              <button onclick="fetchReport()">11) 拉取完整报告</button>
+              <button onclick="downloadCueCsv()">12) 下载 Cue CSV</button>
+              <button onclick="downloadSfxZip()">13) 下载 SFX ZIP</button>
+            </div>
+          </div>
         </section>
 
         <section class="card">
@@ -516,6 +701,9 @@
       let latestActionSfxData = null;
       let latestActionGraphDraftData = null;
       let latestActionGraphExplanation = null;
+      let latestSceneBuildingData = null;
+      let latestSceneSfxData = null;
+      let latestSceneSupplementData = null;
       let uiBusy = false;
       let authToken = localStorage.getItem('mfa_auth_token') || '';
       let authPhone = localStorage.getItem('mfa_auth_phone') || '';
@@ -525,6 +713,100 @@
         '悬疑': 'V3-action_verbs_xuanyi_task.txt',
         '科幻': 'V3-action_verbs_kehuan_task.txt',
       };
+      const SCENE_PROMPT_BY_GENRE = {
+        '玄幻': 'V3-scene_building_task.txt',
+        '言情': 'V3-scene_building_task.txt',
+        '悬疑': 'V3-scene_building_task.txt',
+        '科幻': 'V3-scene_building_task.txt',
+      };
+
+      function currentLlmProviderOverride() {
+        const el = document.getElementById('llmProvider');
+        return String(el && el.value ? el.value : '').trim();
+      }
+
+      function resetSceneFlowState() {
+        latestSceneBuildingData = null;
+        latestSceneSfxData = null;
+        latestSceneSupplementData = null;
+        refreshSceneActionButtons();
+      }
+
+      function clearSceneFlowFrom(stage) {
+        const key = String(stage || '').trim();
+        if (key === 'building') {
+          latestSceneBuildingData = null;
+          latestSceneSfxData = null;
+          latestSceneSupplementData = null;
+        } else if (key === 'sfx') {
+          latestSceneSfxData = null;
+          latestSceneSupplementData = null;
+        } else if (key === 'supplements') {
+          latestSceneSupplementData = null;
+        }
+        refreshSceneActionButtons();
+      }
+
+      function showScenePendingState(stage) {
+        const key = String(stage || '').trim();
+        if (key === 'building') {
+          return show('正在重跑 6) 场景搭建分析。\n系统已清空上一轮的场景分析、场景音效推荐和场景补充单结果，请稍候新的场景结果返回。');
+        }
+        if (key === 'sfx') {
+          return show('正在重跑 7) 场景音效推荐。\n系统已清空上一轮的场景音效推荐和场景补充单结果，请稍候新的音效推荐结果返回。');
+        }
+        if (key === 'supplements') {
+          return show('正在重跑 8) 场景补充单。\n系统已清空上一轮的场景补充单结果，请稍候新的补充单结果返回。');
+        }
+      }
+
+      function refreshSceneActionButtons() {
+        const sceneBuildingBtn = document.getElementById('sceneBuildingBtn');
+        const sceneSfxBtn = document.getElementById('sceneSfxBtn');
+        const sceneSupplementBtn = document.getElementById('sceneSupplementBtn');
+        const sceneStageHint = document.getElementById('sceneStageHint');
+        if (!sceneBuildingBtn || !sceneSfxBtn || !sceneSupplementBtn || !sceneStageHint) return;
+        const hasProject = !!projectId;
+        const hasSceneBuilding = !!(latestSceneBuildingData && Array.isArray(latestSceneBuildingData.scene_items));
+        const hasSceneSfx = !!(latestSceneSfxData && Array.isArray(latestSceneSfxData.scene_items));
+        const hasSceneSupplements = !!(
+          latestSceneSupplementData
+          && (
+            Array.isArray(latestSceneSupplementData.tasks)
+            || Array.isArray(latestSceneSupplementData.task_items)
+            || typeof latestSceneSupplementData.task_count === 'number'
+          )
+        );
+
+        sceneBuildingBtn.disabled = !hasProject;
+        sceneSfxBtn.disabled = !hasSceneBuilding;
+        sceneSupplementBtn.disabled = !hasSceneSfx;
+        sceneBuildingBtn.textContent = hasProject ? '6) 场景搭建分析' : '6) 场景搭建分析（先创建项目）';
+        sceneSfxBtn.textContent = hasSceneBuilding
+          ? `7) 场景音效推荐${hasSceneSfx ? '（可重跑）' : ''}`
+          : '7) 场景音效推荐（待第6步）';
+        sceneSupplementBtn.textContent = hasSceneSfx
+          ? `8) 场景补充单${hasSceneSupplements ? '（可重跑）' : ''}`
+          : '8) 场景补充单（待第7步）';
+
+        if (!hasProject) {
+          sceneStageHint.innerHTML = '场景模块链路：请先创建项目，再执行 <code>6) 场景搭建分析</code>。';
+          return;
+        }
+        if (!hasSceneBuilding) {
+          sceneStageHint.innerHTML = '场景模块链路：当前可先执行 <code>6) 场景搭建分析</code>；完成后会自动解锁 <code>7) 场景音效推荐</code>。';
+          return;
+        }
+        if (!hasSceneSfx) {
+          sceneStageHint.innerHTML = '场景模块链路：已完成 <code>6) 场景搭建分析</code>，现在可执行 <code>7) 场景音效推荐</code>。';
+          return;
+        }
+        if (!hasSceneSupplements) {
+          sceneStageHint.innerHTML = '场景模块链路：已完成 <code>7) 场景音效推荐</code>，现在可生成 <code>8) 场景补充单</code>。';
+          return;
+        }
+        sceneStageHint.innerHTML = '场景模块链路：<code>6) 场景搭建分析</code>、<code>7) 场景音效推荐</code>、<code>8) 场景补充单</code> 已完成一轮，可按需要重新执行任一步。';
+      }
 
       function sanitizeText(s) {
         return String(s ?? '')
@@ -768,18 +1050,34 @@
 
       function getBestActionVerbReport(data) {
         const mergedReport = data && data.report_json && typeof data.report_json === 'object' ? data.report_json : null;
+        const trace = Array.isArray(data && data.llm_trace) ? data.llm_trace : [];
+        const providerUsed = ((trace[0] && trace[0].call_meta) || {}).provider || (data && data.llm_provider_used) || '';
+        const modelUsed = ((trace[0] && trace[0].call_meta) || {}).model || (data && data.llm_model_used) || '';
         if (mergedReport && Array.isArray(mergedReport.action_candidates)) {
+          const traceContracts = trace
+            .map(t => (t && Object.prototype.hasOwnProperty.call(t, 'contract_valid')) ? t.contract_valid : null)
+            .filter(v => v !== null);
+          const mergedContractValid = traceContracts.length ? traceContracts.every(v => v === true) : null;
+          const mergedContractReason = mergedContractValid === false
+            ? trace
+                .map(t => (t && t.contract_valid === false ? String(t.contract_reason || '').trim() : ''))
+                .filter(Boolean)
+                .join('；')
+            : '';
           return {
             report: mergedReport,
             source: (data.segmentation && data.segmentation.mode === 'segmented') ? '系统合并结果' : '接口最终report_json',
             prompt_file: data.effective_prompt_file || '',
             status: 'ok',
-            contract_valid: true,
+            contract_valid: mergedContractValid,
+            contract_reason: mergedContractReason,
             raw: '',
             effective_prompt_file: data && data.effective_prompt_file ? data.effective_prompt_file : '',
             genre: data && data.genre ? data.genre : (mergedReport && mergedReport.genre ? mergedReport.genre : ''),
             segmentation: data && data.segmentation ? data.segmentation : null,
             segment_reports: Array.isArray(data && data.segment_reports) ? data.segment_reports : [],
+            provider_used: providerUsed,
+            model_used: modelUsed,
           };
         }
         const payloads = extractRawResponsePayloads(data);
@@ -793,11 +1091,14 @@
               prompt_file: item.prompt_file || '',
               status: item.status || '',
               contract_valid: item.contract_valid,
+              contract_reason: (trace[i] && trace[i].contract_reason) ? trace[i].contract_reason : '',
               raw: item.raw || '',
               effective_prompt_file: data && data.effective_prompt_file ? data.effective_prompt_file : '',
               genre: data && data.genre ? data.genre : (rawObj && rawObj.genre ? rawObj.genre : ''),
               segmentation: data && data.segmentation ? data.segmentation : null,
               segment_reports: Array.isArray(data && data.segment_reports) ? data.segment_reports : [],
+              provider_used: ((trace[i] && trace[i].call_meta) || {}).provider || providerUsed,
+              model_used: ((trace[i] && trace[i].call_meta) || {}).model || modelUsed,
             };
           }
         }
@@ -876,6 +1177,39 @@
         const arr = Array.isArray(items) ? items.filter(Boolean) : [];
         if (!arr.length) return '<span class="hint">无</span>';
         return arr.map(x => `<span class="pill">${escHtml(String(x))}</span>`).join('');
+      }
+      function renderScenePills(items, kind = 'text', matchedTerms = null) {
+        const arr = Array.isArray(items) ? items.filter(Boolean) : [];
+        if (!arr.length) return '<span class="hint">无</span>';
+        if (kind === 'sfx' || kind === 'sfx-missing') {
+          if (kind === 'sfx-missing') {
+            return arr.map(x => `<span class="pill scene-pill sfx missing">${escHtml(String(x))}</span>`).join('');
+          }
+          const matched = matchedTerms instanceof Set ? matchedTerms : new Set();
+          return arr.map(x => {
+            const term = String(x);
+            const hitCls = matched.has(term) ? ' hit' : '';
+            return `<span class="pill scene-pill sfx${hitCls}">${escHtml(term)}</span>`;
+          }).join('');
+        }
+        return renderPills(arr);
+      }
+      function buildSceneMatchedSfxSet(assets) {
+        const out = new Set();
+        (Array.isArray(assets) ? assets : []).forEach(asset => {
+          const label = String(asset?.label || asset?.asset_label || '').trim();
+          if (label) out.add(label);
+        });
+        return out;
+      }
+      function renderSceneFieldLabel(title, kind = 'text') {
+        return `<span class="scene-field-tag ${escAttr(kind)}">${escHtml(title)}</span>`;
+      }
+      function middleEllipsis(text, head = 28, tail = 18) {
+        const value = String(text || '').trim();
+        if (!value) return '无';
+        if (value.length <= head + tail + 3) return value;
+        return `${value.slice(0, head)}..........${value.slice(-tail)}`;
       }
 
       function renderSourceBadge(source) {
@@ -1024,12 +1358,18 @@
         const qualified = Array.isArray(report.qualified_actions) ? report.qualified_actions : [];
         const rules = Array.isArray(report.rule_summary) ? report.rule_summary : [];
         if (meta && typeof meta === 'object') {
-          const contractText = meta.contract_valid === true ? '通过' : (meta.contract_valid === false ? '不通过' : '未校验');
+          const contractText = meta.contract_valid === true
+            ? '通过'
+            : (meta.contract_valid === false ? `不通过：${escHtml(meta.contract_reason || '')}` : '未校验');
+          const modelText = meta.provider_used
+            ? `${meta.provider_used}${meta.model_used ? ` / ${meta.model_used}` : ''}`
+            : '未标注';
           blocks.push(panel('当前展示来源', `
             <div class="kv"><div>数据来源</div><div>${escHtml(meta.source || '-')}</div></div>
             <div class="kv"><div>提示词文件</div><div>${escHtml(meta.prompt_file || '-')}</div></div>
             <div class="kv"><div>赛道</div><div>${escHtml((report && report.genre) || meta.genre || '-')}</div></div>
             <div class="kv"><div>最终命中Prompt</div><div>${escHtml(meta.effective_prompt_file || meta.prompt_file || '-')}</div></div>
+            <div class="kv"><div>实际调用模型</div><div>${escHtml(modelText)}</div></div>
             <div class="kv"><div>调用状态</div><div>${escHtml(meta.status || '-')}</div></div>
             <div class="kv"><div>Contract</div><div>${escHtml(contractText)}</div></div>
           `));
@@ -1080,15 +1420,23 @@
           const rows = segReports.map(seg => {
             const segReport = seg.report_json || {};
             const count = Array.isArray(segReport.action_candidates) ? segReport.action_candidates.length : 0;
+            const excerpt = middleEllipsis(seg.segment_text || '', 20, 16);
+            const contractText = seg.contract_valid === true
+              ? '通过'
+              : (seg.contract_valid === false ? `不通过：${String(seg.contract_reason || '未说明')}` : '未校验');
+            const fallbackText = seg.fallback_applied ? '是' : '否';
             return `<tr>
               <td>${seg.segment_no ?? '-'}</td>
               <td>${seg.start_char ?? '-'} ~ ${seg.end_char ?? '-'}</td>
               <td>${seg.text_length ?? '-'}</td>
+              <td>${escHtml(excerpt)}</td>
               <td>${count}</td>
+              <td>${escHtml(contractText)}</td>
+              <td>${escHtml(fallbackText)}</td>
               <td>${escHtml(seg.effective_prompt_file || '-')}</td>
             </tr>`;
           }).join('');
-          blocks.push(panel('分段明细（系统逐段调用后合并）', `<table class="table-lite"><thead><tr><th>段号</th><th>字符区间</th><th>段字数</th><th>候选数</th><th>Prompt</th></tr></thead><tbody>${rows}</tbody></table>`));
+          blocks.push(panel('分段明细（系统逐段调用后合并）', `<table class="table-lite"><thead><tr><th>段号</th><th>字符区间</th><th>段字数</th><th>该段缩略原文</th><th>候选数</th><th>Contract</th><th>Fallback</th><th>Prompt</th></tr></thead><tbody>${rows}</tbody></table>`));
         }
         if (!candidates.length && !qualified.length) {
           blocks.push(panel('LLM 原始结构化结果', `<pre>${escHtml(JSON.stringify(report, null, 2))}</pre>`));
@@ -1335,6 +1683,359 @@
         return blocks;
       }
 
+      function renderSceneBuildingPanels(data, panel) {
+        const blocks = [];
+        const items = Array.isArray(data.scene_items) ? data.scene_items : [];
+        const summary = data.summary || {};
+        const getSceneBuildQuality = (item) => {
+          const graphSource = item?.scene_graph_source || {};
+          if (graphSource.has_fallback_terms) {
+            return { label: '结果层级：保底结果', cls: 'warn', note: '当前主要依赖系统保底结果，后续仍建议继续完善 scene 图谱。' };
+          }
+          if (graphSource.genre_hit) {
+            return { label: '结果层级：稳定图谱', cls: 'source', note: '当前已命中赛道层图谱，场景基础较稳定。' };
+          }
+          if (graphSource.common_hit) {
+            return { label: '结果层级：通用图谱', cls: 'collection', note: '当前主要命中通用层图谱，适合继续确认是否需要赛道特化。' };
+          }
+          if (graphSource.template_hit) {
+            return { label: '结果层级：模板过渡', cls: 'template', note: '当前主要依赖模板命中，适合继续确认映射出的场景音效是否准确。' };
+          }
+          return { label: '结果层级：待完善', cls: 'warn', note: '当前还没有稳定图谱支撑，建议优先补 scene 图谱。' };
+        };
+        const commonHitCount = items.filter(item => item?.scene_graph_source?.common_hit).length;
+        const genreHitCount = items.filter(item => item?.scene_graph_source?.genre_hit).length;
+        const templateHitCount = items.filter(item => String(item?.scene_graph_source?.template_hit || '').trim()).length;
+        const fallbackCount = items.filter(item => item?.scene_graph_source?.has_fallback_terms).length;
+        const sceneChangeCount = items.filter(item => item?.is_scene_change).length;
+        const stableCount = items.filter(item => {
+          const q = getSceneBuildQuality(item);
+          return q.label === '结果层级：稳定图谱' || q.label === '结果层级：通用图谱';
+        }).length;
+        blocks.push(panel('场景搭建总览', `
+          <div class="scene-badge-row" style="margin-bottom:10px;">
+            <span class="scene-badge source">当前阶段：场景识别</span>
+            <span class="scene-badge template">下一步：4.5 场景音效推荐</span>
+          </div>
+          <div class="kv"><div>赛道</div><div>${escHtml(data.genre || '-')}</div></div>
+          <div class="kv"><div>场景数</div><div>${summary.scene_count ?? items.length}</div></div>
+          <div class="kv"><div>素材候选数</div><div>${summary.asset_count ?? 0}</div></div>
+          <div class="kv"><div>缺口词数</div><div>${summary.gap_count ?? 0}</div></div>
+          <div class="kv"><div>分析模式</div><div>${escHtml(data.analysis_mode || '未标注')}</div></div>
+          <div class="kv"><div>场景切换点</div><div>${sceneChangeCount}</div></div>
+          <div class="kv"><div>结果较稳定场景</div><div>${stableCount}</div></div>
+          <div class="kv"><div>模板命中场景</div><div>${templateHitCount}</div></div>
+          <div class="kv"><div>通用层命中</div><div>${commonHitCount}</div></div>
+          <div class="kv"><div>赛道层命中</div><div>${genreHitCount}</div></div>
+          <div class="kv"><div>保底生成</div><div>${fallbackCount}</div></div>
+          <div class="hint" style="margin-top:10px;">这一步先回答“文本里有哪些场景、哪些地方需要换场景、每个场景由哪些元素和环境音效构成”；确认无误后，再进入 4.5 步做场景音效推荐。</div>
+        `));
+        if (fallbackCount > 0) {
+          const fallbackNames = items
+            .filter(item => item?.scene_graph_source?.has_fallback_terms)
+            .map(item => String(item.scene_name || '').trim())
+            .filter(Boolean)
+            .slice(0, 8);
+          blocks.push(panel('保底生成提醒', `
+            <div class="hint">
+              当前有 <strong>${fallbackCount}</strong> 个场景主要依赖系统保底结果，并非稳定图谱命中。
+              ${fallbackNames.length ? `涉及：${escHtml(fallbackNames.join('、'))}。` : ''}
+              这类场景后续可能随着 scene 图谱维护继续变化。
+            </div>
+          `));
+        }
+        const getSceneBuildNextStep = (item) => {
+          const graphSource = item?.scene_graph_source || {};
+          if (graphSource.has_fallback_terms) {
+            return '当前场景主要依赖保底结果，建议后续优先在 scene 图谱里补齐这个场景的模板、集合和场景音效词。';
+          }
+          if (graphSource.template_hit && !(graphSource.common_hit || graphSource.genre_hit)) {
+            return '当前场景主要命中模板层，建议继续进入 4.5 步确认模板映射出来的场景音效是否足够准确。';
+          }
+          if (graphSource.genre_hit) {
+            return '当前场景已经命中赛道层图谱，可以继续进入 4.5 步检查可下载素材和缺口。';
+          }
+          if (graphSource.common_hit) {
+            return '当前场景主要命中通用层图谱，适合继续进入 4.5 步确认是否需要赛道特化补充。';
+          }
+          return '当前场景还没有稳定图谱支撑，建议后续优先补 scene 图谱，再进入音效推荐。';
+        };
+        const cards = items.map((item, idx) => {
+          const graphSource = item.scene_graph_source || {};
+          const quality = getSceneBuildQuality(item);
+          const sourceType = graphSource.common_hit && graphSource.genre_hit
+            ? '通用层+赛道层'
+            : graphSource.genre_hit
+              ? '赛道层'
+              : graphSource.common_hit
+                ? '通用层'
+                : (graphSource.template_hit ? '模板命中' : (graphSource.has_fallback_terms ? '保底生成' : '未命中图谱'));
+          const sourceText = [
+            `来源类型：${sourceType}`,
+            `模板命中：${graphSource.template_hit ? graphSource.template_hit : '未命中'}`,
+            graphSource.collection_name ? `场景集合：${graphSource.collection_name}` : '',
+            graphSource.has_fallback_terms ? '含保底词' : '',
+          ].filter(Boolean).join(' / ');
+          const sourceBadges = [
+            `<span class="scene-badge ${escAttr(quality.cls)}">${escHtml(quality.label)}</span>`,
+            `<span class="scene-badge source">来源：${escHtml(sourceType)}</span>`,
+            graphSource.template_hit ? `<span class="scene-badge template">模板：${escHtml(graphSource.template_hit)}</span>` : '',
+            graphSource.collection_name ? `<span class="scene-badge collection">集合：${escHtml(graphSource.collection_name)}</span>` : '',
+            graphSource.has_fallback_terms ? `<span class="scene-badge warn">含保底词</span>` : '',
+          ].filter(Boolean).join('');
+          return `
+            <article class="section-card">
+              <div class="section-head">
+                <strong>${escHtml(item.scene_name || `场景${idx + 1}`)}</strong>
+                <span class="badge">${escHtml(item.is_scene_change ? '场景切换点' : '沿用上个场景')}</span>
+              </div>
+              <div class="scene-badge-row">${sourceBadges}</div>
+              <div class="kv-lite"><span class="kv-title">原句片段</span>${escHtml(middleEllipsis(item.sentence_excerpt || '无'))}</div>
+              <div class="kv-lite"><span class="kv-title">时间词</span>${renderPills(item.time_terms)}</div>
+              <div class="kv-lite"><span class="kv-title">地点词</span>${renderPills(item.location_terms)}</div>
+              <div class="kv-lite">${renderSceneFieldLabel('背景元素', 'text')}${renderScenePills(item.background_elements, 'text')}</div>
+              <div class="kv-lite">${renderSceneFieldLabel('特征元素', 'text')}${renderScenePills(item.feature_elements, 'text')}</div>
+              <div class="kv-lite">${renderSceneFieldLabel('细节元素', 'text')}${renderScenePills(item.detail_elements, 'text')}</div>
+              <div class="kv-lite">${renderSceneFieldLabel('支撑场景音效', 'sfx')}${renderScenePills(item.supporting_sfx_terms, 'sfx')}</div>
+              <div class="kv-lite">${renderSceneFieldLabel('补充层次音效', 'sfx')}${renderScenePills(item.detail_sfx_terms, 'sfx')}</div>
+              <div class="kv-lite"><span class="kv-title">不归场景模块</span>${renderPills(item.excluded_action_terms)}</div>
+              <div class="explain-box">
+                <h5>场景判断</h5>
+                <ul class="reason-list">
+                  <li>${escHtml(quality.note)}</li>
+                  <li>${escHtml(item.scene_change_reason || '未标注')}</li>
+                  <li>${escHtml(sourceText || '当前未标注图谱来源')}</li>
+                </ul>
+              </div>
+              <div class="hint" style="margin-top:8px;">建议下一步：${escHtml(getSceneBuildNextStep(item))}</div>
+            </article>
+          `;
+        }).join('');
+        blocks.push(panel('场景卡片', `<div class="action-graph-cards">${cards || '<div class="hint">暂无场景结果</div>'}</div>`));
+        if (Array.isArray(data.key_points) && data.key_points.length) {
+          blocks.push(panel('关键结论', `<ul>${data.key_points.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`));
+        }
+        if (Array.isArray(data.risks) && data.risks.length) {
+          blocks.push(panel('复核提醒', `<ul>${data.risks.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`));
+        }
+        if (data.report_markdown || data.markdown) {
+          blocks.push(panel('补充说明', `<div class="md">${mdToHtml(data.report_markdown || data.markdown || '')}</div>`));
+        }
+        return blocks;
+      }
+
+      function renderSceneSfxPanels(data, panel) {
+        const blocks = [];
+        const items = Array.isArray(data.scene_items) ? data.scene_items : [];
+        const summary = data.summary || {};
+        const gapSummary = data.asset_gap_summary || {};
+        const gapItems = Array.isArray(gapSummary.gap_items) ? gapSummary.gap_items : [];
+        const getSceneSfxQuality = (item) => {
+          const missingCount = Array.isArray(item?.missing_scene_sfx_terms) ? item.missing_scene_sfx_terms.length : 0;
+          const assetCount = Array.isArray(item?.assets) ? item.assets.length : 0;
+          const graphSource = item?.scene_graph_source || {};
+          if (assetCount > 0 && missingCount === 0) {
+            return { label: '结果层级：可直接使用', cls: 'source', note: '当前场景已命中可下载素材，可以直接进入试听与使用。' };
+          }
+          if (assetCount > 0 && missingCount > 0) {
+            return { label: '结果层级：部分命中', cls: 'collection', note: '当前已命中部分素材，但仍有场景音效缺口。' };
+          }
+          if (missingCount > 0 && graphSource.has_fallback_terms) {
+            return { label: '结果层级：保底待补', cls: 'warn', note: '当前同时依赖保底结果和待补词，建议优先回到 scene 图谱校准。' };
+          }
+          if (missingCount > 0) {
+            return { label: '结果层级：待补素材', cls: 'template', note: '当前图谱方向基本可用，但还需要继续补素材。' };
+          }
+          return { label: '结果层级：待确认', cls: 'warn', note: '当前还没有形成稳定可下载结果，建议继续检查来源和模板映射。' };
+        };
+        const commonHitCount = items.filter(item => item?.scene_graph_source?.common_hit).length;
+        const genreHitCount = items.filter(item => item?.scene_graph_source?.genre_hit).length;
+        const templateHitCount = items.filter(item => String(item?.scene_graph_source?.template_hit || '').trim()).length;
+        const assetSceneCount = items.filter(item => Array.isArray(item.assets) && item.assets.length).length;
+        const readyUseCount = items.filter(item => getSceneSfxQuality(item).label === '结果层级：可直接使用').length;
+        blocks.push(panel('场景音效推荐总览', `
+          <div class="scene-badge-row" style="margin-bottom:10px;">
+            <span class="scene-badge source">当前阶段：图谱命中与素材召回</span>
+            <span class="scene-badge template">下一步：4.6 场景补充单</span>
+          </div>
+          <div class="kv"><div>赛道</div><div>${escHtml(data.genre || '-')}</div></div>
+          <div class="kv"><div>场景数</div><div>${summary.scene_count ?? items.length}</div></div>
+          <div class="kv"><div>素材候选数</div><div>${summary.asset_count ?? 0}</div></div>
+          <div class="kv"><div>缺口词数</div><div>${summary.gap_count ?? gapItems.length}</div></div>
+          <div class="kv"><div>已有素材场景</div><div>${assetSceneCount}</div></div>
+          <div class="kv"><div>可直接使用场景</div><div>${readyUseCount}</div></div>
+          <div class="kv"><div>模板命中场景</div><div>${templateHitCount}</div></div>
+          <div class="kv"><div>通用层命中</div><div>${commonHitCount}</div></div>
+          <div class="kv"><div>赛道层命中</div><div>${genreHitCount}</div></div>
+          <div class="hint" style="margin-top:10px;">这一步回答“这些场景已经命中了哪些可下载音效、还缺哪些场景音效词”；如果缺口仍多，再进入 4.6 步生成场景补充单。</div>
+        `));
+        if (gapItems.length) {
+          const gapScenes = items
+            .filter(item => Array.isArray(item.missing_scene_sfx_terms) && item.missing_scene_sfx_terms.length)
+            .map(item => `${String(item.scene_name || '').trim()}（缺${Number(item.missing_scene_sfx_terms.length || 0)}）`)
+            .filter(Boolean)
+            .slice(0, 8);
+          blocks.push(panel('缺口提醒', `
+            <div class="hint">
+              当前仍有 <strong>${gapItems.length}</strong> 个场景音效词缺口。
+              ${gapScenes.length ? `优先涉及：${escHtml(gapScenes.join('、'))}。` : ''}
+              如果这些缺口本身不合理，应先回到 scene 图谱维护；如果合理，再进入 4.6 步写入场景补充单。
+            </div>
+          `));
+        }
+        const getSceneSfxNextStep = (item) => {
+          const missingCount = Array.isArray(item?.missing_scene_sfx_terms) ? item.missing_scene_sfx_terms.length : 0;
+          const assetCount = Array.isArray(item?.assets) ? item.assets.length : 0;
+          const graphSource = item?.scene_graph_source || {};
+          if (missingCount > 0 && graphSource.has_fallback_terms) {
+            return '当前场景同时存在保底结果和素材缺口，建议先在 scene 图谱中校准场景，再进入 4.6 步生成补充单。';
+          }
+          if (missingCount > 0) {
+            return '当前场景已有部分推荐，但仍有缺口，建议进入 4.6 步写入场景补充单，由 scene 后台继续补库。';
+          }
+          if (assetCount > 0) {
+            return '当前场景已经命中可下载素材，可优先使用这些结果；如果听感仍不理想，再回到 scene 图谱微调。';
+          }
+          return '当前场景还没有命中可下载素材，建议继续检查图谱来源和模板映射，再决定是否生成补充单。';
+        };
+        const cards = items.map((item, idx) => {
+          const assets = Array.isArray(item.assets) ? item.assets : [];
+          const matchedSceneSfxTerms = buildSceneMatchedSfxSet(assets);
+          const graphSource = item.scene_graph_source || {};
+          const quality = getSceneSfxQuality(item);
+          const sourceType = graphSource.common_hit && graphSource.genre_hit
+            ? '通用层+赛道层'
+            : graphSource.genre_hit
+              ? '赛道层'
+              : graphSource.common_hit
+                ? '通用层'
+                : (graphSource.template_hit ? '模板命中' : (graphSource.has_fallback_terms ? '保底生成' : '未命中图谱'));
+          const assetRows = assets.length
+            ? assets.map((a, assetIdx) => `
+              <tr class="asset-hit">
+                <td>${assetIdx + 1}</td>
+                <td>${escHtml(a.display_name || a.file_name || a.label || '')}</td>
+                <td>${escHtml(a.scope_label || '未标注')}</td>
+                <td>${a.score ?? '-'}</td>
+                <td>${a.download_api ? `<button onclick="downloadActionSfxAsset('${escAttr(item.scene_name || '')}','${escAttr(a.label || '')}','${escAttr(a.file_name || 'scene_sfx.bin')}','${escAttr(a.download_api || '')}')">下载</button>` : '暂无'}</td>
+              </tr>
+            `).join('')
+            : '<tr><td colspan="5" class="hint">当前没有命中素材</td></tr>';
+          const sourceBadges = [
+            `<span class="scene-badge ${escAttr(quality.cls)}">${escHtml(quality.label)}</span>`,
+            `<span class="scene-badge source">来源：${escHtml(sourceType)}</span>`,
+            graphSource.template_hit ? `<span class="scene-badge template">模板：${escHtml(graphSource.template_hit)}</span>` : '',
+            graphSource.collection_name ? `<span class="scene-badge collection">集合：${escHtml(graphSource.collection_name)}</span>` : '',
+            graphSource.has_fallback_terms ? `<span class="scene-badge warn">含保底词</span>` : '',
+          ].filter(Boolean).join('');
+          return `
+            <article class="section-card">
+              <div class="section-head">
+                <strong>${escHtml(item.scene_name || `场景${idx + 1}`)}</strong>
+                <span class="badge">${escHtml(item.node_key || '未生成节点')}</span>
+              </div>
+              <div class="scene-badge-row">${sourceBadges}</div>
+              <div class="kv-lite"><span class="kv-title">原句片段</span>${escHtml(middleEllipsis(item.sentence_excerpt || '无'))}</div>
+              <div class="kv-lite"><span class="kv-title">时间词</span>${renderPills(item.time_terms)}</div>
+              <div class="kv-lite"><span class="kv-title">地点词</span>${renderPills(item.location_terms)}</div>
+              <div class="kv-lite">${renderSceneFieldLabel('背景元素', 'text')}${renderScenePills(item.background_elements, 'text')}</div>
+              <div class="kv-lite">${renderSceneFieldLabel('特征元素', 'text')}${renderScenePills(item.feature_elements, 'text')}</div>
+              <div class="kv-lite">${renderSceneFieldLabel('细节元素', 'text')}${renderScenePills(item.detail_elements, 'text')}</div>
+              <div class="kv-lite">${renderSceneFieldLabel('支撑场景音效(可下载)', 'sfx')}${renderScenePills(item.supporting_sfx_terms, 'sfx', matchedSceneSfxTerms)}</div>
+              <div class="kv-lite">${renderSceneFieldLabel('补充层次音效(可下载)', 'sfx')}${renderScenePills(item.detail_sfx_terms, 'sfx', matchedSceneSfxTerms)}</div>
+              <div class="kv-lite">${renderSceneFieldLabel('待补场景音效', 'sfx')}${renderScenePills(item.missing_scene_sfx_terms, 'sfx-missing')}</div>
+              <div class="hint" style="margin-top:8px;">${escHtml(quality.note)}</div>
+              <table class="table-lite" style="margin-top:8px;">
+                <thead><tr><th>#</th><th>素材</th><th>版本</th><th>分数</th><th>下载</th></tr></thead>
+                <tbody>${assetRows}</tbody>
+              </table>
+              <div class="hint" style="margin-top:8px;">建议下一步：${escHtml(getSceneSfxNextStep(item))}</div>
+            </article>
+          `;
+        }).join('');
+        blocks.push(panel('场景 -> 环境层 -> 音效素材', `<div class="action-graph-cards">${cards || '<div class="hint">暂无场景音效结果</div>'}</div>`));
+        if (gapItems.length) {
+          const rows = gapItems.map((g, idx) => `<tr>
+            <td>${idx + 1}</td>
+            <td>${escHtml(g.sfx_term || '')}</td>
+            <td>${escHtml((g.scenes || []).join('、') || '无')}</td>
+            <td>${escHtml(((g.examples || []).slice(0, 2).map(x => middleEllipsis(x, 18, 12))).join('；') || '无')}</td>
+            <td>${g.missing_count ?? 0}</td>
+          </tr>`).join('');
+          blocks.push(panel('场景素材缺口面板', `<table class="table-lite"><thead><tr><th>#</th><th>缺口音效词</th><th>关联场景</th><th>示例片段</th><th>影响场景数</th></tr></thead><tbody>${rows}</tbody></table><div class="hint" style="margin-top:8px;">“影响场景数”表示这个缺口词在多少个场景结果项中被判定为待补，不是原文逐字出现次数。</div>`));
+        }
+        return blocks;
+      }
+
+      function renderSceneSupplementPanels(data, panel) {
+        const blocks = [];
+        const items = Array.isArray(data.items) ? data.items : [];
+        const getSceneSupplementStatusLabel = (status) => {
+          const key = String(status || '').trim();
+          if (key === 'pending') return '待后台处理';
+          if (key === 'ready_to_notify') return '待补素材';
+          if (key === 'merged') return '处理中';
+          if (key === 'notified') return '已通知';
+          return key || '未标注';
+        };
+        const getSceneSupplementQuality = (item) => {
+          const missingCount = Number(item?.missing_count ?? item?.progress?.pending_count ?? 0);
+          const status = String(item?.status || '').trim();
+          if (missingCount <= 0) {
+            return { label: '结果层级：已补齐', cls: 'source' };
+          }
+          if (status === 'ready_to_notify') {
+            return { label: '结果层级：待补素材', cls: 'collection' };
+          }
+          if (status === 'merged' || status === 'notified') {
+            return { label: '结果层级：处理中', cls: 'template' };
+          }
+          return { label: '结果层级：待系统后台确认', cls: 'warn' };
+        };
+        const backendReadyCount = items.filter(item => getSceneSupplementQuality(item).label === '结果层级：待补素材').length;
+        const reviewCount = items.filter(item => getSceneSupplementQuality(item).label === '结果层级：待系统后台确认').length;
+        blocks.push(panel('场景补充单总览', `
+          <div class="scene-badge-row" style="margin-bottom:10px;">
+            <span class="scene-badge source">当前阶段：缺口写入补充单</span>
+            <span class="scene-badge warn">后续在 scene 后台补库</span>
+          </div>
+          <div class="kv"><div>项目</div><div>${escHtml(data.project_id ?? '-')}</div></div>
+          <div class="kv"><div>新建补充单</div><div>${escHtml(data.created_count ?? 0)}</div></div>
+          <div class="kv"><div>更新补充单</div><div>${escHtml(data.updated_count ?? 0)}</div></div>
+          <div class="kv"><div>补充单总数</div><div>${escHtml(items.length)}</div></div>
+          <div class="kv"><div>待补素材</div><div>${escHtml(backendReadyCount)}</div></div>
+          <div class="kv"><div>待系统后台确认</div><div>${escHtml(reviewCount)}</div></div>
+          <div class="kv"><div>说明</div><div>这一步只负责把缺口场景音效写入补充单，不直接上传素材。</div></div>
+          <div class="hint" style="margin-top:10px;">这一步生成的缺口会进入 scene 后台继续处理。运营应先核对场景图谱，再决定是直接补素材，还是先调整场景推荐。</div>
+          <div class="hint" style="margin-top:8px;">后续处理入口：<a href="/scene.html" style="color:#7de8ff;">打开 scene 后台</a>，进入“场景补充单运营”和“场景图谱维护”。</div>
+        `));
+        if (items.length) {
+          const rows = items.map((item, idx) => {
+            const quality = getSceneSupplementQuality(item);
+            return `
+              <tr>
+                <td>${idx + 1}</td>
+                <td>${escHtml(item.scene_name || item.node_key || '')}</td>
+                <td>${escHtml(item.node_key || '')}</td>
+                <td>${escHtml(getSceneSupplementStatusLabel(item.status))}</td>
+                <td>${escHtml(item.missing_count ?? 0)}</td>
+                <td><span class="scene-badge ${escAttr(quality.cls)}">${escHtml(quality.label)}</span></td>
+              </tr>
+            `;
+          }).join('');
+          blocks.push(panel('场景补充单明细', `<table class="table-lite"><thead><tr><th>#</th><th>场景</th><th>节点</th><th>状态</th><th>缺口词数</th><th>结果层级</th></tr></thead><tbody>${rows}</tbody></table>`));
+        }
+        blocks.push(panel('三段关系说明', `
+          <div class="md">
+            <p><strong>第 4 步：场景搭建分析</strong> 负责识别文本中的主场景、时间词、地点词、背景元素、特征元素和细节元素。</p>
+            <p><strong>第 4.5 步：场景音效推荐</strong> 负责基于场景结果命中图谱、召回支撑场景音效和补充层次音效，并尝试匹配可下载素材。</p>
+            <p><strong>第 4.6 步：场景补充单</strong> 负责把仍然缺素材的场景音效写入补充单，交给 scene 后台继续补库。</p>
+            <p><strong>用户端到后台的闭环</strong>：用户端只负责识别、推荐和写入补充单；真正的补素材、改图谱、调模板与集合，都在 <a href="/scene.html">scene 后台</a> 继续完成。</p>
+          </div>
+        `));
+        return blocks;
+      }
+
       function renderPretty(data) {
         const box = document.getElementById('prettyOutput');
         if (typeof data === 'string') {
@@ -1360,6 +2061,9 @@
         const isActionVerbResult = Boolean(actionVerbReport && typeof actionVerbReport === 'object');
         const isActionGraphResult = Boolean(Array.isArray(data.graph_items));
         const isActionGraphDraftResult = Boolean(Array.isArray(data.draft_items));
+        const isSceneSfxResult = Boolean(Array.isArray(data.scene_items) && data.graph_model && data.asset_gap_summary);
+        const isSceneBuildingResult = Boolean(Array.isArray(data.scene_items) && !isSceneSfxResult);
+        const isSceneSupplementResult = Boolean(Array.isArray(data.items) && typeof data.created_count !== 'undefined' && typeof data.updated_count !== 'undefined');
         const fallbackMusicReport = {
           title: '音乐分析结果',
           summary: typeof data.report_markdown === 'string' ? data.report_markdown.split('\n').slice(0, 3).join(' ').trim() : '',
@@ -1394,12 +2098,21 @@
         if (isActionGraphDraftResult) {
           blocks.push(...renderActionGraphDraftPanels(data, panel));
         }
+        if (isSceneBuildingResult) {
+          blocks.push(...renderSceneBuildingPanels(data, panel));
+        }
+        if (isSceneSfxResult) {
+          blocks.push(...renderSceneSfxPanels(data, panel));
+        }
+        if (isSceneSupplementResult) {
+          blocks.push(...renderSceneSupplementPanels(data, panel));
+        }
         if (data.text && data.narration) {
           const sceneCount = Array.isArray(data.text.scenes) ? data.text.scenes.length : 0;
           const clauseCount = Array.isArray(data.narration.clause_timeline) ? data.narration.clause_timeline.length : 0;
           const narrSec = Number(data.narration.duration_sec || 0);
           blocks.push(panel('文本+演绎联合分析', `
-            <div class="kv"><div>场景数</div><div>${sceneCount}</div></div>
+            <div class="kv"><div>文本数</div><div>${sceneCount}</div></div>
             <div class="kv"><div>语句时间线</div><div>${clauseCount} 条</div></div>
             <div class="kv"><div>演绎音频时长</div><div>${narrSec ? narrSec.toFixed(2) : '-'} 秒</div></div>
           `));
@@ -1515,11 +2228,11 @@
             <div class="kv"><div>标签</div><div>${(data.tags || []).map(escHtml).join(' / ')}</div></div>
           `));
         }
-        if (Array.isArray(data.scenes) && data.scenes.length) {
+        if (Array.isArray(data.scenes) && data.scenes.length && !(data.text && data.narration)) {
           const rows = data.scenes.map(s => `<tr><td>${s.scene_no}</td><td>${escHtml(s.text || '')}</td><td>${escHtml((s.actions || []).join('、') || '无')}</td><td>${escHtml((s.sfx || []).join('、') || '无')}</td><td>${s.intensity ?? ''}</td></tr>`).join('');
           blocks.push(panel('文本场景分析', `<table class="table-lite"><thead><tr><th>场景</th><th>文本</th><th>动作</th><th>建议音效</th><th>强度</th></tr></thead><tbody>${rows}</tbody></table>`));
         }
-        if (Array.isArray(data.sfx_requirements) && data.sfx_requirements.length) {
+        if (Array.isArray(data.sfx_requirements) && data.sfx_requirements.length && !(data.text && data.narration)) {
           const rows = data.sfx_requirements.map(r => {
             const cands = (r.candidates || []).map(c => `${c.file_name}(${c.score})`).join('、') || '暂无';
             return `<tr>
@@ -1555,10 +2268,8 @@
             <td>${c.narration_start_sec ?? '-'} ~ ${c.narration_end_sec ?? '-'}</td>
             <td>${c.music_segment_start_sec ?? c.target_time_sec} ~ ${c.music_segment_end_sec ?? c.target_time_sec}</td>
             <td>${escHtml(c.marker_label || '')}</td>
-            <td>${escHtml(c.dialogue_music_ratio || '')}</td>
-            <td>${escHtml((c.recommended_sfx || []).join('、') || '无')}</td>
           </tr>`).join('');
-          blocks.push(panel('文字-旁白-音乐对位执行单', `<table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>旁白区间(秒)</th><th>音乐区间(秒)</th><th>锚点</th><th>对白/音乐</th><th>推荐音效</th></tr></thead><tbody>${rows}</tbody></table>`));
+          blocks.push(panel('文字-旁白-音乐对位执行单', `<table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>旁白区间(秒)</th><th>音乐区间(秒)</th><th>锚点</th></tr></thead><tbody>${rows}</tbody></table>`));
         }
         if (userView && Array.isArray(userView.scene_alignment) && userView.scene_alignment.length) {
           const rows = userView.scene_alignment.map(r => `<tr>
@@ -1567,10 +2278,8 @@
             <td>${escHtml(r.text_excerpt || '')}</td>
             <td>${r.music_start_sec ?? '-'} ~ ${r.music_end_sec ?? '-'}</td>
             <td>${escHtml(r.entry_reason || '')}</td>
-            <td>${escHtml(r.dialogue_music_ratio || '')}</td>
-            <td>${escHtml((r.sfx || []).join('、') || '无')}</td>
           </tr>`).join('');
-          blocks.push(panel('文本分析阶段的对位建议', `<table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>音乐区间(秒)</th><th>进入理由</th><th>对白/音乐</th><th>音效</th></tr></thead><tbody>${rows}</tbody></table>`));
+          blocks.push(panel('文本分析阶段的对位建议', `<table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>音乐区间(秒)</th><th>进入理由</th></tr></thead><tbody>${rows}</tbody></table>`));
         }
         if (userView && Array.isArray(userView.music_entry_plan) && userView.music_entry_plan.length) {
           const rows = userView.music_entry_plan.map(r => `<tr>
@@ -1579,10 +2288,8 @@
             <td>${escHtml(r.text_excerpt || '')}</td>
             <td>${r.music_start_sec ?? '-'} ~ ${r.music_end_sec ?? '-'}</td>
             <td>${escHtml(r.entry_reason || '')}</td>
-            <td>${escHtml(r.dialogue_music_ratio || '')}</td>
-            <td>${escHtml((r.sfx || []).join('、') || '无')}</td>
           </tr>`).join('');
-          blocks.push(panel('融合阶段对位计划（模型输出）', `<table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>音乐区间(秒)</th><th>进入理由</th><th>对白/音乐</th><th>音效</th></tr></thead><tbody>${rows}</tbody></table>`));
+          blocks.push(panel('融合阶段对位计划（模型输出）', `<table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>音乐区间(秒)</th><th>进入理由</th></tr></thead><tbody>${rows}</tbody></table>`));
         }
         if (data.report_markdown) {
           blocks.push(panel('补充说明', `<div class="md">${mdToHtml(data.report_markdown)}</div>`));
@@ -1776,6 +2483,7 @@
           });
           const data = await readApiResponse(res);
           projectId = data.id;
+          resetSceneFlowState();
           document.getElementById('projectId').textContent = projectId;
           document.getElementById('projectGenreState').textContent = data.genre || genre || '-';
           show(data);
@@ -1789,6 +2497,8 @@
         await runAction('音乐分析', async () => {
           const form = new FormData();
           form.append('file', f);
+          const llmProviderOverride = currentLlmProviderOverride();
+          if (llmProviderOverride) form.append('llm_provider_override', llmProviderOverride);
           const res = await apiFetch(`${apiBase()}/analysis/${projectId}/audio`, { method: 'POST', body: form });
           show(await readApiResponse(res));
         });
@@ -1800,10 +2510,12 @@
         const f = document.getElementById('narrationFile').files[0];
         if (!text) return show('请先输入文本');
         if (!f) return show('请先选择演绎音频');
-        await runAction('文本分析+演绎时间轴', async () => {
+        await runAction('文本演绎分析（含时间轴）', async () => {
           const form = new FormData();
           form.append('text', text);
           form.append('file', f);
+          const llmProviderOverride = currentLlmProviderOverride();
+          if (llmProviderOverride) form.append('llm_provider_override', llmProviderOverride);
           const res = await apiFetch(`${apiBase()}/analysis/${projectId}/text-narration`, { method: 'POST', body: form });
           show(await readApiResponse(res));
         });
@@ -1814,12 +2526,13 @@
         const text = (document.getElementById('textInput').value || '').trim();
         const genre = (document.getElementById('projectGenre').value || '').trim();
         const promptFile = ACTION_PROMPT_BY_GENRE[genre] || 'V3-action_verbs_xuanhuan_task.txt';
+        const llmProviderOverride = currentLlmProviderOverride();
         if (!text) return show('请先输入文本');
         await runAction('人物动作提取', async () => {
           const res = await apiFetch(`${apiBase()}/analysis/${projectId}/action-verbs`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text, genre, prompt_file: promptFile }),
+            body: JSON.stringify({ text, genre, prompt_file: promptFile, llm_provider_override: llmProviderOverride }),
           });
           const data = await readApiResponse(res);
           latestActionVerbData = data;
@@ -1868,6 +2581,74 @@
         });
       }
 
+      async function buildSceneBuilding() {
+        if (!projectId) return show('请先创建项目');
+        const text = (document.getElementById('textInput').value || '').trim();
+        const genre = (document.getElementById('projectGenre').value || '').trim();
+        const promptFile = SCENE_PROMPT_BY_GENRE[genre] || 'V3-scene_building_task.txt';
+        const llmProviderOverride = currentLlmProviderOverride();
+        if (!text) return show('请先输入文本');
+        clearSceneFlowFrom('building');
+        showScenePendingState('building');
+        await runAction('场景搭建分析', async () => {
+          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/scene-building`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, genre, prompt_file: promptFile, llm_provider_override: llmProviderOverride }),
+          });
+          const data = await readApiResponse(res);
+          latestSceneBuildingData = data;
+          latestSceneSfxData = null;
+          latestSceneSupplementData = null;
+          refreshSceneActionButtons();
+          show(data);
+        });
+      }
+
+      async function buildSceneSfxGraph() {
+        if (!projectId) return show('请先创建项目');
+        if (!latestSceneBuildingData || !Array.isArray(latestSceneBuildingData.scene_items)) {
+          return show('请先执行第6步：场景搭建分析');
+        }
+        clearSceneFlowFrom('sfx');
+        showScenePendingState('sfx');
+        await runAction('场景音效推荐', async () => {
+          const sceneReport = latestSceneBuildingData.report_json && typeof latestSceneBuildingData.report_json === 'object'
+            ? latestSceneBuildingData.report_json
+            : latestSceneBuildingData;
+          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/scene-sfx`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scene_report: sceneReport }),
+          });
+          const data = await readApiResponse(res);
+          latestSceneSfxData = data;
+          latestSceneSupplementData = null;
+          refreshSceneActionButtons();
+          show(data);
+        });
+      }
+
+      async function buildSceneSupplements() {
+        if (!projectId) return show('请先创建项目');
+        if (!latestSceneSfxData || !Array.isArray(latestSceneSfxData.scene_items)) {
+          return show('请先执行第7步：场景音效推荐');
+        }
+        clearSceneFlowFrom('supplements');
+        showScenePendingState('supplements');
+        await runAction('场景补充单', async () => {
+          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/scene-supplements`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scene_sfx_result: latestSceneSfxData }),
+          });
+          const data = await readApiResponse(res);
+          latestSceneSupplementData = data;
+          refreshSceneActionButtons();
+          show(data);
+        });
+      }
+
       async function applyActionGraphDraft() {
         if (!projectId) return show('请先创建项目');
         if (!latestActionGraphDraftData || !Array.isArray(latestActionGraphDraftData.draft_items)) {
@@ -1885,7 +2666,7 @@
 
       async function buildFusion() {
         if (!projectId) return show('请先创建项目');
-        await runAction('生成融合执行单', async () => {
+        await runAction('生成后期执行单', async () => {
           const pre = await apiFetch(`${apiBase()}/analysis/${projectId}/report`);
           const report = await readApiResponse(pre);
           if (!report.audio) {
@@ -1898,16 +2679,22 @@
               const form = new FormData();
               form.append('text', textVal);
               form.append('file', narrFile);
+              const llmProviderOverride = currentLlmProviderOverride();
+              if (llmProviderOverride) form.append('llm_provider_override', llmProviderOverride);
               const autoCombined = await apiFetch(`${apiBase()}/analysis/${projectId}/text-narration`, {
                 method: 'POST',
                 body: form,
               });
               await readApiResponse(autoCombined);
             } else {
-              throw new Error('请先执行第3步：文本分析+演绎时间轴（需同时提供文本和演绎音频）');
+              throw new Error('请先执行第9步：文本演绎分析（含时间轴）（需同时提供文本和演绎音频）');
             }
           }
-          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/fusion`, { method: 'POST' });
+          const llmProviderOverride = currentLlmProviderOverride();
+          const fusionUrl = llmProviderOverride
+            ? `${apiBase()}/analysis/${projectId}/fusion?llm_provider_override=${encodeURIComponent(llmProviderOverride)}`
+            : `${apiBase()}/analysis/${projectId}/fusion`;
+          const res = await apiFetch(fusionUrl, { method: 'POST' });
           show(await readApiResponse(res));
         });
       }
@@ -2129,6 +2916,7 @@
       }
 
       updateLoginState();
+      refreshSceneActionButtons();
     </script>
   </body>
 </html>

@@ -12,7 +12,7 @@
 
 JSON 字段（必须齐全）：
 {
-  "title": "字符串",
+  "title": "文本分析报告",
   "text_theme": "文本主情绪与叙事方向",
   "fit_with_music": {
     "verdict": "适配/部分适配/不建议",
@@ -57,6 +57,8 @@ JSON 字段（必须齐全）：
 2) clause_timeline 必须保留时间证据字段；无法确定时可给保守区间，但字段必须在。
 3) fit_with_music.reasons 固定 3 条。
 4) scene_units 必须与输入场景对应，不允许空数组（除非输入为空）。
+5) title、text_theme、fit_with_music、scene_units、clause_timeline、emotion_curve、sfx_requirements、key_points、risks 均不得省略；若证据不足可返回空数组或保守对象，但字段必须存在。
+6) title 字段固定写为“文本分析报告”，不得省略、不得改名、不得留空。
 
 长度约束（严格）：
 1) scene_units<=6，clause_timeline<=10，emotion_curve<=6，sfx_requirements<=8。

@@ -27,6 +27,9 @@ from app.models import (
     FusionPlan,
     NarrationAnalysis,
     Project,
+    SceneAnalysis,
+    SceneSupplementAsset,
+    SceneSupplementTask,
     TextAnalysis,
     UserAccount,
     UserOperationLog,
@@ -50,6 +53,25 @@ from app.services.action_sfx_graph import (
     load_global_sfx_label_coverage,
     load_action_node_coverage,
 )
+from app.services.scene_building import analyze_scene_building
+from app.services.scene_graph_manage import (
+    delete_scene_graph_node,
+    delete_scene_collection,
+    delete_scene_template,
+    demote_scene_node_to_genre,
+    get_scene_graph_node_layers,
+    list_scene_collections,
+    list_scene_graph_catalog,
+    list_scene_term_suggestions,
+    list_scene_templates,
+    rename_scene_collection,
+    resolve_scene_graph_node,
+    promote_scene_node_to_common,
+    update_scene_template,
+    update_scene_graph_node_layer,
+)
+from app.services.scene_graph_neo4j import scene_graph_neo4j_status, sync_scene_graph_to_neo4j
+from app.services.scene_sfx_graph import build_scene_sfx_recommendation
 from app.services.action_graph_draft import apply_action_graph_draft, generate_action_graph_draft
 from app.services.action_graph_neo4j import (
     action_graph_neo4j_status,
@@ -489,6 +511,7 @@ def ensure_tables():
 @app.get('/health')
 def health():
     key_tail = settings.llm_api_key[-4:] if settings.llm_api_key else ''
+    qwen_key_tail = settings.qwen_api_key[-4:] if settings.qwen_api_key else ''
     return jsonify(
         {
             'ok': True,
@@ -497,6 +520,10 @@ def health():
             'llm_provider': settings.llm_provider,
             'llm_model': settings.llm_model,
             'llm_key_tail': key_tail,
+            'qwen_enabled': llm_enabled('qwen'),
+            'qwen_provider': 'qwen',
+            'qwen_model': settings.qwen_model,
+            'qwen_key_tail': qwen_key_tail,
             'semantic_backend': settings.semantic_backend,
         }
     )
@@ -1364,6 +1391,7 @@ def get_project(project_id: int):
 @_enforce_feature_access('audio_analysis')
 def upload_audio(project_id: int):
     file = request.files.get('file')
+    llm_provider_override = (request.form.get('llm_provider_override') or request.args.get('llm_provider_override') or '').strip()
     if file is None:
         return jsonify({'detail': 'file is required'}), 400
 
@@ -1391,6 +1419,7 @@ def upload_audio(project_id: int):
                 str(save_path),
                 report_mode=report_mode,
                 debug_prompt=True,
+                llm_provider_override=llm_provider_override,
             )
         except Exception as e:
             app.logger.exception('audio analyze failed; fallback enabled')
@@ -1423,7 +1452,7 @@ def upload_audio(project_id: int):
             db=db,
             action='audio_analysis',
             project_id=project_id,
-            req={'report_mode': report_mode, 'file_name': file.filename or save_path.name},
+            req={'report_mode': report_mode, 'file_name': file.filename or save_path.name, 'llm_provider_override': llm_provider_override},
             resp={
                 'analysis_mode': result.get('analysis_mode'),
                 'duration_sec': result.get('duration_sec'),
@@ -1441,6 +1470,7 @@ def upload_audio(project_id: int):
 def analyze_text(project_id: int):
     payload = request.get_json(force=True)
     text = (payload.get('text') or '').strip()
+    llm_provider_override = (payload.get('llm_provider_override') or '').strip()
     report_mode = (payload.get('report_mode') or request.args.get('report_mode') or settings.report_mode_default).strip().lower()
     debug_prompt = True
     if not text:
@@ -1463,7 +1493,7 @@ def analyze_text(project_id: int):
             }
 
         result = analyze_text_for_audiobook(
-            text, report_mode=report_mode, audio_context=audio_context, debug_prompt=debug_prompt
+            text, report_mode=report_mode, audio_context=audio_context, debug_prompt=debug_prompt, llm_provider_override=llm_provider_override
         )
         row = db.execute(select(TextAnalysis).where(TextAnalysis.project_id == project_id)).scalar_one_or_none()
 
@@ -1485,7 +1515,7 @@ def analyze_text(project_id: int):
             db=db,
             action='text_analysis',
             project_id=project_id,
-            req={'report_mode': report_mode, 'text_len': len(text)},
+            req={'report_mode': report_mode, 'text_len': len(text), 'llm_provider_override': llm_provider_override},
             resp={
                 'analysis_mode': result.get('analysis_mode'),
                 'scene_count': len(result.get('scenes') or []),
@@ -1504,6 +1534,7 @@ def analyze_action_verbs_api(project_id: int):
     text = (payload.get('text') or '').strip()
     genre = (payload.get('genre') or '').strip()
     prompt_file = (payload.get('prompt_file') or '').strip()
+    llm_provider_override = (payload.get('llm_provider_override') or '').strip()
     report_mode = (payload.get('report_mode') or request.args.get('report_mode') or settings.report_mode_default).strip().lower()
     debug_prompt = True
     if not text:
@@ -1518,12 +1549,19 @@ def analyze_action_verbs_api(project_id: int):
             return jsonify({'detail': 'Project not found'}), 404
 
         effective_genre = genre or '玄幻'
-        result = analyze_action_verbs(text, genre=effective_genre, prompt_file=prompt_file, report_mode=report_mode, debug_prompt=debug_prompt)
+        result = analyze_action_verbs(
+            text,
+            genre=effective_genre,
+            prompt_file=prompt_file,
+            report_mode=report_mode,
+            debug_prompt=debug_prompt,
+            llm_provider_override=llm_provider_override,
+        )
         _log_user_operation(
             db=db,
             action='action_verb_analysis',
             project_id=project_id,
-            req={'report_mode': report_mode, 'text_len': len(text), 'genre': effective_genre, 'prompt_file': prompt_file},
+            req={'report_mode': report_mode, 'text_len': len(text), 'genre': effective_genre, 'prompt_file': prompt_file, 'llm_provider_override': llm_provider_override},
             resp={
                 'analysis_mode': result.get('analysis_mode'),
                 'genre': result.get('genre'),
@@ -1573,6 +1611,362 @@ def analyze_action_sfx_api(project_id: int):
         )
         result['usage'] = getattr(g, 'usage_info', None)
         return jsonify(result)
+
+
+@app.post(f'{settings.api_prefix}/analysis/<int:project_id>/scene-building')
+@_enforce_feature_access('scene_building_analysis')
+def analyze_scene_building_api(project_id: int):
+    payload = request.get_json(force=True) or {}
+    text = (payload.get('text') or '').strip()
+    genre = (payload.get('genre') or '').strip()
+    prompt_file = (payload.get('prompt_file') or '').strip()
+    llm_provider_override = (payload.get('llm_provider_override') or '').strip()
+    debug_prompt = True
+    if not text:
+        return jsonify({'detail': 'text is required'}), 400
+
+    with SessionLocal() as db:
+        project_row = db.execute(
+            sql_text('SELECT id, title FROM projects WHERE id = :pid'),
+            {'pid': project_id},
+        ).first()
+        if not project_row:
+            return jsonify({'detail': 'Project not found'}), 404
+
+        effective_genre = genre or '玄幻'
+        result = analyze_scene_building(
+            text,
+            genre=effective_genre,
+            prompt_file=prompt_file,
+            debug_prompt=debug_prompt,
+            llm_provider_override=llm_provider_override,
+        )
+        scene_row = db.execute(select(SceneAnalysis).where(SceneAnalysis.project_id == project_id)).scalar_one_or_none()
+        if scene_row is None:
+            scene_row = SceneAnalysis(
+                project_id=project_id,
+                raw_text=text,
+                genre=effective_genre,
+                report_markdown=str(result.get('report_markdown') or result.get('markdown') or ''),
+                report_json=json.dumps(result.get('report_json') or result, ensure_ascii=False),
+            )
+            db.add(scene_row)
+        else:
+            scene_row.raw_text = text
+            scene_row.genre = effective_genre
+            scene_row.report_markdown = str(result.get('report_markdown') or result.get('markdown') or '')
+            scene_row.report_json = json.dumps(result.get('report_json') or result, ensure_ascii=False)
+        db.commit()
+        _log_user_operation(
+            db=db,
+            action='scene_building_analysis',
+            project_id=project_id,
+            req={'text_len': len(text), 'genre': effective_genre, 'prompt_file': prompt_file, 'llm_provider_override': llm_provider_override},
+            resp={
+                'analysis_mode': result.get('analysis_mode'),
+                'genre': result.get('genre'),
+                'scene_count': len((result.get('scene_items') or [])),
+                'llm_trace_digest': _llm_trace_digest(result.get('llm_trace')),
+            },
+            file_refs=[],
+        )
+        result['usage'] = getattr(g, 'usage_info', None)
+        return jsonify(result)
+
+
+@app.post(f'{settings.api_prefix}/analysis/<int:project_id>/scene-sfx')
+@_enforce_feature_access('scene_sfx_graph')
+def analyze_scene_sfx_api(project_id: int):
+    payload = request.get_json(force=True) or {}
+    scene_report = payload.get('scene_report')
+
+    if not isinstance(scene_report, dict):
+        return jsonify({'detail': 'scene_report is required and must be object'}), 400
+
+    with SessionLocal() as db:
+        project_row = db.execute(
+            sql_text('SELECT id, title FROM projects WHERE id = :pid'),
+            {'pid': project_id},
+        ).first()
+        if not project_row:
+            return jsonify({'detail': 'Project not found'}), 404
+
+        result = build_scene_sfx_recommendation(project_id=project_id, scene_report=scene_report)
+        _log_user_operation(
+            db=db,
+            action='scene_sfx_graph',
+            project_id=project_id,
+            req={
+                'genre': scene_report.get('genre', ''),
+                'scene_count': len((scene_report.get('scene_items') or [])),
+            },
+            resp={
+                'scene_item_count': len(result.get('scene_items') or []),
+                'asset_count': (result.get('summary') or {}).get('asset_count', 0),
+                'gap_count': (result.get('summary') or {}).get('gap_count', 0),
+            },
+            file_refs=[],
+        )
+        result['usage'] = getattr(g, 'usage_info', None)
+        return jsonify(result)
+
+
+@app.post(f'{settings.api_prefix}/analysis/<int:project_id>/scene-supplements')
+@_enforce_feature_access('scene_supplement_generation')
+def create_scene_supplements_api(project_id: int):
+    payload = request.get_json(force=True) or {}
+    scene_sfx_result = payload.get('scene_sfx_result')
+    if not isinstance(scene_sfx_result, dict):
+        return jsonify({'detail': 'scene_sfx_result is required and must be object'}), 400
+
+    with SessionLocal() as db:
+        project_row = db.execute(
+            sql_text('SELECT id, title FROM projects WHERE id = :pid'),
+            {'pid': project_id},
+        ).first()
+        if not project_row:
+            return jsonify({'detail': 'Project not found'}), 404
+
+        current_phone = _get_user_phone_from_context()
+        created = 0
+        updated = 0
+        items_out = []
+        for item in (scene_sfx_result.get('scene_items') or []):
+            if not isinstance(item, dict):
+                continue
+            scene_name = str(item.get('scene_name') or '').strip()
+            node_key = str(item.get('node_key') or '').strip()
+            if not scene_name or not node_key:
+                continue
+            genre = str(scene_sfx_result.get('genre') or '').strip()
+            missing_terms = _merge_unique_list(item.get('missing_scene_sfx_terms') or [])
+            target_terms = _merge_unique_list((item.get('supporting_sfx_terms') or []) + (item.get('detail_sfx_terms') or []))
+            scene_elements = _merge_unique_list(
+                (item.get('background_elements') or [])
+                + (item.get('feature_elements') or [])
+                + (item.get('detail_elements') or [])
+            )
+            row = db.execute(
+                select(SceneSupplementTask).where(
+                    SceneSupplementTask.project_id == project_id,
+                    SceneSupplementTask.node_key == node_key,
+                    SceneSupplementTask.user_phone == current_phone,
+                )
+            ).scalar_one_or_none()
+            payload_kwargs = dict(
+                project_id=project_id,
+                user_phone=current_phone,
+                genre=genre,
+                scene_name=scene_name,
+                target_scene=scene_name,
+                node_key=node_key,
+                sentence_excerpt=str(item.get('sentence_excerpt') or '').strip(),
+                time_terms_json=json.dumps(item.get('time_terms') or [], ensure_ascii=False),
+                location_terms_json=json.dumps(item.get('location_terms') or [], ensure_ascii=False),
+                scene_elements_json=json.dumps(scene_elements, ensure_ascii=False),
+                sfx_terms_json=json.dumps(target_terms, ensure_ascii=False),
+                missing_sfx_terms_json=json.dumps(missing_terms, ensure_ascii=False),
+                status='pending' if missing_terms else 'ready_to_notify',
+            )
+            if row is None:
+                row = SceneSupplementTask(**payload_kwargs)
+                db.add(row)
+                created += 1
+            else:
+                for key, value in payload_kwargs.items():
+                    setattr(row, key, value)
+                updated += 1
+            items_out.append(
+                {
+                    'node_key': node_key,
+                    'scene_name': scene_name,
+                    'missing_count': len(missing_terms),
+                    'status': 'pending' if missing_terms else 'ready_to_notify',
+                }
+            )
+        db.commit()
+        _log_user_operation(
+            db=db,
+            action='scene_supplement_generation',
+            project_id=project_id,
+            req={'scene_count': len(scene_sfx_result.get('scene_items') or [])},
+            resp={'created_count': created, 'updated_count': updated},
+            file_refs=[],
+        )
+        return jsonify(
+            {
+                'ok': True,
+                'project_id': project_id,
+                'created_count': created,
+                'updated_count': updated,
+                'items': items_out,
+            }
+        )
+
+
+@app.get(f'{settings.api_prefix}/scene-graph/catalog')
+@_require_admin
+def scene_graph_catalog_api():
+    return jsonify({'ok': True, **list_scene_graph_catalog()})
+
+
+@app.get(f'{settings.api_prefix}/scene-graph/node-layers')
+@_require_admin
+def scene_graph_node_layers_api():
+    node_key = (request.args.get('node_key') or '').strip()
+    if not node_key:
+        return jsonify({'detail': 'node_key is required'}), 400
+    return jsonify(get_scene_graph_node_layers(node_key))
+
+
+@app.post(f'{settings.api_prefix}/scene-graph/node-layer')
+@_require_admin
+def scene_graph_node_layer_update_api():
+    payload = request.get_json(force=True) or {}
+    node_key = (payload.get('node_key') or '').strip()
+    layer = (payload.get('layer') or '').strip()
+    if not node_key:
+        return jsonify({'detail': 'node_key is required'}), 400
+    if layer not in {'common', 'genre'}:
+        return jsonify({'detail': 'layer must be common or genre'}), 400
+    result = update_scene_graph_node_layer(
+        node_key,
+        layer,
+        {
+            'template_name': payload.get('template_name'),
+            'collection_name': payload.get('collection_name'),
+            'background_elements': payload.get('background_elements') or [],
+            'feature_elements': payload.get('feature_elements') or [],
+            'detail_elements': payload.get('detail_elements') or [],
+            'supporting_sfx_terms': payload.get('supporting_sfx_terms') or [],
+            'detail_sfx_terms': payload.get('detail_sfx_terms') or [],
+        },
+    )
+    status_code = 200 if result.get('ok', True) else 400
+    return jsonify(result), status_code
+
+
+@app.post(f'{settings.api_prefix}/scene-graph/promote')
+@_require_admin
+def scene_graph_promote_api():
+    payload = request.get_json(force=True) or {}
+    node_key = (payload.get('node_key') or '').strip()
+    if not node_key:
+        return jsonify({'detail': 'node_key is required'}), 400
+    retain_genre = bool(payload.get('retain_genre', True))
+    result = promote_scene_node_to_common(node_key, retain_genre=retain_genre)
+    status_code = 200 if result.get('ok', True) else 400
+    return jsonify(result), status_code
+
+
+@app.post(f'{settings.api_prefix}/scene-graph/demote')
+@_require_admin
+def scene_graph_demote_api():
+    payload = request.get_json(force=True) or {}
+    node_key = (payload.get('node_key') or '').strip()
+    target_genre = (payload.get('target_genre') or '').strip()
+    if not node_key:
+        return jsonify({'detail': 'node_key is required'}), 400
+    if not target_genre:
+        return jsonify({'detail': 'target_genre is required'}), 400
+    retain_common = bool(payload.get('retain_common', True))
+    result = demote_scene_node_to_genre(node_key, target_genre=target_genre, retain_common=retain_common)
+    status_code = 200 if result.get('ok', True) else 400
+    return jsonify(result), status_code
+
+
+@app.post(f'{settings.api_prefix}/scene-graph/delete-node')
+@_require_admin
+def scene_graph_delete_node_api():
+    payload = request.get_json(force=True) or {}
+    node_key = (payload.get('node_key') or '').strip()
+    layer = (payload.get('layer') or 'current').strip()
+    if not node_key:
+        return jsonify({'detail': 'node_key is required'}), 400
+    result = delete_scene_graph_node(node_key, layer=layer)
+    status_code = 200 if result.get('ok', True) else 400
+    return jsonify(result), status_code
+
+
+@app.get(f'{settings.api_prefix}/scene-graph/collections')
+@_require_admin
+def scene_graph_collections_api():
+    return jsonify({'ok': True, **list_scene_collections()})
+
+
+@app.post(f'{settings.api_prefix}/scene-graph/collection-rename')
+@_require_admin
+def scene_graph_collection_rename_api():
+    payload = request.get_json(force=True) or {}
+    result = rename_scene_collection(
+        payload.get('old_name'),
+        payload.get('new_name'),
+    )
+    status_code = 200 if result.get('ok', True) else 400
+    return jsonify(result), status_code
+
+
+@app.post(f'{settings.api_prefix}/scene-graph/collection-delete')
+@_require_admin
+def scene_graph_collection_delete_api():
+    payload = request.get_json(force=True) or {}
+    result = delete_scene_collection(payload.get('collection_name'))
+    status_code = 200 if result.get('ok', True) else 400
+    return jsonify(result), status_code
+
+
+@app.get(f'{settings.api_prefix}/scene-graph/templates')
+@_require_admin
+def scene_graph_templates_api():
+    return jsonify({'ok': True, **list_scene_templates()})
+
+
+@app.get(f'{settings.api_prefix}/scene-graph/term-suggestions')
+@_require_admin
+def scene_graph_term_suggestions_api():
+    template_name = (request.args.get('template_name') or '').strip()
+    collection_name = (request.args.get('collection_name') or '').strip()
+    return jsonify(list_scene_term_suggestions(template_name=template_name, collection_name=collection_name))
+
+
+@app.post(f'{settings.api_prefix}/scene-graph/template')
+@_require_admin
+def scene_graph_template_update_api():
+    payload = request.get_json(force=True) or {}
+    template_name = (payload.get('template_name') or '').strip()
+    result = update_scene_template(
+        template_name,
+        {
+            'collection_name': payload.get('collection_name'),
+            'aliases': payload.get('aliases') or [],
+        },
+    )
+    status_code = 200 if result.get('ok', True) else 400
+    return jsonify(result), status_code
+
+
+@app.post(f'{settings.api_prefix}/scene-graph/template-delete')
+@_require_admin
+def scene_graph_template_delete_api():
+    payload = request.get_json(force=True) or {}
+    template_name = (payload.get('template_name') or '').strip()
+    if not template_name:
+        return jsonify({'detail': 'template_name is required'}), 400
+    result = delete_scene_template(template_name)
+    status_code = 200 if result.get('ok', True) else 400
+    return jsonify(result), status_code
+
+
+@app.get(f'{settings.api_prefix}/scene-graph/neo4j-status')
+@_require_admin
+def scene_graph_neo4j_status_api():
+    return jsonify(scene_graph_neo4j_status())
+
+
+@app.post(f'{settings.api_prefix}/scene-graph/neo4j-sync')
+@_require_admin
+def scene_graph_neo4j_sync_api():
+    return jsonify(sync_scene_graph_to_neo4j())
 
 
 @app.post(f'{settings.api_prefix}/analysis/<int:project_id>/action-graph-draft')
@@ -2115,6 +2509,88 @@ def _merge_unique_list(items: list[str]) -> list[str]:
     return out
 
 
+def _scene_source_key(common_hit: bool, genre_hit: bool) -> str:
+    if common_hit and genre_hit:
+        return 'common+genre'
+    if genre_hit:
+        return 'genre'
+    if common_hit:
+        return 'common'
+    return 'unknown'
+
+
+def _scene_source_label(source: str) -> str:
+    return {
+        'common': '通用层',
+        'genre': '赛道层',
+        'common+genre': '通用+赛道',
+        'unknown': '未标注',
+    }.get(str(source or '').strip(), '未标注')
+
+
+def _scene_scope_hint(source: str, genre: str) -> tuple[str, str]:
+    key = str(source or '').strip()
+    genre_label = str(genre or '').strip() or '当前赛道'
+    if key == 'common':
+        return 'common', '当前词来自通用层，已默认选择通用版素材。'
+    if key == 'genre':
+        return 'genre', f'当前词来自赛道层，已默认选择{genre_label}版素材。'
+    if key == 'common+genre':
+        return '', f'当前词同时来自通用层和{genre_label}赛道层，请先明确选择素材版本。'
+    return '', '当前词来源未标注，请先确认后再选择素材版本。'
+
+
+def _scene_term_source_items(scene_name: str, genre: str, terms: list[str]) -> list[dict]:
+    scene = str(scene_name or '').strip()
+    genre_key = str(genre or '').strip()
+    if not scene:
+        return [
+            {
+                'term': term,
+                'source': 'unknown',
+                'source_label': '未标注',
+                'default_asset_scope': '',
+                'scope_hint': '当前词来源未标注，请先确认后再选择素材版本。',
+            }
+            for term in _merge_unique_list(terms)
+        ]
+
+    common_graph_hit = resolve_scene_graph_node(scene, '')
+    genre_graph_hit = resolve_scene_graph_node(scene, genre_key) if genre_key else {}
+    common_terms = set()
+    if bool(common_graph_hit.get('common_hit')):
+        common_terms = set(
+            _merge_unique_list(
+                list(common_graph_hit.get('supporting_sfx_terms') or []) + list(common_graph_hit.get('detail_sfx_terms') or [])
+            )
+        )
+    genre_terms = set()
+    if genre_key and bool(genre_graph_hit.get('genre_hit')):
+        merged_terms = set(
+            _merge_unique_list(
+                list(genre_graph_hit.get('supporting_sfx_terms') or []) + list(genre_graph_hit.get('detail_sfx_terms') or [])
+            )
+        )
+        genre_terms = set(term for term in merged_terms if term not in common_terms)
+        if not genre_terms:
+            genre_terms = merged_terms
+
+    items = []
+    for term in _merge_unique_list(terms):
+        source = _scene_source_key(term in common_terms, term in genre_terms)
+        default_scope, scope_hint = _scene_scope_hint(source, genre_key)
+        items.append(
+            {
+                'term': term,
+                'source': source,
+                'source_label': _scene_source_label(source),
+                'default_asset_scope': default_scope,
+                'scope_hint': scope_hint,
+            }
+        )
+    return items
+
+
 @app.post(f'{settings.api_prefix}/ops/action-supplements/notify')
 @_require_admin
 def ops_action_supplements_notify():
@@ -2144,6 +2620,285 @@ def ops_action_supplements_notify():
             _log_user_operation(
                 db=db,
                 action='action_supplement_notify',
+                project_id=items[0].project_id if items else None,
+                req=payload_out,
+                resp={'queued': True, 'sms_sent': False},
+                file_refs=[],
+            )
+            notifications.append(payload_out)
+
+    return jsonify({'ok': True, 'notification_count': len(notifications), 'notifications': notifications, 'sms_sent': False})
+
+
+@app.get(f'{settings.api_prefix}/ops/scene-supplements')
+@_require_admin
+def ops_scene_supplements():
+    days = int((request.args.get('days') or '30').strip())
+    days = max(1, min(180, days))
+    status = (request.args.get('status') or '').strip()
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    with SessionLocal() as db:
+        stmt = select(SceneSupplementTask).where(SceneSupplementTask.created_at >= cutoff)
+        if status in {'pending', 'partial', 'ready_to_notify'}:
+            stmt = stmt.where(SceneSupplementTask.status == status)
+        rows = db.execute(stmt.order_by(SceneSupplementTask.created_at.desc()).limit(500)).scalars().all()
+        supp_ids = [r.id for r in rows]
+        asset_rows = (
+            db.execute(select(SceneSupplementAsset).where(SceneSupplementAsset.supplement_id.in_(supp_ids))).scalars().all()
+            if supp_ids
+            else []
+        )
+
+    assets_by_supp: dict[int, list[dict]] = {}
+    for a in asset_rows:
+        assets_by_supp.setdefault(a.supplement_id, []).append(
+            {
+                'id': a.id,
+                'asset_label': a.asset_label,
+                'asset_scope': str(a.asset_scope or 'genre').strip().lower() or 'genre',
+                'asset_scope_genre': str(a.asset_scope_genre or '').strip(),
+                'asset_file_path': a.asset_file_path,
+                'file_name': Path(a.asset_file_path).name if a.asset_file_path else '',
+                'created_at': a.created_at.isoformat() if a.created_at else '',
+            }
+        )
+
+    items = []
+    summary_counter: dict[str, int] = {}
+    total_pending_terms = 0
+    total_covered_terms = 0
+    unique_users = set()
+    for r in rows:
+        try:
+            time_terms = json.loads(r.time_terms_json or '[]')
+        except json.JSONDecodeError:
+            time_terms = []
+        try:
+            location_terms = json.loads(r.location_terms_json or '[]')
+        except json.JSONDecodeError:
+            location_terms = []
+        try:
+            scene_elements = json.loads(r.scene_elements_json or '[]')
+        except json.JSONDecodeError:
+            scene_elements = []
+        try:
+            sfx_terms = json.loads(r.sfx_terms_json or '[]')
+        except json.JSONDecodeError:
+            sfx_terms = []
+        try:
+            missing_terms = json.loads(r.missing_sfx_terms_json or '[]')
+        except json.JSONDecodeError:
+            missing_terms = []
+        term_source_items = _scene_term_source_items(r.scene_name, r.genre, sfx_terms or missing_terms)
+        term_source_map = {str(item.get('term') or '').strip(): item for item in term_source_items if str(item.get('term') or '').strip()}
+        covered_terms = [term for term in sfx_terms if term not in set(missing_terms)]
+        pending_terms = [term for term in sfx_terms if term in set(missing_terms)]
+        completion_ratio = round((len(covered_terms) / len(sfx_terms)), 4) if sfx_terms else 1.0
+        unique_users.add(r.user_phone or '')
+        summary_counter[str(r.status or '').strip()] = summary_counter.get(str(r.status or '').strip(), 0) + 1
+        total_pending_terms += len(pending_terms)
+        total_covered_terms += len(covered_terms)
+        items.append(
+            {
+                'id': r.id,
+                'project_id': r.project_id,
+                'user_phone': r.user_phone,
+                'genre': r.genre,
+                'scene_name': r.scene_name,
+                'target_scene': r.target_scene,
+                'node_key': r.node_key,
+                'sentence_excerpt': r.sentence_excerpt,
+                'time_terms': time_terms,
+                'location_terms': location_terms,
+                'scene_elements': scene_elements,
+                'sfx_terms': sfx_terms,
+                'missing_sfx_terms': missing_terms,
+                'sfx_term_items': term_source_items,
+                'missing_sfx_term_items': [
+                    dict(term_source_map.get(str(term).strip()) or {
+                        'term': str(term).strip(),
+                        'source': 'unknown',
+                        'source_label': '未标注',
+                        'default_asset_scope': '',
+                        'scope_hint': '当前词来源未标注，请先确认后再选择素材版本。',
+                    })
+                    for term in pending_terms
+                ],
+                'progress': {
+                    'target_count': len(sfx_terms),
+                    'covered_count': len(covered_terms),
+                    'pending_count': len(pending_terms),
+                    'completion_ratio': completion_ratio,
+                },
+                'status': r.status,
+                'notification_status': '已通知' if r.notified_at else '未通知',
+                'merged_assets': [
+                    {
+                        **asset,
+                        'display_name': build_asset_variant_display_name(
+                            str(asset.get('asset_label') or '').strip(),
+                            str(asset.get('asset_scope') or 'genre').strip().lower() or 'genre',
+                            str(asset.get('asset_scope_genre') or r.genre or '').strip() or r.genre,
+                        ),
+                        'scope_label': build_asset_scope_label(
+                            str(asset.get('asset_scope') or 'genre').strip().lower() or 'genre',
+                            str(asset.get('asset_scope_genre') or r.genre or '').strip() or r.genre,
+                        ),
+                    }
+                    for asset in assets_by_supp.get(r.id, [])
+                ],
+                'notified_at': r.notified_at.isoformat() if r.notified_at else '',
+                'created_at': r.created_at.isoformat() if r.created_at else '',
+            }
+        )
+
+    return jsonify(
+        {
+            'days': days,
+            'status': status,
+            'count': len(items),
+            'summary': {
+                'item_count': len(items),
+                'unique_user_count': len([x for x in unique_users if x]),
+                'status_counter': summary_counter,
+                'pending_term_count': total_pending_terms,
+                'covered_term_count': total_covered_terms,
+                'ready_to_notify_count': sum(1 for item in items if item.get('status') == 'ready_to_notify' and not item.get('notified_at')),
+                'notified_count': sum(1 for item in items if item.get('notified_at')),
+                'merged_count': sum(len(item.get('merged_assets') or []) for item in items),
+            },
+            'items': items,
+        }
+    )
+
+
+@app.post(f'{settings.api_prefix}/ops/scene-supplements/merge')
+@_require_admin
+def ops_scene_supplements_merge():
+    item_id = request.form.get('item_id', type=int)
+    asset_label = (request.form.get('asset_label') or '').strip()
+    asset_scope = (request.form.get('asset_scope') or '').strip().lower()
+    notify_after_merge = str(request.form.get('notify_after_merge') or '').strip() in {'1', 'true', 'yes'}
+    file = request.files.get('file')
+    if not item_id:
+        return jsonify({'detail': 'item_id is required'}), 400
+    if not asset_label:
+        return jsonify({'detail': 'asset_label is required'}), 400
+    if asset_scope not in {'common', 'genre'}:
+        return jsonify({'detail': 'asset_scope must be common or genre'}), 400
+    if file is None or not getattr(file, 'filename', ''):
+        return jsonify({'detail': 'file is required'}), 400
+
+    with SessionLocal() as db:
+        item = db.execute(select(SceneSupplementTask).where(SceneSupplementTask.id == item_id)).scalar_one_or_none()
+        if not item:
+            return jsonify({'detail': 'scene supplement item not found'}), 404
+
+        ext = Path(file.filename).suffix or '.bin'
+        safe_label = re.sub(r'[\\\\/:*?\"<>|]+', '_', asset_label).strip() or '未命名场景音效'
+        out_path = Path('./assets/sfx').resolve() / f'{safe_label}{ext}'
+        idx = 2
+        while out_path.exists():
+            out_path = Path('./assets/sfx').resolve() / f'{safe_label}_{idx}{ext}'
+            idx += 1
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        file.save(out_path)
+
+        target_genre = item.genre or '通用'
+        display_name = build_asset_variant_display_name(asset_label, asset_scope, target_genre)
+        db.add(
+            SceneSupplementAsset(
+                supplement_id=item.id,
+                asset_label=asset_label,
+                asset_scope=asset_scope,
+                asset_scope_genre=(target_genre if asset_scope == 'genre' else ''),
+                asset_file_path=str(out_path),
+            )
+        )
+        item.asset_label = asset_label
+        item.asset_file_path = str(out_path)
+
+        sibling_assets = db.execute(
+            select(SceneSupplementAsset).where(SceneSupplementAsset.supplement_id == item.id)
+        ).scalars().all()
+        existing_labels = {asset_label}
+        existing_labels.update(str(a.asset_label or '').strip() for a in sibling_assets if str(a.asset_label or '').strip())
+        try:
+            sfx_terms = [str(x).strip() for x in json.loads(item.sfx_terms_json or '[]') if str(x).strip()]
+        except json.JSONDecodeError:
+            sfx_terms = []
+        target_terms = set(sfx_terms or [asset_label])
+        covered = len(target_terms & existing_labels)
+        fully_covered = covered >= len(target_terms)
+        item.status = 'ready_to_notify' if fully_covered else ('partial' if covered else 'pending')
+        db.commit()
+
+        _log_user_operation(
+            db=db,
+            action='scene_supplement_merge',
+            project_id=item.project_id,
+            req={'item_id': item.id, 'asset_label': asset_label, 'asset_scope': asset_scope, 'notify_after_merge': notify_after_merge},
+            resp={'ok': True, 'status': item.status},
+            file_refs=[str(out_path)],
+        )
+
+        response_payload = {
+            'ok': True,
+            'item_id': item.id,
+            'status': item.status,
+            'asset_label': asset_label,
+            'asset_scope': asset_scope,
+            'asset_scope_label': build_asset_scope_label(asset_scope, target_genre),
+            'asset_display_name': display_name,
+            'asset_mode': '场景',
+            'asset_file_path': str(out_path),
+            'covered_term_count': covered,
+            'target_term_count': len(target_terms),
+        }
+        if notify_after_merge and item.status == 'ready_to_notify':
+            item.notified_at = datetime.now(timezone.utc)
+            db.commit()
+            response_payload['notify_after_merge'] = True
+            response_payload['notification'] = {
+                'phone': item.user_phone,
+                'project_ids': [item.project_id] if item.project_id else [],
+                'scene_names': [item.scene_name],
+                'asset_labels': [asset_label],
+                'message': '您之前提交的场景音效补充需求已完成补充，欢迎回到系统继续使用。',
+            }
+        return jsonify(response_payload)
+
+
+@app.post(f'{settings.api_prefix}/ops/scene-supplements/notify')
+@_require_admin
+def ops_scene_supplements_notify():
+    payload = request.get_json(force=True) or {}
+    item_ids = payload.get('item_ids') or []
+    if not isinstance(item_ids, list) or not item_ids:
+        return jsonify({'detail': 'item_ids is required'}), 400
+
+    now = datetime.now(timezone.utc)
+    with SessionLocal() as db:
+        rows = db.execute(select(SceneSupplementTask).where(SceneSupplementTask.id.in_(item_ids))).scalars().all()
+        grouped: dict[str, list[SceneSupplementTask]] = {}
+        for row in rows:
+            row.notified_at = now
+            grouped.setdefault(row.user_phone or '', []).append(row)
+        db.commit()
+
+        notifications = []
+        for phone, items in grouped.items():
+            payload_out = {
+                'phone': phone,
+                'project_ids': sorted({x.project_id for x in items if x.project_id}),
+                'scene_names': [x.scene_name for x in items if x.scene_name],
+                'asset_labels': [x.asset_label for x in items if x.asset_label],
+                'message': '您之前提交的场景音效补充需求已完成补充，欢迎回到系统继续使用。',
+            }
+            _log_user_operation(
+                db=db,
+                action='scene_supplement_notify',
                 project_id=items[0].project_id if items else None,
                 req=payload_out,
                 resp={'queued': True, 'sms_sent': False},
@@ -2221,6 +2976,7 @@ def analyze_narration(project_id: int):
 def analyze_text_narration(project_id: int):
     text = (request.form.get('text') or '').strip()
     file = request.files.get('file')
+    llm_provider_override = (request.form.get('llm_provider_override') or request.args.get('llm_provider_override') or '').strip()
     report_mode = (request.form.get('report_mode') or request.args.get('report_mode') or settings.report_mode_default).strip().lower()
     debug_prompt = True
     if not text:
@@ -2245,7 +3001,7 @@ def analyze_text_narration(project_id: int):
             }
 
         text_result = analyze_text_for_audiobook(
-            text, report_mode=report_mode, audio_context=audio_context, debug_prompt=debug_prompt
+            text, report_mode=report_mode, audio_context=audio_context, debug_prompt=debug_prompt, llm_provider_override=llm_provider_override
         )
         text_row = db.execute(select(TextAnalysis).where(TextAnalysis.project_id == project_id)).scalar_one_or_none()
         if text_row is None:
@@ -2310,7 +3066,7 @@ def analyze_text_narration(project_id: int):
             db=db,
             action='text_narration_analysis',
             project_id=project_id,
-            req={'report_mode': report_mode, 'text_len': len(text), 'file_name': file.filename or save_path.name},
+            req={'report_mode': report_mode, 'text_len': len(text), 'file_name': file.filename or save_path.name, 'llm_provider_override': llm_provider_override},
             resp={
                 'analysis_mode': response_payload['analysis_mode'],
                 'text_scene_count': len((text_result or {}).get('scenes') or []),
@@ -2328,6 +3084,7 @@ def analyze_text_narration(project_id: int):
 @_enforce_feature_access('fusion_execution')
 def build_fusion(project_id: int):
     report_mode = (request.args.get('report_mode') or settings.report_mode_default).strip().lower()
+    llm_provider_override = (request.args.get('llm_provider_override') or '').strip()
     debug_prompt = True
     with SessionLocal() as db:
         project = db.get(Project, project_id)
@@ -2391,6 +3148,7 @@ def build_fusion(project_id: int):
             text_context=text_context,
             report_mode=report_mode,
             debug_prompt=debug_prompt,
+            llm_provider_override=llm_provider_override,
         )
         result['evidence_summary'] = {
             'chain': 'music+text+narration',
@@ -2434,6 +3192,7 @@ def build_fusion(project_id: int):
             project_id=project_id,
             req={
                 'report_mode': report_mode,
+                'llm_provider_override': llm_provider_override,
                 'evidence_sources': {
                     'has_music_analysis': True,
                     'has_text_analysis': True,
@@ -2477,7 +3236,7 @@ def build_fusion(project_id: int):
             db=db,
             action='fusion_execution',
             project_id=project_id,
-            req={'report_mode': report_mode, 'evidence_summary': result.get('evidence_summary') or {}},
+            req={'report_mode': report_mode, 'llm_provider_override': llm_provider_override, 'evidence_summary': result.get('evidence_summary') or {}},
             resp={
                 'analysis_mode': result.get('analysis_mode'),
                 'cue_count': len(result.get('cues') or []),

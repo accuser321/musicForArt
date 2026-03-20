@@ -66,6 +66,21 @@ class NarrationAnalysis(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
+class SceneAnalysis(Base):
+    __tablename__ = 'scene_analysis'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey('projects.id', ondelete='CASCADE'), unique=True, index=True)
+    raw_text: Mapped[str] = mapped_column(Text, nullable=False)
+    genre: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='')
+    report_markdown: Mapped[str] = mapped_column(Text, nullable=False, default='')
+    report_json: Mapped[str] = mapped_column(Text, nullable=False, default='{}')
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
 class ReasoningCache(Base):
     __tablename__ = 'reasoning_cache'
 
@@ -215,3 +230,41 @@ class ActionGraphInheritanceReview(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class SceneSupplementTask(Base):
+    __tablename__ = 'scene_supplement_task'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(Integer, index=True, nullable=True)
+    user_phone: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='')
+    genre: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='')
+    scene_name: Mapped[str] = mapped_column(String(128), index=True, nullable=False, default='')
+    target_scene: Mapped[str] = mapped_column(String(128), index=True, nullable=False, default='')
+    node_key: Mapped[str] = mapped_column(String(255), index=True, nullable=False, default='')
+    sentence_excerpt: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    time_terms_json: Mapped[str] = mapped_column(Text, nullable=False, default='[]')
+    location_terms_json: Mapped[str] = mapped_column(Text, nullable=False, default='[]')
+    scene_elements_json: Mapped[str] = mapped_column(Text, nullable=False, default='[]')
+    sfx_terms_json: Mapped[str] = mapped_column(Text, nullable=False, default='[]')
+    missing_sfx_terms_json: Mapped[str] = mapped_column(Text, nullable=False, default='[]')
+    status: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='pending')
+    asset_label: Mapped[str] = mapped_column(String(128), nullable=False, default='')
+    asset_file_path: Mapped[str] = mapped_column(String(1024), nullable=False, default='')
+    notified_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class SceneSupplementAsset(Base):
+    __tablename__ = 'scene_supplement_asset'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    supplement_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    asset_label: Mapped[str] = mapped_column(String(128), index=True, nullable=False, default='')
+    asset_scope: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='genre')
+    asset_scope_genre: Mapped[str] = mapped_column(String(32), nullable=False, default='')
+    asset_file_path: Mapped[str] = mapped_column(String(1024), nullable=False, default='')
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)

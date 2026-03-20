@@ -15,6 +15,7 @@ SYSTEM_PROMPT_FILE = ''
 PROMPT_CHAIN_BY_KIND = {
     'audio': ['V3-music_analysis_task.txt', 'V3-music_analysis_task_retry.txt'],
     'action_verbs': ['V3-action_verbs_task.txt', 'V3-action_verbs_task_retry.txt'],
+    'scene_building': ['V3-scene_building_task.txt', 'V3-scene_building_task_retry.txt'],
     'text_analysis': ['V3-text_analysis_task.txt', 'V3-text_analysis_task_retry.txt'],
     'text_with_music': ['V3-text_analysis_task.txt', 'V3-text_analysis_task_retry.txt'],
     'fusion': ['V3-production_analysis_task.txt', 'V3-production_analysis_task_retry.txt'],
@@ -23,6 +24,38 @@ PROMPT_CHAIN_BY_KIND = {
 DEFAULT_SYSTEM_PROMPT_FALLBACK = (
     '你是有声书后期分析助手。请严格遵守任务提示词中的输入输出约束。'
 )
+
+
+def _normalize_provider_name(provider_value: str | None) -> str:
+    value = str(provider_value or '').strip().lower()
+    if value in {'', 'default'}:
+        return 'default'
+    if value in {'deepseek'}:
+        return 'deepseek'
+    if value in {'qwen', 'qwen-plus', 'dashscope'}:
+        return 'qwen'
+    return value
+
+
+def _provider_settings(provider_override: str | None = None) -> dict:
+    normalized = _normalize_provider_name(provider_override)
+    if normalized == 'qwen':
+        return {
+            'provider': 'qwen',
+            'base_url': settings.qwen_base_url,
+            'api_key': settings.qwen_api_key,
+            'model': settings.qwen_model,
+            'timeout_sec': settings.llm_timeout_sec,
+            'temperature': settings.llm_temperature,
+        }
+    return {
+        'provider': settings.llm_provider,
+        'base_url': settings.llm_base_url,
+        'api_key': settings.llm_api_key,
+        'model': settings.llm_model,
+        'timeout_sec': settings.llm_timeout_sec,
+        'temperature': settings.llm_temperature,
+    }
 
 
 def _load_prompt(name: str) -> str:
@@ -41,8 +74,9 @@ def _load_system_prompt() -> tuple[str, str]:
     return DEFAULT_SYSTEM_PROMPT_FALLBACK, '(fallback)'
 
 
-def llm_enabled() -> bool:
-    return bool(settings.llm_api_key and settings.llm_model and settings.llm_base_url)
+def llm_enabled(provider_override: str | None = None) -> bool:
+    provider = _provider_settings(provider_override)
+    return bool(provider.get('api_key') and provider.get('model') and provider.get('base_url'))
 
 
 def _extract_json_blob(text: str) -> dict | None:
@@ -193,6 +227,46 @@ def _validate_contract(payload: dict, evidence_kind: str | None) -> tuple[bool, 
             return False, 'key_points must be list'
         if not isinstance(payload.get('risks'), list):
             return False, 'risks must be list'
+        return True, ''
+
+    if kind == 'scene_building':
+        required = [
+            'title',
+            'scene_items',
+            'summary',
+            'graph_model',
+        ]
+        for k in required:
+            if k not in payload:
+                return False, f'missing key: {k}'
+        if not isinstance(payload.get('scene_items'), list):
+            return False, 'scene_items must be list'
+        if not isinstance(payload.get('summary'), dict):
+            return False, 'summary must be object'
+        if not isinstance(payload.get('graph_model'), dict):
+            return False, 'graph_model must be object'
+        for i, row in enumerate(payload.get('scene_items') or []):
+            if not isinstance(row, dict):
+                return False, f'scene_items[{i}] must be object'
+            req = [
+                'scene_id',
+                'scene_name',
+                'node_key',
+                'sentence_excerpt',
+                'is_scene_change',
+                'scene_change_reason',
+                'time_terms',
+                'location_terms',
+                'background_elements',
+                'feature_elements',
+                'detail_elements',
+                'supporting_sfx_terms',
+                'detail_sfx_terms',
+                'excluded_action_terms',
+            ]
+            for rk in req:
+                if rk not in row:
+                    return False, f'scene_items[{i}] missing key: {rk}'
         return True, ''
 
     def _validate_sections_and_structure(obj: dict) -> tuple[bool, str]:
@@ -419,6 +493,124 @@ def _validate_contract(payload: dict, evidence_kind: str | None) -> tuple[bool, 
     return True, ''
 
 
+def _normalize_contract_payload(payload: dict, evidence_kind: str | None) -> dict:
+    if not isinstance(payload, dict):
+        return payload
+    kind = (evidence_kind or '').strip()
+    normalized = dict(payload)
+    if kind == 'audio':
+        if not str(normalized.get('title') or '').strip():
+            normalized['title'] = '音乐分析结果'
+        if not str(normalized.get('summary') or '').strip():
+            normalized['summary'] = '基于时长、锚点与层次信息生成的音乐分析结果。'
+        if not isinstance(normalized.get('fit_genres'), list):
+            normalized['fit_genres'] = []
+        if not isinstance(normalized.get('risk_genres'), list):
+            normalized['risk_genres'] = []
+        if not isinstance(normalized.get('sections'), list):
+            normalized['sections'] = []
+        if not isinstance(normalized.get('structure_logic'), dict):
+            normalized['structure_logic'] = {
+                'pattern_guess': '未明确识别',
+                'repeat_groups': [],
+                'progression_comment': '本次结果缺少稳定结构说明，建议结合音乐锚点复核。',
+            }
+        if not isinstance(normalized.get('hit_points'), list):
+            normalized['hit_points'] = []
+        if not isinstance(normalized.get('mix_notes'), list):
+            normalized['mix_notes'] = []
+        if not isinstance(normalized.get('key_points'), list):
+            normalized['key_points'] = []
+        if 'markdown' not in normalized or not isinstance(normalized.get('markdown'), str):
+            normalized['markdown'] = ''
+    if kind == 'action_verbs':
+        if not str(normalized.get('title') or '').strip():
+            normalized['title'] = '人物动作动词提取'
+        if not isinstance(normalized.get('rule_summary'), list) or not [str(x).strip() for x in (normalized.get('rule_summary') or []) if str(x).strip()]:
+            normalized['rule_summary'] = [
+                '必须是人物发出的动作',
+                '放在当前文本里仍然是动词',
+                '必须是当下正在发生',
+            ]
+        if not isinstance(normalized.get('action_candidates'), list):
+            normalized['action_candidates'] = []
+        if not isinstance(normalized.get('key_points'), list):
+            normalized['key_points'] = []
+        if not isinstance(normalized.get('risks'), list):
+            normalized['risks'] = []
+    if kind == 'text_analysis':
+        if not str(normalized.get('title') or '').strip():
+            normalized['title'] = '文本分析报告'
+        if not str(normalized.get('text_theme') or '').strip():
+            normalized['text_theme'] = '文本主情绪与叙事方向待进一步确认。'
+        fit = normalized.get('fit_with_music')
+        if not isinstance(fit, dict):
+            fit = {}
+            normalized['fit_with_music'] = fit
+        if not str(fit.get('verdict') or '').strip():
+            fit['verdict'] = '部分适配'
+        if not _is_num(fit.get('score')):
+            fit['score'] = 60
+        if not isinstance(fit.get('reasons'), list):
+            fit['reasons'] = []
+        if len(fit.get('reasons') or []) < 3:
+            base_reasons = [str(x).strip() for x in (fit.get('reasons') or []) if str(x).strip()]
+            while len(base_reasons) < 3:
+                base_reasons.append('当前按已有文本证据保守判断')
+            fit['reasons'] = base_reasons[:3]
+        if not isinstance(normalized.get('scene_units'), list):
+            normalized['scene_units'] = []
+        if not isinstance(normalized.get('clause_timeline'), list):
+            normalized['clause_timeline'] = []
+        if not isinstance(normalized.get('emotion_curve'), list):
+            normalized['emotion_curve'] = []
+        if not isinstance(normalized.get('sfx_requirements'), list):
+            normalized['sfx_requirements'] = []
+        if not isinstance(normalized.get('key_points'), list):
+            normalized['key_points'] = []
+        if not isinstance(normalized.get('risks'), list):
+            normalized['risks'] = []
+        if 'markdown' not in normalized or not isinstance(normalized.get('markdown'), str):
+            normalized['markdown'] = ''
+    if kind == 'scene_building':
+        if not str(normalized.get('title') or '').strip():
+            normalized['title'] = '场景搭建分析'
+    if kind == 'fusion':
+        if not str(normalized.get('title') or '').strip():
+            normalized['title'] = '后期执行单'
+        fit = normalized.get('fit_verdict')
+        if not isinstance(fit, dict):
+            fit = {}
+            normalized['fit_verdict'] = fit
+        if not str(fit.get('verdict') or '').strip():
+            fit['verdict'] = '部分适配'
+        if not _is_num(fit.get('score')):
+            fit['score'] = 60
+        if not isinstance(fit.get('reasons'), list):
+            fit['reasons'] = []
+        if not isinstance(normalized.get('key_points'), list):
+            normalized['key_points'] = []
+        if not isinstance(normalized.get('sections'), list):
+            normalized['sections'] = []
+        if not isinstance(normalized.get('music_entry_plan'), list):
+            normalized['music_entry_plan'] = []
+        if not isinstance(normalized.get('hit_points'), list):
+            normalized['hit_points'] = []
+        if not isinstance(normalized.get('risks'), list):
+            normalized['risks'] = []
+        if not isinstance(normalized.get('export_hints'), list):
+            normalized['export_hints'] = []
+        if not isinstance(normalized.get('structure_logic'), dict):
+            normalized['structure_logic'] = {
+                'pattern_guess': '未明确识别',
+                'repeat_groups': [],
+                'evidence': [],
+            }
+        if 'markdown' not in normalized or not isinstance(normalized.get('markdown'), str):
+            normalized['markdown'] = ''
+    return normalized
+
+
 def _max_tokens_for_kind(evidence_kind: str) -> int:
     base = int(settings.llm_max_tokens or 1200)
     kind = (evidence_kind or '').strip().lower()
@@ -433,13 +625,14 @@ def _max_tokens_for_kind(evidence_kind: str) -> int:
     return max(700, min(base, 1400))
 
 
-def _chat_completion(system_prompt: str, user_prompt: str, evidence_kind: str = '') -> tuple[str | None, dict]:
-    if not llm_enabled():
+def _chat_completion(system_prompt: str, user_prompt: str, evidence_kind: str = '', provider_override: str = '') -> tuple[str | None, dict]:
+    provider = _provider_settings(provider_override)
+    if not llm_enabled(provider_override):
         return None, {'status': 'disabled', 'error': 'llm not enabled'}
 
     payload = {
-        'model': settings.llm_model,
-        'temperature': settings.llm_temperature,
+        'model': provider['model'],
+        'temperature': provider['temperature'],
         'max_tokens': _max_tokens_for_kind(evidence_kind),
         'messages': [
             {'role': 'system', 'content': system_prompt},
@@ -448,13 +641,13 @@ def _chat_completion(system_prompt: str, user_prompt: str, evidence_kind: str = 
     }
 
     body = json.dumps(payload).encode('utf-8')
-    url = settings.llm_base_url.rstrip('/') + '/chat/completions'
+    url = provider['base_url'].rstrip('/') + '/chat/completions'
     req = urllib.request.Request(
         url=url,
         data=body,
         headers={
             'Content-Type': 'application/json',
-            'Authorization': f'Bearer {settings.llm_api_key}',
+            'Authorization': f'Bearer {provider["api_key"]}',
         },
         method='POST',
     )
@@ -463,17 +656,24 @@ def _chat_completion(system_prompt: str, user_prompt: str, evidence_kind: str = 
         req_id = uuid.uuid4().hex[:8]
         t0 = time.perf_counter()
         print(
-            f'[LLM START] req={req_id} attempt={attempt}/{max_attempts} provider={settings.llm_provider} model={settings.llm_model} timeout={settings.llm_timeout_sec}s max_tokens={payload["max_tokens"]}',
+            f'[LLM START] req={req_id} attempt={attempt}/{max_attempts} provider={provider["provider"]} model={provider["model"]} timeout={provider["timeout_sec"]}s max_tokens={payload["max_tokens"]}',
             file=sys.stderr,
         )
         try:
-            with urllib.request.urlopen(req, timeout=settings.llm_timeout_sec) as resp:
+            with urllib.request.urlopen(req, timeout=provider['timeout_sec']) as resp:
                 raw = resp.read().decode('utf-8')
                 data = json.loads(raw)
                 content = data['choices'][0]['message']['content'].strip()
                 elapsed = int((time.perf_counter() - t0) * 1000)
                 print(f'[LLM OK] req={req_id} elapsed_ms={elapsed} chars={len(content)}', file=sys.stderr)
-                return content, {'status': 'ok', 'request_id': req_id, 'elapsed_ms': elapsed, 'attempt': attempt}
+                return content, {
+                    'status': 'ok',
+                    'request_id': req_id,
+                    'elapsed_ms': elapsed,
+                    'attempt': attempt,
+                    'provider': provider['provider'],
+                    'model': provider['model'],
+                }
         except urllib.error.HTTPError as e:
             try:
                 err_body = e.read().decode('utf-8', errors='ignore')
@@ -485,46 +685,46 @@ def _chat_completion(system_prompt: str, user_prompt: str, evidence_kind: str = 
             if retryable and attempt < max_attempts:
                 time.sleep(0.8)
                 continue
-            return None, {'status': 'http_error', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': f'{e.code} {e.reason}', 'body': err_body[:500], 'attempt': attempt}
+            return None, {'status': 'http_error', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': f'{e.code} {e.reason}', 'body': err_body[:500], 'attempt': attempt, 'provider': provider['provider'], 'model': provider['model']}
         except urllib.error.URLError as e:
             elapsed = int((time.perf_counter() - t0) * 1000)
             print(f'[LLM URLError] req={req_id} elapsed_ms={elapsed} reason={e.reason}', file=sys.stderr)
             if attempt < max_attempts:
                 time.sleep(0.8)
                 continue
-            return None, {'status': 'url_error', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': str(e.reason), 'attempt': attempt}
+            return None, {'status': 'url_error', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': str(e.reason), 'attempt': attempt, 'provider': provider['provider'], 'model': provider['model']}
         except TimeoutError:
             elapsed = int((time.perf_counter() - t0) * 1000)
             print(f'[LLM TimeoutError] req={req_id} elapsed_ms={elapsed} request timed out', file=sys.stderr)
             if attempt < max_attempts:
                 time.sleep(0.8)
                 continue
-            return None, {'status': 'timeout', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': 'request timed out', 'attempt': attempt}
+            return None, {'status': 'timeout', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': 'request timed out', 'attempt': attempt, 'provider': provider['provider'], 'model': provider['model']}
         except http.client.IncompleteRead:
             elapsed = int((time.perf_counter() - t0) * 1000)
             print(f'[LLM IncompleteRead] req={req_id} elapsed_ms={elapsed} upstream connection closed unexpectedly', file=sys.stderr)
             if attempt < max_attempts:
                 time.sleep(0.8)
                 continue
-            return None, {'status': 'incomplete_read', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': 'upstream connection closed unexpectedly', 'attempt': attempt}
+            return None, {'status': 'incomplete_read', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': 'upstream connection closed unexpectedly', 'attempt': attempt, 'provider': provider['provider'], 'model': provider['model']}
         except http.client.RemoteDisconnected:
             elapsed = int((time.perf_counter() - t0) * 1000)
             print(f'[LLM RemoteDisconnected] req={req_id} elapsed_ms={elapsed} remote end closed connection without response', file=sys.stderr)
             if attempt < max_attempts:
                 time.sleep(0.8)
                 continue
-            return None, {'status': 'remote_disconnected', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': 'remote end closed connection without response', 'attempt': attempt}
+            return None, {'status': 'remote_disconnected', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': 'remote end closed connection without response', 'attempt': attempt, 'provider': provider['provider'], 'model': provider['model']}
         except (KeyError, IndexError, json.JSONDecodeError) as e:
             elapsed = int((time.perf_counter() - t0) * 1000)
             print(f'[LLM ParseError] req={req_id} elapsed_ms={elapsed} {type(e).__name__}: {e}', file=sys.stderr)
-            return None, {'status': 'parse_error', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': f'{type(e).__name__}: {e}', 'attempt': attempt}
+            return None, {'status': 'parse_error', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': f'{type(e).__name__}: {e}', 'attempt': attempt, 'provider': provider['provider'], 'model': provider['model']}
         except Exception as e:
             elapsed = int((time.perf_counter() - t0) * 1000)
             print(f'[LLM UnknownError] req={req_id} elapsed_ms={elapsed} {type(e).__name__}: {e}', file=sys.stderr)
             if attempt < max_attempts:
                 time.sleep(0.8)
                 continue
-            return None, {'status': 'unknown_exception', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': f'{type(e).__name__}: {e}', 'attempt': attempt}
+            return None, {'status': 'unknown_exception', 'request_id': req_id, 'elapsed_ms': elapsed, 'error': f'{type(e).__name__}: {e}', 'attempt': attempt, 'provider': provider['provider'], 'model': provider['model']}
     return None, {'status': 'unknown_error', 'error': 'llm call failed unexpectedly'}
 
 
@@ -578,6 +778,15 @@ def _output_limits_by_kind(evidence_kind: str) -> str:
             '- sentence_excerpt<=28字，reason<=20字。\n'
             '- 只保留满足三条规则的人物动作动词，避免把弱相关动词塞满上限。'
         )
+    if kind == 'scene_building':
+        return (
+            '长度硬约束（必须执行）：\n'
+            '- scene_items<=8。\n'
+            '- 每个 scene_item 的 background_elements<=4，feature_elements<=5，detail_elements<=6。\n'
+            '- supporting_sfx_terms<=5，detail_sfx_terms<=6，excluded_action_terms<=6。\n'
+            '- summary 只保留 scene_count / asset_count / gap_count 三项。\n'
+            '- 只输出 JSON，不输出额外解释文本。'
+        )
     if kind == 'text_analysis':
         return (
             '长度硬约束（必须执行）：\n'
@@ -605,10 +814,12 @@ def generate_report(task_mode: str, evidence_payload: dict, debug_prompt: bool =
     system_prompt, system_prompt_file = _load_system_prompt()
     compact = _compact_evidence(evidence_payload)
     evidence_kind = str(compact.get('kind') or '').strip().lower()
+    provider_override = str(compact.get('llm_provider_override') or compact.get('llm_provider') or '').strip()
     attempts: list[str] = []
     trace: list[dict] = []
     first_unstructured_raw: str | None = None
     first_unstructured_prompt_file: str | None = None
+    last_contract_reason: str | None = None
     _ = debug_prompt  # 保持接口兼容，当前固定开启追踪
 
     custom_prompt_files = compact.get('prompt_files')
@@ -634,14 +845,22 @@ def generate_report(task_mode: str, evidence_payload: dict, debug_prompt: bool =
                 '1) 先输出 JSON（可直接解析）。\n'
                 '2) 再输出 markdown 字段对应的完整内容。\n\n'
             )
+        retry_hint = ''
+        if last_contract_reason and 'retry' in prompt_file:
+            retry_hint = (
+                '上一次输出未通过结构校验，请优先修复以下问题：\n'
+                f'- {last_contract_reason}\n'
+                '- 你必须先补齐缺失字段，再输出最终 JSON。\n\n'
+            )
         user_prompt = (
             f'{task_prompt}\n\n'
+            f'{retry_hint}'
             f'{output_req}'
             f'{output_limits}\n\n'
             f'证据 JSON:\n{json.dumps(compact, ensure_ascii=False, indent=2)}'
         )
 
-        raw, call_meta = _chat_completion(system_prompt, user_prompt, evidence_kind=evidence_kind)
+        raw, call_meta = _chat_completion(system_prompt, user_prompt, evidence_kind=evidence_kind, provider_override=provider_override)
         trace.append(
             {
                 'mode': 'core_prompt_chain',
@@ -660,9 +879,11 @@ def generate_report(task_mode: str, evidence_payload: dict, debug_prompt: bool =
 
         parsed = _extract_json_blob(raw)
         if parsed and isinstance(parsed, dict):
+            parsed = _normalize_contract_payload(parsed, evidence_kind=evidence_kind)
             ok, reason = _validate_contract(parsed, evidence_kind=evidence_kind)
             if not ok:
                 print(f'[LLM CONTRACT INVALID] prompt={prompt_file} reason={reason}', file=sys.stderr)
+                last_contract_reason = reason
                 if trace:
                     trace[-1]['contract_valid'] = False
                     trace[-1]['contract_reason'] = reason
@@ -678,6 +899,8 @@ def generate_report(task_mode: str, evidence_payload: dict, debug_prompt: bool =
                 'fallback_applied': len(attempts) > 1,
                 'custom_prompt_chain': prompt_chain,
                 'system_prompt_file': system_prompt_file,
+                'llm_provider_used': (trace[0].get('call_meta') or {}).get('provider') if trace else '',
+                'llm_model_used': (trace[0].get('call_meta') or {}).get('model') if trace else '',
                 'llm_trace': trace,
             }
 
@@ -694,6 +917,8 @@ def generate_report(task_mode: str, evidence_payload: dict, debug_prompt: bool =
             'fallback_applied': True,
             'custom_prompt_chain': prompt_chain,
             'system_prompt_file': system_prompt_file,
+            'llm_provider_used': (trace[0].get('call_meta') or {}).get('provider') if trace else '',
+            'llm_model_used': (trace[0].get('call_meta') or {}).get('model') if trace else '',
             'llm_trace': trace,
         }
 
@@ -704,5 +929,7 @@ def generate_report(task_mode: str, evidence_payload: dict, debug_prompt: bool =
         'fallback_applied': False,
         'custom_prompt_chain': prompt_chain,
         'system_prompt_file': system_prompt_file,
+        'llm_provider_used': (trace[0].get('call_meta') or {}).get('provider') if trace else '',
+        'llm_model_used': (trace[0].get('call_meta') or {}).get('model') if trace else '',
         'llm_trace': trace,
     }

@@ -14,7 +14,7 @@
 
 输出 JSON（必须完整，且只输出 JSON，不要任何前后解释）：
 {
-  "title": "字符串",
+  "title": "文本分析报告",
   "text_theme": "文本主情绪与叙事方向",
   "fit_with_music": {
     "verdict": "适配/部分适配/不建议",
@@ -69,6 +69,8 @@
 5) 禁止在 JSON 之外输出额外前后缀说明。
 6) 若输出长度受限，优先保全 JSON 字段完整；字段值使用短句，不写长段落。
 7) scene_units 必须覆盖输入中的主要场景，不得随意漏场景；若场景过多，优先保留高强度场景并在 risks 说明压缩策略。
+8) title、text_theme、fit_with_music、scene_units、clause_timeline、emotion_curve、sfx_requirements、key_points、risks 均不得省略；若证据不足可返回空数组或保守对象，但字段必须存在。
+9) title 字段固定写为“文本分析报告”，不得省略、不得改名、不得留空。
 
 长度约束：
 1) scene_units<=8，emotion_curve<=8，sfx_requirements<=10，clause_timeline<=12。

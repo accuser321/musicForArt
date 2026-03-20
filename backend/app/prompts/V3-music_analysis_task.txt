@@ -49,6 +49,9 @@
 2) 只允许使用输入证据，不得编造不存在的时间点。
 3) 所有值使用中文。
 4) sections/hit_points 的时间要可用于后续对位。
+5) title 字段固定写为“音乐分析结果”，不得省略、不得改名、不得留空。
+6) summary 字段必须输出一句中文用途总结，不得省略、不得留空。
+7) fit_genres、risk_genres、sections、hit_points、mix_notes、key_points、structure_logic 均不得省略；若证据不足可返回空数组或保守对象，但字段必须存在。
 
 长度约束：
 1) sections<=6，hit_points<=6。

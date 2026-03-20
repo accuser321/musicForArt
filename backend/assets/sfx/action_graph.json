@@ -651,7 +651,10 @@
           "衣料摩擦声",
           "脚步急撤声",
           "避让",
-          "疾退"
+          "疾退",
+          "后撤",
+          "躲闪",
+          "闪开"
         ]
       },
       "semantic_terms": [],
@@ -660,7 +663,387 @@
         "衣料摩擦声",
         "脚步急撤声",
         "避让",
-        "疾退"
+        "疾退",
+        "后撤",
+        "躲闪",
+        "闪开"
+      ]
+    },
+    "走": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "走",
+        "node_key": "走"
+      },
+      "children": {
+        "semantic_terms": [
+          "行走",
+          "迈步",
+          "缓步前行"
+        ],
+        "sfx_terms": [
+          "脚步声",
+          "地面摩擦声",
+          "衣料轻擦声"
+        ]
+      },
+      "semantic_terms": [
+        "行走",
+        "迈步",
+        "缓步前行"
+      ],
+      "sfx_terms": [
+        "脚步声",
+        "地面摩擦声",
+        "衣料轻擦声"
+      ]
+    },
+    "快走": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "快走",
+        "node_key": "快走"
+      },
+      "children": {
+        "semantic_terms": [
+          "加快脚步",
+          "疾步",
+          "快步走开"
+        ],
+        "sfx_terms": [
+          "急促脚步声",
+          "衣料摩擦声",
+          "地面踏步声"
+        ]
+      },
+      "semantic_terms": [
+        "加快脚步",
+        "疾步",
+        "快步走开"
+      ],
+      "sfx_terms": [
+        "急促脚步声",
+        "衣料摩擦声",
+        "地面踏步声"
+      ]
+    },
+    "慢走": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "慢走",
+        "node_key": "慢走"
+      },
+      "children": {
+        "semantic_terms": [
+          "缓步",
+          "踱步",
+          "慢慢走近"
+        ],
+        "sfx_terms": [
+          "轻脚步声",
+          "拖步声",
+          "衣料轻擦声"
+        ]
+      },
+      "semantic_terms": [
+        "缓步",
+        "踱步",
+        "慢慢走近"
+      ],
+      "sfx_terms": [
+        "轻脚步声",
+        "拖步声",
+        "衣料轻擦声"
+      ]
+    },
+    "跳": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "跳",
+        "node_key": "跳"
+      },
+      "children": {
+        "semantic_terms": [
+          "跃起",
+          "跳起",
+          "腾跳"
+        ],
+        "sfx_terms": [
+          "起跳声",
+          "落地声",
+          "衣料带动声"
+        ]
+      },
+      "semantic_terms": [
+        "跃起",
+        "跳起",
+        "腾跳"
+      ],
+      "sfx_terms": [
+        "起跳声",
+        "落地声",
+        "衣料带动声"
+      ]
+    },
+    "爬": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "爬",
+        "node_key": "爬"
+      },
+      "children": {
+        "semantic_terms": [
+          "攀爬",
+          "爬上",
+          "手脚并用"
+        ],
+        "sfx_terms": [
+          "攀爬摩擦声",
+          "手部抓握声",
+          "布料摩擦声"
+        ]
+      },
+      "semantic_terms": [
+        "攀爬",
+        "爬上",
+        "手脚并用"
+      ],
+      "sfx_terms": [
+        "攀爬摩擦声",
+        "手部抓握声",
+        "布料摩擦声"
+      ]
+    },
+    "飞": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "飞",
+        "node_key": "飞"
+      },
+      "children": {
+        "semantic_terms": [
+          "腾空",
+          "飞起",
+          "掠空"
+        ],
+        "sfx_terms": [
+          "破风声",
+          "衣摆带风声",
+          "快速掠过声"
+        ]
+      },
+      "semantic_terms": [
+        "腾空",
+        "飞起",
+        "掠空"
+      ],
+      "sfx_terms": [
+        "破风声",
+        "衣摆带风声",
+        "快速掠过声"
+      ]
+    },
+    "摩擦": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "摩擦",
+        "node_key": "摩擦"
+      },
+      "children": {
+        "semantic_terms": [
+          "擦过",
+          "磨蹭",
+          "蹭到"
+        ],
+        "sfx_terms": [
+          "摩擦声",
+          "衣料摩擦声",
+          "表面刮擦声"
+        ]
+      },
+      "semantic_terms": [
+        "擦过",
+        "磨蹭",
+        "蹭到"
+      ],
+      "sfx_terms": [
+        "摩擦声",
+        "衣料摩擦声",
+        "表面刮擦声"
+      ]
+    },
+    "蹲下": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "蹲下",
+        "node_key": "蹲下"
+      },
+      "children": {
+        "semantic_terms": [
+          "屈膝蹲下",
+          "蹲伏",
+          "俯身蹲下"
+        ],
+        "sfx_terms": [
+          "衣料轻擦声",
+          "下蹲动作声",
+          "脚步调整声"
+        ]
+      },
+      "semantic_terms": [
+        "屈膝蹲下",
+        "蹲伏",
+        "俯身蹲下"
+      ],
+      "sfx_terms": [
+        "衣料轻擦声",
+        "下蹲动作声",
+        "脚步调整声"
+      ]
+    },
+    "抬手": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "抬手",
+        "node_key": "抬手"
+      },
+      "children": {
+        "semantic_terms": [
+          "抬起手",
+          "扬手",
+          "抬臂"
+        ],
+        "sfx_terms": [
+          "衣袖带动声",
+          "细微动作声",
+          "布料摩擦声"
+        ]
+      },
+      "semantic_terms": [
+        "抬起手",
+        "扬手",
+        "抬臂"
+      ],
+      "sfx_terms": [
+        "衣袖带动声",
+        "细微动作声",
+        "布料摩擦声"
+      ]
+    },
+    "放下": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "放下",
+        "node_key": "放下"
+      },
+      "children": {
+        "semantic_terms": [
+          "搁下",
+          "放回去",
+          "放到一旁"
+        ],
+        "sfx_terms": [
+          "放置声",
+          "轻碰声",
+          "物体落定声"
+        ]
+      },
+      "semantic_terms": [
+        "搁下",
+        "放回去",
+        "放到一旁"
+      ],
+      "sfx_terms": [
+        "放置声",
+        "轻碰声",
+        "物体落定声"
+      ]
+    },
+    "挥手": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "挥手",
+        "node_key": "挥手"
+      },
+      "children": {
+        "semantic_terms": [
+          "摆手",
+          "招手",
+          "扬手示意"
+        ],
+        "sfx_terms": [
+          "衣袖摆动声",
+          "细微破风声",
+          "布料摩擦声"
+        ]
+      },
+      "semantic_terms": [
+        "摆手",
+        "招手",
+        "扬手示意"
+      ],
+      "sfx_terms": [
+        "衣袖摆动声",
+        "细微破风声",
+        "布料摩擦声"
+      ]
+    },
+    "触碰": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "触碰",
+        "node_key": "触碰"
+      },
+      "children": {
+        "semantic_terms": [
+          "碰到",
+          "轻触",
+          "触到"
+        ],
+        "sfx_terms": [
+          "轻触声",
+          "接触声",
+          "细小碰触声"
+        ]
+      },
+      "semantic_terms": [
+        "碰到",
+        "轻触",
+        "触到"
+      ],
+      "sfx_terms": [
+        "轻触声",
+        "接触声",
+        "细小碰触声"
+      ]
+    },
+    "拾起": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "拾起",
+        "node_key": "拾起"
+      },
+      "children": {
+        "semantic_terms": [
+          "捡起",
+          "拿起",
+          "弯腰拾起"
+        ],
+        "sfx_terms": [
+          "拿取声",
+          "物体轻碰声",
+          "衣料轻擦声"
+        ]
+      },
+      "semantic_terms": [
+        "捡起",
+        "拿起",
+        "弯腰拾起"
+      ],
+      "sfx_terms": [
+        "拿取声",
+        "物体轻碰声",
+        "衣料轻擦声"
       ]
     },
     "封印": {
