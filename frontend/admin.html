@@ -176,6 +176,113 @@
         display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px dashed var(--line);
         border-radius:999px; background:#0d1a31; font-size:12px; color:var(--muted);
       }
+      .ops-audit-note {
+        border:1px solid var(--line);
+        border-radius:10px;
+        padding:10px;
+        background:#0a1830;
+        color:var(--muted);
+        font-size:12px;
+        line-height:1.7;
+        margin-bottom:10px;
+      }
+      .ops-section {
+        border:1px solid var(--line);
+        border-radius:10px;
+        padding:10px;
+        background:#0a1830;
+        margin-bottom:10px;
+      }
+      .ops-section h4 {
+        margin:0 0 8px;
+        font-size:13px;
+        color:var(--muted);
+      }
+      .ops-timeline {
+        display:flex;
+        flex-direction:column;
+        gap:10px;
+      }
+      .ops-event-card {
+        border:1px solid var(--line);
+        border-radius:10px;
+        padding:10px;
+        background:#0c1c34;
+      }
+      .ops-event-head {
+        display:flex;
+        justify-content:space-between;
+        gap:10px;
+        flex-wrap:wrap;
+        margin-bottom:6px;
+      }
+      .ops-event-title {
+        font-weight:700;
+        font-size:13px;
+      }
+      .ops-event-meta {
+        color:var(--muted);
+        font-size:12px;
+      }
+      .ops-event-summary {
+        font-size:12px;
+        line-height:1.7;
+      }
+      .ops-kv-list {
+        display:grid;
+        grid-template-columns: 120px 1fr;
+        gap:6px 10px;
+        font-size:12px;
+      }
+      .ops-kv-list .k {
+        color:var(--muted);
+      }
+      .ops-bar-row {
+        display:flex;
+        align-items:center;
+        gap:10px;
+        margin:8px 0;
+      }
+      .ops-bar-label {
+        width:200px;
+        font-size:12px;
+        color:var(--ink);
+      }
+      .ops-bar-track {
+        flex:1;
+        height:10px;
+        border-radius:999px;
+        border:1px solid var(--line);
+        background:#081223;
+        overflow:hidden;
+      }
+      .ops-bar-fill {
+        height:100%;
+        background:linear-gradient(90deg, var(--accent), var(--accent2));
+      }
+      .ops-bar-value {
+        width:110px;
+        text-align:right;
+        font-size:12px;
+        color:var(--muted);
+      }
+      .ops-inline-detail {
+        margin-top:4px;
+        font-size:11px;
+        color:var(--muted);
+      }
+      .ops-pager {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        flex-wrap:wrap;
+        margin-bottom:10px;
+      }
+      .ops-pager-info {
+        color:var(--muted);
+        font-size:12px;
+      }
       .priority-high { border-color:#2a8fcb; background:#0b2137; }
       .priority-normal { border-color:#37506f; }
       .result-banner {
@@ -277,7 +384,7 @@
     <div class="wrap">
       <section class="top">
         <h1>Music For Art · 后台管理系统</h1>
-        <div class="muted">手机号登录 · 授权用户管理 · 运营审计与全流程数据下载</div>
+        <div class="muted">手机号登录 · 用户与测试期管理 · 运营审计与全流程数据下载</div>
         <div style="margin-top:8px;">
           <a href="/prompt_graph.html" style="color:#7de8ff; text-decoration:none; border:1px solid #2d4f80; border-radius:8px; padding:6px 10px; display:inline-block;">打开 Prompt 字段图谱</a>
         </div>
@@ -299,9 +406,41 @@
 
       <section class="grid">
         <div class="card">
-          <h3>授权用户管理</h3>
+          <h3>用户与测试期管理</h3>
+          <div class="row" style="margin-bottom:10px;">
+            <div class="cell">
+              <button onclick="loadBetaAccess()">查看测试期开关</button>
+            </div>
+            <div class="cell">
+              <select id="betaInviteOnly">
+                <option value="1">测试期：启用邀请码</option>
+                <option value="0">正式期：关闭邀请码</option>
+              </select>
+            </div>
+            <div class="cell">
+              <button onclick="saveBetaAccess()">保存测试期开关</button>
+            </div>
+            <div class="cell">
+              <button onclick="loadInviteCodes()">查看邀请码池</button>
+            </div>
+          </div>
           <div class="row">
             <div class="cell"><input id="uPhone" placeholder="用户手机号" /></div>
+            <div class="cell"><input id="uUid" placeholder="UID（可选）" /></div>
+            <div class="cell">
+              <select id="uRole">
+                <option value="33">33 普通用户</option>
+                <option value="22">22 种子用户</option>
+                <option value="11">11 管理员</option>
+                <option value="00">00 超级管理员</option>
+              </select>
+            </div>
+            <div class="cell">
+              <select id="uTier">
+                <option value="22">22 种子用户</option>
+                <option value="33">33 普通用户</option>
+              </select>
+            </div>
             <div class="cell">
               <select id="uAuth">
                 <option value="1">授权用户（不限次）</option>
@@ -314,10 +453,27 @@
                 <option value="1">管理员</option>
               </select>
             </div>
+            <div class="cell"><input id="uTextCharLimit" value="5000" placeholder="每日文本字符额度" /></div>
+            <div class="cell"><input id="uSfxDownloadLimit" value="100" placeholder="每日音效下载额度" /></div>
             <div class="cell"><input id="uLimit" value="3" /></div>
+            <div class="cell"><button onclick="applyTierQuotaPreset()">按级别回填默认额度</button></div>
             <div class="cell"><button onclick="saveUser()">保存用户策略</button></div>
           </div>
-          <div style="margin-top:8px;"><button onclick="loadUsers()">刷新用户列表</button></div>
+          <div class="row" style="margin-top:8px;">
+            <div class="cell"><input id="usageResetPhone" placeholder="重置手机号" /></div>
+            <div class="cell"><input id="usageResetDate" placeholder="重置日期 YYYY-MM-DD，默认今天" /></div>
+            <div class="cell"><button onclick="resetUserUsage()">手动重置当日用量</button></div>
+          </div>
+          <div style="margin-top:8px;" class="row">
+            <div class="cell"><input id="usageViewDate" placeholder="查看用量日期 YYYY-MM-DD，默认今天" /></div>
+            <div class="cell"><button onclick="loadUsers()">刷新用户列表</button></div>
+          </div>
+          <pre id="betaAccessOut">等待加载测试期开关...</pre>
+          <pre id="inviteCodesOut">等待加载邀请码池...</pre>
+          <pre id="usageResetOut">等待重置操作...</pre>
+          <div id="usersSummaryOut" class="muted" style="margin:8px 0;">等待加载用户额度概览...</div>
+          <div id="usersPaginationOut" class="row" style="margin:8px 0;"></div>
+          <div id="usersTableOut" style="margin:8px 0;"></div>
           <pre id="usersOut">等待加载...</pre>
         </div>
 
@@ -334,7 +490,12 @@
             <div class="cell"><button onclick="loadFunnel()">运营漏斗</button></div>
             <div class="cell"><button onclick="loadRecommendations()">优化建议</button></div>
           </div>
-          <pre id="eventsOut">等待查询...</pre>
+          <div id="opsAuditNote" class="ops-audit-note">等待加载行为说明...</div>
+          <div id="opsAuditView">请先点击上方按钮加载数据。</div>
+          <details style="margin-top:10px;">
+            <summary style="cursor:pointer; color:#9eb5d8;">查看原始 JSON</summary>
+            <pre id="eventsOut">等待查询...</pre>
+          </details>
         </div>
 
         <div class="card">
@@ -558,6 +719,150 @@
       }
       function show(id, data) {
         document.getElementById(id).textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      }
+
+      const USERS_PAGE_SIZE = 6;
+      let usersPageState = {
+        currentPage: 1,
+        totalPages: 1,
+        items: [],
+        ymd: '',
+      };
+      const OPS_TIMELINE_PAGE_SIZE = 4;
+      let opsTimelineState = {
+        currentPage: 1,
+        totalPages: 1,
+        items: [],
+      };
+
+      function formatReadableTime(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return '-';
+        const normalized = raw.replace('T', ' ').replace(/\.\d+$/, '');
+        if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(normalized)) return normalized;
+        const d = new Date(raw);
+        if (Number.isNaN(d.getTime())) return normalized;
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mi = String(d.getMinutes()).padStart(2, '0');
+        const ss = String(d.getSeconds()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+      }
+
+      function actionDisplayName(action) {
+        const key = String(action || '').trim();
+        return ({
+          'create_project': '创建项目',
+          'audio_analysis': '音乐分析',
+          'text_analysis': '文本分析',
+          'action_verb_analysis': '动作提取',
+          'action_sfx_graph': '动作图谱推荐',
+          'action_supplement_sheet': '动作补充单',
+          'scene_building_analysis': '场景搭建分析',
+          'scene_sfx_graph': '场景音效推荐',
+          'scene_supplement_generation': '场景补充单',
+          'text_narration_analysis': '文本演绎分析',
+          'fusion_execution': '生成后期执行单',
+          'action_sfx_asset_download': '下载单个音效',
+          'export_download': '导出下载',
+        })[key] || key || '未标注动作';
+      }
+
+      function tierDefaultQuota(tierCode) {
+        return String(tierCode || '') === '22'
+          ? { text: 10000, sfx: 200 }
+          : { text: 5000, sfx: 100 };
+      }
+
+      function applyTierQuotaPreset() {
+        const tier = (document.getElementById('uTier').value || '33').trim();
+        const preset = tierDefaultQuota(tier);
+        document.getElementById('uTextCharLimit').value = String(preset.text);
+        document.getElementById('uSfxDownloadLimit').value = String(preset.sfx);
+      }
+
+      function renderUsersTable(data) {
+        const box = document.getElementById('usersTableOut');
+        const summary = document.getElementById('usersSummaryOut');
+        const pager = document.getElementById('usersPaginationOut');
+        if (!box || !summary || !pager) return;
+        const items = Array.isArray(data && data.items) ? data.items : [];
+        const ymd = String((data && data.ymd) || '').trim() || '今日';
+        if (!items.length) {
+          summary.textContent = `${ymd} 暂无用户数据。`;
+          pager.innerHTML = '';
+          box.innerHTML = '<div class="muted">当前没有可展示的用户额度数据。</div>';
+          return;
+        }
+        usersPageState.items = items;
+        usersPageState.ymd = ymd;
+        usersPageState.totalPages = Math.max(1, Math.ceil(items.length / USERS_PAGE_SIZE));
+        usersPageState.currentPage = Math.min(usersPageState.currentPage, usersPageState.totalPages);
+        const totalTextUsed = items.reduce((sum, item) => sum + Number((((item || {}).quota || {}).text_chars_used) || 0), 0);
+        const totalSfxUsed = items.reduce((sum, item) => sum + Number((((item || {}).quota || {}).sfx_download_used) || 0), 0);
+        summary.textContent = `${ymd} 共 ${items.length} 个用户，文本已用 ${totalTextUsed} 字，音效下载已用 ${totalSfxUsed} 次。下方按每页 6 个用户分页展示。`;
+        renderUsersPage();
+      }
+
+      function changeUsersPage(delta) {
+        const next = Math.max(1, Math.min(usersPageState.totalPages, usersPageState.currentPage + delta));
+        if (next === usersPageState.currentPage) return;
+        usersPageState.currentPage = next;
+        renderUsersPage();
+      }
+
+      function renderUsersPage() {
+        const box = document.getElementById('usersTableOut');
+        const pager = document.getElementById('usersPaginationOut');
+        if (!box || !pager) return;
+        const items = Array.isArray(usersPageState.items) ? usersPageState.items : [];
+        const start = (usersPageState.currentPage - 1) * USERS_PAGE_SIZE;
+        const pageItems = items.slice(start, start + USERS_PAGE_SIZE);
+        const pageStart = items.length ? start + 1 : 0;
+        const pageEnd = items.length ? start + pageItems.length : 0;
+        pager.innerHTML = `
+          <div class="cell" style="flex:0 0 140px;"><button ${usersPageState.currentPage <= 1 ? 'disabled' : ''} onclick="changeUsersPage(-1)">上一页</button></div>
+          <div class="cell" style="flex:1 1 260px; align-self:center; color:#9fb5d8;">第 ${usersPageState.currentPage} / ${usersPageState.totalPages} 页，当前显示 ${pageStart}-${pageEnd} / ${items.length}</div>
+          <div class="cell" style="flex:0 0 140px;"><button ${usersPageState.currentPage >= usersPageState.totalPages ? 'disabled' : ''} onclick="changeUsersPage(1)">下一页</button></div>
+        `;
+        box.innerHTML = `
+          <div style="overflow:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:12px;">
+              <thead>
+                <tr>
+                  <th style="text-align:left; padding:8px; border-bottom:1px solid #2d4f80;">手机号</th>
+                  <th style="text-align:left; padding:8px; border-bottom:1px solid #2d4f80;">UID / 等级</th>
+                  <th style="text-align:left; padding:8px; border-bottom:1px solid #2d4f80;">角色</th>
+                  <th style="text-align:left; padding:8px; border-bottom:1px solid #2d4f80;">邀请码</th>
+                  <th style="text-align:left; padding:8px; border-bottom:1px solid #2d4f80;">文本额度</th>
+                  <th style="text-align:left; padding:8px; border-bottom:1px solid #2d4f80;">下载额度</th>
+                  <th style="text-align:left; padding:8px; border-bottom:1px solid #2d4f80;">推荐关系</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${pageItems.map((item) => {
+                  const quota = item.quota || {};
+                  const inviteText = item.invite_activated
+                    ? `已激活${item.invite_code_used ? ` / ${escHtml(item.invite_code_used)}` : ''}`
+                    : '未激活';
+                  return `
+                    <tr>
+                      <td style="padding:8px; border-bottom:1px solid #1f3557;">${escHtml(item.phone || '')}</td>
+                      <td style="padding:8px; border-bottom:1px solid #1f3557;">UID:${escHtml(item.uid || '-')}<br/>前台级别:${escHtml(item.user_tier_code || '')}</td>
+                      <td style="padding:8px; border-bottom:1px solid #1f3557;">后台角色:${escHtml(item.ops_role_code || '')}<br/>授权:${item.is_authorized ? '不限次' : '受限'}</td>
+                      <td style="padding:8px; border-bottom:1px solid #1f3557;">${inviteText}</td>
+                      <td style="padding:8px; border-bottom:1px solid #1f3557;">已用 ${escHtml(quota.text_chars_used || 0)} / 限额 ${escHtml(quota.text_chars_limit || 0)}<br/>剩余 ${escHtml(quota.text_chars_remaining || 0)}</td>
+                      <td style="padding:8px; border-bottom:1px solid #1f3557;">已用 ${escHtml(quota.sfx_download_used || 0)} / 限额 ${escHtml(quota.sfx_download_limit || 0)}<br/>剩余 ${escHtml(quota.sfx_download_remaining || 0)}</td>
+                      <td style="padding:8px; border-bottom:1px solid #1f3557;">来源:${escHtml(item.referred_by_uid || item.referred_by_phone || '-')}<br/>拉新:${escHtml(item.referral_user_count || 0)}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
       }
       function escHtml(s) {
         return String(s ?? '')
@@ -1115,29 +1420,93 @@
           localStorage.setItem('mfa_admin_token', token);
           localStorage.setItem('mfa_admin_phone', loginPhone);
           setState();
+          loadBetaAccess();
+          loadInviteCodes();
+          loadUsers();
           loadNotifyTargets();
         }
         show('usersOut', data);
       }
 
       async function loadUsers() {
-        const res = await fetch(`${base()}/admin/users`, { headers: h() });
-        show('usersOut', await read(res));
+        const ymd = (document.getElementById('usageViewDate').value || '').trim();
+        const q = new URLSearchParams();
+        if (ymd) q.set('ymd', ymd);
+        const suffix = q.toString() ? `?${q.toString()}` : '';
+        const res = await fetch(`${base()}/admin/users${suffix}`, { headers: h() });
+        const data = await read(res);
+        renderUsersTable(data);
+        show('usersOut', data);
+      }
+
+      async function loadBetaAccess() {
+        const res = await fetch(`${base()}/admin/beta-access`, { headers: h() });
+        const data = await read(res);
+        if (res.ok) {
+          document.getElementById('betaInviteOnly').value = data.invite_only_enabled ? '1' : '0';
+        }
+        show('betaAccessOut', data);
+      }
+
+      async function saveBetaAccess() {
+        const invite_only_enabled = document.getElementById('betaInviteOnly').value === '1';
+        const res = await fetch(`${base()}/admin/beta-access`, {
+          method: 'POST',
+          headers: h({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ invite_only_enabled }),
+        });
+        show('betaAccessOut', await read(res));
+      }
+
+      async function loadInviteCodes() {
+        const res = await fetch(`${base()}/admin/invite-codes`, { headers: h() });
+        show('inviteCodesOut', await read(res));
       }
 
       async function saveUser() {
         const phone = normalizePhoneInput((document.getElementById('uPhone').value || '').trim());
+        const uid = (document.getElementById('uUid').value || '').trim();
         document.getElementById('uPhone').value = phone;
         if (!isValidPhoneInput(phone)) return show('usersOut', '请输入有效的11位手机号');
         const is_authorized = document.getElementById('uAuth').value === '1';
         const is_admin = document.getElementById('uAdmin').value === '1';
+        const ops_role_code = (document.getElementById('uRole').value || '33').trim();
+        const user_tier_code = (document.getElementById('uTier').value || '33').trim();
         const daily_limit = Number(document.getElementById('uLimit').value || 3);
+        const daily_text_char_limit = Number(document.getElementById('uTextCharLimit').value || 0);
+        const daily_sfx_download_limit = Number(document.getElementById('uSfxDownloadLimit').value || 0);
         const res = await fetch(`${base()}/admin/users`, {
           method: 'POST',
           headers: h({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({ phone, is_authorized, is_admin, daily_limit }),
+          body: JSON.stringify({
+            phone,
+            uid,
+            ops_role_code,
+            user_tier_code,
+            is_authorized,
+            is_admin,
+            daily_limit,
+            daily_text_char_limit,
+            daily_sfx_download_limit,
+          }),
         });
         show('usersOut', await read(res));
+        await loadUsers();
+      }
+
+      async function resetUserUsage() {
+        const phone = normalizePhoneInput((document.getElementById('usageResetPhone').value || '').trim());
+        const ymd = (document.getElementById('usageResetDate').value || '').trim();
+        document.getElementById('usageResetPhone').value = phone;
+        if (!isValidPhoneInput(phone)) return show('usageResetOut', '请输入有效的11位手机号');
+        const payload = { phone };
+        if (ymd) payload.ymd = ymd;
+        const res = await fetch(`${base()}/admin/users/reset-usage`, {
+          method: 'POST',
+          headers: h({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify(payload),
+        });
+        show('usageResetOut', await read(res));
         await loadUsers();
       }
 
@@ -1152,17 +1521,222 @@
         if (pid) q.set('project_id', pid);
         q.set('limit', limit);
         const res = await fetch(`${base()}/ops/user-events?${q.toString()}`, { headers: h() });
-        show('eventsOut', await read(res));
+        const data = await read(res);
+        renderOpsEvents(data);
+        show('eventsOut', data);
       }
 
       async function loadFunnel() {
         const res = await fetch(`${base()}/ops/funnel?days=7`, { headers: h() });
-        show('eventsOut', await read(res));
+        const data = await read(res);
+        renderOpsFunnel(data);
+        show('eventsOut', data);
       }
 
       async function loadRecommendations() {
         const res = await fetch(`${base()}/ops/recommendations?days=7`, { headers: h() });
-        show('eventsOut', await read(res));
+        const data = await read(res);
+        renderOpsRecommendations(data);
+        show('eventsOut', data);
+      }
+
+      function summarizeEvent(item) {
+        const action = String((item && item.action) || '').trim();
+        const input = (item && item.input) || {};
+        const output = (item && item.output) || {};
+        if (action === 'create_project') return `创建项目：${input.title || output.project_id || '未命名'}。`;
+        if (action === 'audio_analysis') return `完成音乐分析，识别 ${Number(output.marker_count || 0)} 个音乐锚点。`;
+        if (action === 'text_analysis') return `完成文本分析，输入 ${Number(input.text_len || 0)} 字，输出 ${Number(output.scene_count || 0)} 个场景。`;
+        if (action === 'action_verb_analysis') return `完成动作提取，输入 ${Number(input.text_len || 0)} 字，识别 ${Number(output.qualified_count || 0)} 个需做动作音效的动词。`;
+        if (action === 'action_sfx_graph') return `完成动作图谱推荐，产出 ${Number(output.graph_item_count || 0)} 条动作图谱结果。`;
+        if (action === 'scene_building_analysis') return `完成场景搭建分析，输入 ${Number(input.text_len || 0)} 字，识别 ${Number(output.scene_count || 0)} 个场景。`;
+        if (action === 'scene_sfx_graph') return `完成场景音效推荐，产出 ${Number(output.scene_item_count || 0)} 条场景结果，缺口 ${Number(output.gap_count || 0)} 个。`;
+        if (action === 'text_narration_analysis') return `完成文本演绎分析，输入 ${Number(input.text_len || 0)} 字，生成 ${Number(output.narration_clause_timeline_count || 0)} 条语句时间线。`;
+        if (action === 'fusion_execution') return `生成后期执行单，输出 ${Number(output.cue_count || 0)} 条 cue。`;
+        if (action === 'action_sfx_asset_download') return `下载单个音效：${input.file_name || input.label || '未标注音效'}。`;
+        return `记录到行为：${action || '未标注动作'}。`;
+      }
+
+      function renderOpsEvents(data) {
+        const note = document.getElementById('opsAuditNote');
+        const box = document.getElementById('opsAuditView');
+        if (!note || !box) return;
+        const items = Array.isArray(data && data.items) ? data.items : [];
+        if (!items.length) {
+          note.textContent = '行为日志：来自用户行为日志表，主要记录谁在什么时间做了什么业务动作。当前筛选条件下没有结果。';
+          box.innerHTML = '<div class="ops-section"><h4>行为时间线</h4><div class="muted">当前筛选条件下没有行为日志。</div></div>';
+          return;
+        }
+        const uniqueUsers = new Set(items.map(item => String(item.user_phone || '').trim()).filter(Boolean)).size;
+        const uniqueProjects = new Set(items.map(item => String(item.project_id || '').trim()).filter(Boolean)).size;
+        const actionCounter = {};
+        for (const item of items) {
+          const action = String(item.action || '').trim() || 'unknown';
+          actionCounter[action] = (actionCounter[action] || 0) + 1;
+        }
+        const topActions = Object.entries(actionCounter).sort((a, b) => b[1] - a[1]).slice(0, 8);
+        opsTimelineState.items = items;
+        opsTimelineState.totalPages = Math.max(1, Math.ceil(opsTimelineState.items.length / OPS_TIMELINE_PAGE_SIZE));
+        opsTimelineState.currentPage = 1;
+        note.textContent = '行为日志：来自用户行为日志表，用来回答“谁在什么时间做了什么业务动作、结果如何、是否形成下载或执行单”等问题。默认先展示给运营看得懂的摘要卡和时间线，原始 JSON 仍保留在下方折叠区。';
+        const summaryHtml = `
+          <div class="ops-section">
+            <h4>行为总览</h4>
+            <div class="stats">
+              <div class="stat"><div class="k">行为总数</div><div class="v">${escHtml(items.length)}</div></div>
+              <div class="stat"><div class="k">涉及用户</div><div class="v">${escHtml(uniqueUsers)}</div></div>
+              <div class="stat"><div class="k">涉及项目</div><div class="v">${escHtml(uniqueProjects)}</div></div>
+              <div class="stat"><div class="k">最近一条</div><div class="v" style="font-size:14px;">${escHtml(formatReadableTime(items[0].created_at || '-'))}</div></div>
+              <div class="stat"><div class="k">当前筛选</div><div class="v" style="font-size:14px;">${escHtml(items[0].action ? '已应用' : '全部')}</div></div>
+            </div>
+          </div>
+        `;
+        const distHtml = `
+          <div class="ops-section">
+            <h4>行为分布</h4>
+            ${topActions.map(([action, count]) => {
+              const ratio = Math.max(4, Math.round((count / items.length) * 100));
+              return `
+                <div class="ops-bar-row">
+                  <div class="ops-bar-label">
+                    ${escHtml(actionDisplayName(action))}
+                    <details class="ops-inline-detail">
+                      <summary style="cursor:pointer; color:#9eb5d8;">查看动作码</summary>
+                      <div>${escHtml(action)}</div>
+                    </details>
+                  </div>
+                  <div class="ops-bar-track"><div class="ops-bar-fill" style="width:${ratio}%;"></div></div>
+                  <div class="ops-bar-value">${escHtml(count)} 次</div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+        const timelineHtml = `
+          <div class="ops-section">
+            <h4>最近行为时间线</h4>
+            <div id="opsTimelineBox"></div>
+          </div>
+        `;
+        box.innerHTML = summaryHtml + distHtml + timelineHtml;
+        renderOpsTimelinePage();
+      }
+
+      function changeOpsTimelinePage(delta) {
+        const next = Math.max(1, Math.min(opsTimelineState.totalPages, opsTimelineState.currentPage + delta));
+        if (next === opsTimelineState.currentPage) return;
+        opsTimelineState.currentPage = next;
+        renderOpsTimelinePage();
+      }
+
+      function renderOpsTimelinePage() {
+        const box = document.getElementById('opsTimelineBox');
+        if (!box) return;
+        const items = Array.isArray(opsTimelineState.items) ? opsTimelineState.items : [];
+        if (!items.length) {
+          box.innerHTML = '<div class="muted">当前没有时间线数据。</div>';
+          return;
+        }
+        const start = (opsTimelineState.currentPage - 1) * OPS_TIMELINE_PAGE_SIZE;
+        const pageItems = items.slice(start, start + OPS_TIMELINE_PAGE_SIZE);
+        const pageStart = start + 1;
+        const pageEnd = start + pageItems.length;
+        box.innerHTML = `
+          <div class="ops-pager">
+            <button style="width:auto; min-width:120px;" ${opsTimelineState.currentPage <= 1 ? 'disabled' : ''} onclick="changeOpsTimelinePage(-1)">上一页</button>
+            <div class="ops-pager-info">第 ${opsTimelineState.currentPage} / ${opsTimelineState.totalPages} 页，当前显示 ${pageStart}-${pageEnd} / ${items.length}</div>
+            <button style="width:auto; min-width:120px;" ${opsTimelineState.currentPage >= opsTimelineState.totalPages ? 'disabled' : ''} onclick="changeOpsTimelinePage(1)">下一页</button>
+          </div>
+          <div class="ops-timeline">
+              ${pageItems.map(item => `
+                <div class="ops-event-card">
+                  <div class="ops-event-head">
+                    <div class="ops-event-title">${escHtml(actionDisplayName(item.action || ''))}</div>
+                    <div class="ops-event-meta">${escHtml(formatReadableTime(item.created_at || '-'))}</div>
+                  </div>
+                  <div class="ops-kv-list">
+                    <div class="k">手机号</div><div>${escHtml(item.user_phone || '-')}</div>
+                    <div class="k">项目 ID</div><div>${escHtml(item.project_id || '-')}</div>
+                    <div class="k">动作码</div><div>${escHtml(item.action || '-')}</div>
+                    <div class="k">行为摘要</div><div>${escHtml(summarizeEvent(item))}</div>
+                  </div>
+                  <details style="margin-top:8px;">
+                    <summary style="cursor:pointer; color:#9eb5d8;">展开详情</summary>
+                    <div class="ops-event-summary" style="margin-top:8px;">
+                      输入摘要：${escHtml(JSON.stringify(item.input || {}, null, 2))}<br/>
+                      输出摘要：${escHtml(JSON.stringify(item.output || {}, null, 2))}<br/>
+                      文件引用：${escHtml(JSON.stringify(item.file_refs || [], null, 2))}
+                    </div>
+                  </details>
+                </div>
+              `).join('')}
+          </div>
+        `;
+      }
+
+      function renderOpsFunnel(data) {
+        const note = document.getElementById('opsAuditNote');
+        const box = document.getElementById('opsAuditView');
+        if (!note || !box) return;
+        const funnel = Array.isArray(data && data.funnel) ? data.funnel : [];
+        const exportType = (data && data.export_type_count) || {};
+        note.textContent = '运营漏斗：当前并不是“用户增长漏斗”，而是 AI 推理链路漏斗。数据源来自推理日志 ReasoningLog，主要看有多少项目依次走到图谱推理、素材搜索、融合执行单和导出下载。';
+        box.innerHTML = `
+          <div class="ops-section">
+            <h4>AI 推理链路漏斗</h4>
+            <div class="muted" style="margin-bottom:8px;">统计周期：最近 ${escHtml(data && data.days || 7)} 天。这个功能适合观察“哪些项目走到后面的 AI/导出环节”，不等同于完整业务漏斗。</div>
+            ${funnel.map(item => `
+              <div class="ops-bar-row">
+                <div class="ops-bar-label">${escHtml(item.step || '-')}</div>
+                <div class="ops-bar-track"><div class="ops-bar-fill" style="width:${Math.max(4, Math.round(Number(item.rate_from_graph_reason || 0) * 100))}%;"></div></div>
+                <div class="ops-bar-value">${escHtml(item.project_count || 0)} 个项目</div>
+              </div>
+            `).join('')}
+          </div>
+          <div class="ops-section">
+            <h4>导出类型补充</h4>
+            <div class="ops-kv-list">
+              <div class="k">Cue CSV 导出</div><div>${escHtml(exportType.cue_csv || 0)} 次</div>
+              <div class="k">SFX ZIP 导出</div><div>${escHtml(exportType.sfx_zip || 0)} 次</div>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderOpsRecommendations(data) {
+        const note = document.getElementById('opsAuditNote');
+        const box = document.getElementById('opsAuditView');
+        if (!note || !box) return;
+        const rec = (data && data.recommendations) || {};
+        const expandTerms = Array.isArray(rec.expand_lexicon_for_terms) ? rec.expand_lexicon_for_terms : [];
+        const addAssets = Array.isArray(rec.add_sfx_assets_for_terms) ? rec.add_sfx_assets_for_terms : [];
+        note.textContent = '优化建议：数据源来自推理日志 ReasoningLog。它不是泛泛而谈的“建议”，而是告诉运营和图谱维护人员，哪些词经常搜不到、哪些音效经常缺素材，适合拿来指导补词典和补音效库。';
+        box.innerHTML = `
+          <div class="ops-section">
+            <h4>建议先扩词典</h4>
+            ${expandTerms.length ? expandTerms.map(item => `
+              <div class="ops-event-card">
+                <div class="ops-event-head">
+                  <div class="ops-event-title">${escHtml(item.term || '-')}</div>
+                  <div class="ops-event-meta">出现 ${escHtml(item.count || 0)} 次</div>
+                </div>
+                <div class="ops-event-summary">这类词在素材搜索中反复低命中，说明图谱或语义词典里可能还没有覆盖到。建议优先补同义词、归并头词，或者检查是否应该进入动作/场景图谱。</div>
+              </div>
+            `).join('') : '<div class="muted">当前没有“需扩词典”的明显词项。</div>'}
+          </div>
+          <div class="ops-section">
+            <h4>建议先补素材</h4>
+            ${addAssets.length ? addAssets.map(item => `
+              <div class="ops-event-card">
+                <div class="ops-event-head">
+                  <div class="ops-event-title">${escHtml(item.term || '-')}</div>
+                  <div class="ops-event-meta">缺失 ${escHtml(item.count || 0)} 次</div>
+                </div>
+                <div class="ops-event-summary">这类音效词在导出或匹配阶段反复缺素材，说明它已经形成真实补库需求。建议优先上传素材，或者在图谱后台核对它是否应拆成通用版/赛道版。</div>
+              </div>
+            `).join('') : '<div class="muted">当前没有“需补素材”的明显音效词。</div>'}
+          </div>
+        `;
       }
 
       async function loadAssetFeedback() {

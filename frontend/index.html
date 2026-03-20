@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Music For Art - MVP</title>
+    <title>有声书创作台 - MVP</title>
     <style>
       :root {
         --bg: #f4efe6;
@@ -119,6 +119,43 @@
         border-radius: 10px;
         padding: 10px;
         margin-bottom: 10px;
+      }
+      .usage-panel {
+        background: linear-gradient(135deg, #fffaf2, #fff1df);
+        border: 1px solid #d7bd94;
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 10px;
+      }
+      .usage-panel h4 {
+        margin: 0 0 8px;
+        font-size: 16px;
+      }
+      .usage-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .usage-stat {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 8px 10px;
+      }
+      .usage-stat .k {
+        font-size: 12px;
+        color: #7e6440;
+      }
+      .usage-stat .v {
+        margin-top: 4px;
+        font-size: 18px;
+        font-weight: 700;
+      }
+      .usage-meta {
+        margin-top: 8px;
+        font-size: 12px;
+        color: #7e6440;
+        line-height: 1.7;
       }
       .panel h4 {
         margin: 0 0 8px;
@@ -589,7 +626,7 @@
   </head>
   <body>
     <div class="wrap">
-      <h1>Music For Art · 用户创作台</h1>
+      <h1>有声书创作台</h1>
       <div class="grid">
         <section class="card">
           <div class="hint" style="margin-bottom:10px;">
@@ -600,14 +637,20 @@
           <label>API 地址</label>
           <input id="apiBase" value="http://127.0.0.1:8090/api" />
 
-          <label>手机号登录</label>
+          <label>测试用户登录</label>
           <input id="loginPhone" placeholder="请输入手机号" />
           <div style="display:flex; gap:8px; margin-top:6px;">
             <button onclick="requestCode()" style="width:auto;">发送验证码</button>
             <input id="loginCode" placeholder="验证码" />
             <button onclick="loginByCode()" style="width:auto;">登录</button>
           </div>
+          <div style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:8px; margin-top:8px;">
+            <input id="inviteCode" placeholder="邀请码（测试期必填）" />
+            <input id="userUid" placeholder="UID（可选）" />
+            <input id="referralCode" placeholder="推荐码：UID/手机号（可选）" />
+          </div>
           <p class="hint">当前登录：<span id="loginState">未登录</span></p>
+          <p class="hint" id="loginPolicyHint">测试期间仅邀请码用户可激活使用。邀请码激活后即刻失效。</p>
 
           <label>项目标题</label>
           <input id="projectTitle" value="玄武战役教学样例" />
@@ -618,20 +661,22 @@
             <option value="悬疑">悬疑</option>
             <option value="科幻">科幻</option>
           </select>
-          <label>LLM 测试模型</label>
-          <select id="llmProvider">
-            <option value="" selected>默认（DeepSeek）</option>
-            <option value="qwen">Qwen（测试）</option>
-          </select>
-          <p class="hint">仅影响当前页面发起的主要分析请求，不会改掉后台默认 DeepSeek 配置。</p>
+          <div style="display:none;">
+            <label>LLM 测试模型</label>
+            <select id="llmProvider">
+              <option value="" selected>默认（DeepSeek）</option>
+              <option value="qwen">Qwen（测试）</option>
+            </select>
+            <p class="hint">仅影响当前页面发起的主要分析请求，不会改掉后台默认 DeepSeek 配置。</p>
+          </div>
           <div class="flow-group">
             <h4>基础准备</h4>
             <div class="flow-desc">先创建项目。音乐分析可独立执行；文本与演绎音频是“文本演绎分析”和“后期执行单”的基础输入。</div>
             <label>上传音乐</label>
             <input id="audioFile" type="file" accept="audio/*" />
             <div class="flow-buttons">
-              <button onclick="createProject()">1) 创建项目</button>
-              <button onclick="uploadAudio()">2) 音乐分析（独立）</button>
+              <button data-auth-required="1" onclick="createProject()">1) 创建项目</button>
+              <button data-auth-required="1" onclick="uploadAudio()">2) 音乐分析（独立）</button>
             </div>
           </div>
           <p class="hint">当前项目ID: <span id="projectId">-</span> ｜ 当前赛道: <span id="projectGenreState">-</span></p>
@@ -647,9 +692,9 @@
             <h4>动作模块</h4>
             <div class="flow-desc">动作模块只依赖“项目 + 文本”。它与场景模块互不依赖，可单独运行。图谱推荐依赖动作提取，动作补充单依赖图谱推荐。</div>
             <div class="flow-buttons">
-              <button onclick="analyzeActionVerbs()">3) 动作提取</button>
-              <button onclick="buildActionSfxGraph()">4) 动作图谱推荐</button>
-              <button onclick="buildActionGraphDraft()">5) 动作补充单</button>
+              <button data-auth-required="1" onclick="analyzeActionVerbs()">3) 动作提取</button>
+              <button data-auth-required="1" onclick="buildActionSfxGraph()">4) 动作图谱推荐</button>
+              <button data-auth-required="1" onclick="buildActionGraphDraft()">5) 动作补充单</button>
             </div>
             <div class="flow-note">顺序建议：动作提取 → 动作图谱推荐 → 动作补充单。</div>
           </div>
@@ -658,9 +703,9 @@
             <h4>场景模块</h4>
             <div class="flow-desc">场景模块也只依赖“项目 + 文本”。它与动作模块并列，不以动作模块为前提。场景音效推荐依赖场景搭建分析，场景补充单依赖场景音效推荐。</div>
             <div class="flow-buttons">
-              <button id="sceneBuildingBtn" onclick="buildSceneBuilding()">6) 场景搭建分析</button>
-              <button id="sceneSfxBtn" onclick="buildSceneSfxGraph()">7) 场景音效推荐（待第6步）</button>
-              <button id="sceneSupplementBtn" onclick="buildSceneSupplements()">8) 场景补充单（待第7步）</button>
+              <button data-auth-required="1" id="sceneBuildingBtn" onclick="buildSceneBuilding()">6) 场景搭建分析</button>
+              <button data-auth-required="1" id="sceneSfxBtn" onclick="buildSceneSfxGraph()">7) 场景音效推荐（待第6步）</button>
+              <button data-auth-required="1" id="sceneSupplementBtn" onclick="buildSceneSupplements()">8) 场景补充单（待第7步）</button>
             </div>
             <div id="sceneStageHint" class="flow-note">场景模块链路：先做 <code>6) 场景搭建分析</code>，再做 <code>7) 场景音效推荐</code>，最后再生成 <code>8) 场景补充单</code>。</div>
           </div>
@@ -669,8 +714,8 @@
             <h4>文本与执行</h4>
             <div class="flow-desc">这部分用于后期制作，不依赖动作模块和场景模块，但依赖“文本 + 演绎音频”；其中“后期执行单”还额外依赖音乐分析。</div>
             <div class="flow-buttons">
-              <button onclick="analyzeTextNarration()">9) 文本演绎分析（含时间轴）</button>
-              <button onclick="buildFusion()">10) 生成后期执行单</button>
+              <button data-auth-required="1" onclick="analyzeTextNarration()">9) 文本演绎分析（含时间轴）</button>
+              <button data-auth-required="1" onclick="buildFusion()">10) 生成后期执行单</button>
             </div>
             <div class="flow-note">顺序建议：先做 <code>2) 音乐分析</code>，再做 <code>9) 文本演绎分析（含时间轴）</code>，最后生成 <code>10) 后期执行单</code>。</div>
           </div>
@@ -679,15 +724,16 @@
             <h4>导出与汇总</h4>
             <div class="flow-desc">这组功能不直接生成新分析，只负责查看和导出当前项目的汇总结果。</div>
             <div class="flow-buttons">
-              <button onclick="fetchReport()">11) 拉取完整报告</button>
-              <button onclick="downloadCueCsv()">12) 下载 Cue CSV</button>
-              <button onclick="downloadSfxZip()">13) 下载 SFX ZIP</button>
+              <button data-auth-required="1" onclick="fetchReport()">11) 拉取完整报告</button>
+              <button data-auth-required="1" onclick="downloadCueCsv()">12) 下载 Cue CSV</button>
+              <button data-auth-required="1" onclick="downloadSfxZip()">13) 下载 SFX ZIP</button>
             </div>
           </div>
         </section>
 
         <section class="card">
           <h3>结果展示（中文）</h3>
+          <div id="usagePanel" class="usage-panel" style="display:none;"></div>
           <div id="prettyOutput" class="pretty">等待操作...</div>
           <div id="busyTip" class="busy" style="display:none;">处理中，请稍候...</div>
         </section>
@@ -707,6 +753,8 @@
       let uiBusy = false;
       let authToken = localStorage.getItem('mfa_auth_token') || '';
       let authPhone = localStorage.getItem('mfa_auth_phone') || '';
+      let authUser = null;
+      let authSettings = { invite_only_enabled: true, invite_code_required: true, referral_code_supported: true, uid_supported: true };
       const ACTION_PROMPT_BY_GENRE = {
         '玄幻': 'V3-action_verbs_xuanhuan_task.txt',
         '言情': 'V3-action_verbs_yanqing_task.txt',
@@ -723,6 +771,12 @@
       function currentLlmProviderOverride() {
         const el = document.getElementById('llmProvider');
         return String(el && el.value ? el.value : '').trim();
+      }
+
+      function ensureLoggedInForFeature() {
+        if (authToken) return true;
+        show('请先完成测试用户登录后再使用创作功能。测试期间仅邀请码用户可激活使用。');
+        return false;
       }
 
       function resetSceneFlowState() {
@@ -766,6 +820,7 @@
         const sceneSupplementBtn = document.getElementById('sceneSupplementBtn');
         const sceneStageHint = document.getElementById('sceneStageHint');
         if (!sceneBuildingBtn || !sceneSfxBtn || !sceneSupplementBtn || !sceneStageHint) return;
+        const loggedIn = !!authToken;
         const hasProject = !!projectId;
         const hasSceneBuilding = !!(latestSceneBuildingData && Array.isArray(latestSceneBuildingData.scene_items));
         const hasSceneSfx = !!(latestSceneSfxData && Array.isArray(latestSceneSfxData.scene_items));
@@ -778,9 +833,9 @@
           )
         );
 
-        sceneBuildingBtn.disabled = !hasProject;
-        sceneSfxBtn.disabled = !hasSceneBuilding;
-        sceneSupplementBtn.disabled = !hasSceneSfx;
+        sceneBuildingBtn.disabled = !loggedIn || !hasProject;
+        sceneSfxBtn.disabled = !loggedIn || !hasSceneBuilding;
+        sceneSupplementBtn.disabled = !loggedIn || !hasSceneSfx;
         sceneBuildingBtn.textContent = hasProject ? '6) 场景搭建分析' : '6) 场景搭建分析（先创建项目）';
         sceneSfxBtn.textContent = hasSceneBuilding
           ? `7) 场景音效推荐${hasSceneSfx ? '（可重跑）' : ''}`
@@ -789,6 +844,10 @@
           ? `8) 场景补充单${hasSceneSupplements ? '（可重跑）' : ''}`
           : '8) 场景补充单（待第7步）';
 
+        if (!loggedIn) {
+          sceneStageHint.innerHTML = '场景模块链路：请先完成测试用户登录，登录后才能执行 <code>6) 场景搭建分析</code>。';
+          return;
+        }
         if (!hasProject) {
           sceneStageHint.innerHTML = '场景模块链路：请先创建项目，再执行 <code>6) 场景搭建分析</code>。';
           return;
@@ -907,6 +966,17 @@
           }
           return out;
         };
+        if (data.title === '动作图谱推荐' || (data.graph_model && data.graph_model.parent === '赛道+动作词')) {
+          if (!Array.isArray(data.graph_items)) data.graph_items = [];
+          if (!data.asset_gap_summary || typeof data.asset_gap_summary !== 'object') {
+            data.asset_gap_summary = { gap_count: 0, gap_items: [] };
+          } else if (!Array.isArray(data.asset_gap_summary.gap_items)) {
+            data.asset_gap_summary.gap_items = [];
+          }
+          if (!data.summary || typeof data.summary !== 'object') {
+            data.summary = { verb_count: 0, asset_count: 0, gap_count: 0 };
+          }
+        }
         if (typeof data.report_json === 'string') {
           const parsed = parseJsonLoose(data.report_json);
           if (parsed && typeof parsed === 'object') data.report_json = parsed;
@@ -953,7 +1023,81 @@
         if (outputBox) {
           outputBox.textContent = typeof normalized === 'string' ? normalized : JSON.stringify(normalized, null, 2);
         }
+        syncAuthUsage(normalized);
+        renderUsagePanel(normalized);
         renderPretty(normalized);
+      }
+
+      function syncAuthUsage(data) {
+        if (!data || typeof data !== 'object') return;
+        if (!authUser || typeof authUser !== 'object') authUser = {};
+        if (data.user && typeof data.user === 'object') {
+          authUser = { ...authUser, ...data.user };
+        }
+        if (data.quota && typeof data.quota === 'object') {
+          authUser.quota = data.quota;
+        } else if (data.usage && data.usage.quota && typeof data.usage.quota === 'object') {
+          authUser.quota = data.usage.quota;
+        }
+      }
+
+      function syncUsageFromDownloadResponse(res) {
+        if (!res || typeof res.headers?.get !== 'function') return;
+        const ymd = res.headers.get('X-Quota-Ymd');
+        if (!ymd) return;
+        if (!authUser || typeof authUser !== 'object') authUser = {};
+        authUser.quota = {
+          ymd,
+          text_chars_used: Number(res.headers.get('X-Quota-Text-Chars-Used') || 0),
+          text_chars_limit: Number(res.headers.get('X-Quota-Text-Chars-Limit') || 0),
+          text_chars_remaining: Number(res.headers.get('X-Quota-Text-Chars-Remaining') || 0),
+          sfx_download_used: Number(res.headers.get('X-Quota-Sfx-Download-Used') || 0),
+          sfx_download_limit: Number(res.headers.get('X-Quota-Sfx-Download-Limit') || 0),
+          sfx_download_remaining: Number(res.headers.get('X-Quota-Sfx-Download-Remaining') || 0),
+        };
+        renderUsagePanel(authUser);
+      }
+
+      function renderUsagePanel(data) {
+        const box = document.getElementById('usagePanel');
+        if (!box) return;
+        const usage = data && typeof data === 'object' ? data.usage : null;
+        const quota = (usage && usage.quota) || (data && data.quota) || (authUser && authUser.quota) || null;
+        const tierCode = (usage && usage.user_tier_code) || (data && data.user && data.user.user_tier_code) || (authUser && authUser.user_tier_code) || '';
+        const isAuthorized = Boolean(
+          (usage && usage.authorized)
+          || (data && data.user && data.user.is_authorized)
+          || (authUser && authUser.is_authorized)
+        );
+        const phone = (data && data.user && data.user.phone) || (authUser && authUser.phone) || authPhone || '';
+        if (!quota || typeof quota !== 'object') {
+          box.style.display = 'none';
+          box.innerHTML = '';
+          return;
+        }
+        const tierLabel = tierCode === '22' ? '种子用户' : (tierCode === '33' ? '普通用户' : '当前用户');
+        box.style.display = 'block';
+        box.innerHTML = `
+          <h4>今日用量</h4>
+          <div class="usage-grid">
+            <div class="usage-stat">
+              <div class="k">文本分析字符</div>
+              <div class="v">${escHtml(quota.text_chars_used || 0)} / ${escHtml(quota.text_chars_limit || 0)}</div>
+              <div class="k">剩余 ${escHtml(quota.text_chars_remaining || 0)} 字</div>
+            </div>
+            <div class="usage-stat">
+              <div class="k">音效下载数量</div>
+              <div class="v">${escHtml(quota.sfx_download_used || 0)} / ${escHtml(quota.sfx_download_limit || 0)}</div>
+              <div class="k">剩余 ${escHtml(quota.sfx_download_remaining || 0)} 个</div>
+            </div>
+          </div>
+          <div class="usage-meta">
+            账号：${escHtml(phone || '未登录')}<br/>
+            级别：${escHtml(tierLabel)}${tierCode ? `（${escHtml(tierCode)}）` : ''}<br/>
+            统计日期：${escHtml(quota.ymd || '今日')}<br/>
+            ${isAuthorized ? '当前账号为授权用户：默认不扣减每日额度。' : '当前账号按每日额度计数。'}
+          </div>
+        `;
       }
 
       function renderLlmDebug(data) {
@@ -2058,8 +2202,18 @@
         const actionVerbSelection = getBestActionVerbReport(data);
         const actionVerbReport = actionVerbSelection ? actionVerbSelection.report : null;
         const userView = (report && Object.keys(report).length) ? report : null;
+        const isFusionResult = Boolean(
+          data.evidence_summary
+          || Array.isArray(data.cues)
+          || (data.fusion && typeof data.fusion === 'object')
+        );
+        const isTextNarrationResult = Boolean(data.text && data.narration);
         const isActionVerbResult = Boolean(actionVerbReport && typeof actionVerbReport === 'object');
-        const isActionGraphResult = Boolean(Array.isArray(data.graph_items));
+        const isActionGraphResult = Boolean(
+          Array.isArray(data.graph_items)
+          || data.title === '动作图谱推荐'
+          || (data.graph_model && data.graph_model.parent === '赛道+动作词')
+        );
         const isActionGraphDraftResult = Boolean(Array.isArray(data.draft_items));
         const isSceneSfxResult = Boolean(Array.isArray(data.scene_items) && data.graph_model && data.asset_gap_summary);
         const isSceneBuildingResult = Boolean(Array.isArray(data.scene_items) && !isSceneSfxResult);
@@ -2089,7 +2243,7 @@
         if (isMusicResult) {
           blocks.push(...renderMusicAnalysisPanels(data, userView || fallbackMusicReport, panel));
         }
-        if (isActionVerbResult) {
+        if (isActionVerbResult && !isFusionResult && !isTextNarrationResult) {
           blocks.push(...renderActionVerbPanels(actionVerbReport, panel, actionVerbSelection));
         }
         if (isActionGraphResult) {
@@ -2330,7 +2484,9 @@
         return data;
       }
 
-      async function runAction(label, fn) {
+      async function runAction(label, fn, options = {}) {
+        const requiresLogin = options.requiresLogin !== false;
+        if (requiresLogin && !ensureLoggedInForFeature()) return;
         if (uiBusy) return show('已有任务在执行，请稍候完成');
         setBusy(true, label);
         show(`正在执行：${label}`);
@@ -2350,7 +2506,23 @@
       function updateLoginState() {
         const box = document.getElementById('loginState');
         if (!box) return;
-        box.textContent = authPhone ? `${authPhone}（已登录）` : '未登录';
+        const uid = authUser && authUser.uid ? ` / UID:${authUser.uid}` : '';
+        box.textContent = authPhone ? `${authPhone}${uid}（已登录）` : '未登录';
+        const policy = document.getElementById('loginPolicyHint');
+        if (policy) {
+          policy.textContent = authSettings && authSettings.invite_only_enabled
+            ? '测试期间仅邀请码用户可激活使用。邀请码激活后即刻失效；推荐码可填写 UID 或手机号。'
+            : '邀请码测试已关闭，可正常注册登录；推荐码可填写 UID 或手机号。';
+        }
+        updateFeatureGateUI();
+      }
+
+      function updateFeatureGateUI() {
+        const loggedIn = !!authToken;
+        document.querySelectorAll('button[data-auth-required="1"]').forEach((btn) => {
+          btn.disabled = !loggedIn;
+          btn.title = loggedIn ? '' : '请先完成登录';
+        });
       }
 
       function authHeaders(extra = {}) {
@@ -2406,12 +2578,15 @@
             document.getElementById('loginCode').value = data.code;
           }
           show(data);
-        });
+        }, { requiresLogin: false });
       }
 
       async function loginByCode() {
         const phone = normalizePhoneInput((document.getElementById('loginPhone').value || '').trim());
         const code = (document.getElementById('loginCode').value || '').trim();
+        const invite_code = (document.getElementById('inviteCode').value || '').trim();
+        const uid = (document.getElementById('userUid').value || '').trim();
+        const referral_code = (document.getElementById('referralCode').value || '').trim();
         document.getElementById('loginPhone').value = phone;
         if (!phone || !code) return show('请输入手机号和验证码');
         if (!isValidPhoneInput(phone)) return show('请输入有效的11位手机号');
@@ -2419,16 +2594,43 @@
           const res = await apiFetch(`${apiBase()}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, code }),
+            body: JSON.stringify({ phone, code, invite_code, uid, referral_code }),
           });
           const data = await readApiResponse(res);
           authToken = data.token || '';
           authPhone = data.user?.phone || phone;
+          authUser = data.user || null;
           localStorage.setItem('mfa_auth_token', authToken);
           localStorage.setItem('mfa_auth_phone', authPhone);
           updateLoginState();
           show(data);
-        });
+        }, { requiresLogin: false });
+      }
+
+      async function syncAuthBootstrap() {
+        try {
+          const res = await window.fetch(`${apiBase()}/auth/settings`);
+          if (res.ok) authSettings = await res.json();
+        } catch (_) {}
+        if (!authToken) {
+          updateLoginState();
+          return;
+        }
+        try {
+          const res = await apiFetch(`${apiBase()}/auth/me`);
+          if (!res.ok) throw new Error('auth/me failed');
+          authUser = await res.json();
+          authPhone = authUser.phone || authPhone;
+          localStorage.setItem('mfa_auth_phone', authPhone);
+        } catch (_) {
+          authToken = '';
+          authPhone = '';
+          authUser = null;
+          localStorage.removeItem('mfa_auth_token');
+          localStorage.removeItem('mfa_auth_phone');
+        }
+        updateLoginState();
+        renderUsagePanel(authUser || {});
       }
 
       function renderDraftReview(data) {
@@ -2708,26 +2910,24 @@
       }
 
       async function _download(url, fallbackName) {
-        await runAction(`下载 ${fallbackName}`, async () => {
-          const res = await apiFetch(url);
-          if (!res.ok) {
-            const err = await readApiResponse(res);
-            show(err);
-            return;
-          }
-          const blob = await res.blob();
-          const a = document.createElement('a');
-          const href = URL.createObjectURL(blob);
-          a.href = href;
-          const cd = res.headers.get('content-disposition') || '';
-          const m = cd.match(/filename=\"?([^\";]+)\"?/i);
-          a.download = (m && m[1]) || fallbackName;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          URL.revokeObjectURL(href);
-          show({ ok: true, downloaded: a.download });
-        });
+        const res = await apiFetch(url);
+        if (!res.ok) {
+          const err = await readApiResponse(res);
+          show(err);
+          return;
+        }
+        syncUsageFromDownloadResponse(res);
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        const href = URL.createObjectURL(blob);
+        a.href = href;
+        const cd = res.headers.get('content-disposition') || '';
+        const m = cd.match(/filename=\"?([^\";]+)\"?/i);
+        a.download = (m && m[1]) || fallbackName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(href);
       }
 
       async function downloadActionSfxAsset(verb, label, fileName, downloadApi) {
@@ -2915,7 +3115,8 @@
         });
       }
 
-      updateLoginState();
+      updateFeatureGateUI();
+      syncAuthBootstrap();
       refreshSceneActionButtons();
     </script>
   </body>

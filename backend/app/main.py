@@ -1,4 +1,5 @@
 import json
+import hashlib
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from time import perf_counter
@@ -10,7 +11,7 @@ from functools import wraps
 
 from flask import Flask, jsonify, request, send_file, g
 from flask_cors import CORS
-from sqlalchemy import inspect, select, text as sql_text
+from sqlalchemy import func, inspect, select, text as sql_text
 
 from app.config import settings
 from app.db import SessionLocal, engine
@@ -25,11 +26,13 @@ from app.models import (
     DailyUsage,
     DraftReview,
     FusionPlan,
+    InviteCode,
     NarrationAnalysis,
     Project,
     SceneAnalysis,
     SceneSupplementAsset,
     SceneSupplementTask,
+    SystemSetting,
     TextAnalysis,
     UserAccount,
     UserOperationLog,
@@ -111,6 +114,8 @@ app = Flask(settings.app_name)
 CORS(app)
 
 SUPPORTED_GENRES = {'玄幻', '言情', '悬疑', '科幻'}
+BETA_INVITE_ONLY_KEY = 'beta_invite_only_enabled'
+INVITE_SEED_TARGET = 200
 
 
 def _is_composite_sfx_term(term: str, children: dict | None = None) -> bool:
@@ -159,6 +164,104 @@ def _ensure_schema_columns() -> None:
             conn.execute(sql_text("ALTER TABLE action_supplement_asset ADD COLUMN asset_scope VARCHAR(32) NOT NULL DEFAULT 'genre'"))
         if 'asset_scope_genre' not in asset_cols:
             conn.execute(sql_text("ALTER TABLE action_supplement_asset ADD COLUMN asset_scope_genre VARCHAR(32) NOT NULL DEFAULT ''"))
+
+        user_cols = {col['name'] for col in inspect(engine).get_columns('user_account')}
+        if 'uid' not in user_cols:
+            conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN uid VARCHAR(64) NOT NULL DEFAULT ''"))
+        if 'ops_role_code' not in user_cols:
+            conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN ops_role_code VARCHAR(2) NOT NULL DEFAULT '33'"))
+        if 'user_tier_code' not in user_cols:
+            conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN user_tier_code VARCHAR(2) NOT NULL DEFAULT '33'"))
+        if 'daily_text_char_limit' not in user_cols:
+            conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN daily_text_char_limit INTEGER NOT NULL DEFAULT 5000"))
+        if 'daily_sfx_download_limit' not in user_cols:
+            conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN daily_sfx_download_limit INTEGER NOT NULL DEFAULT 100"))
+        if 'invite_activated' not in user_cols:
+            conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN invite_activated INTEGER NOT NULL DEFAULT 0"))
+        if 'invite_code_used' not in user_cols:
+            conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN invite_code_used VARCHAR(64) NOT NULL DEFAULT ''"))
+        if 'referred_by_user_id' not in user_cols:
+            conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN referred_by_user_id INTEGER"))
+        if 'referred_by_phone' not in user_cols:
+            conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN referred_by_phone VARCHAR(32) NOT NULL DEFAULT ''"))
+        if 'referred_by_uid' not in user_cols:
+            conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN referred_by_uid VARCHAR(64) NOT NULL DEFAULT ''"))
+        if 'referral_input' not in user_cols:
+            conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN referral_input VARCHAR(64) NOT NULL DEFAULT ''"))
+
+
+def _generate_invite_code() -> str:
+    alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+    return ''.join(random.choice(alphabet) for _ in range(8))
+
+
+def _ensure_system_setting(db, key: str, default_value: str) -> SystemSetting:
+    row = db.execute(select(SystemSetting).where(SystemSetting.setting_key == key)).scalar_one_or_none()
+    if row is None:
+        row = SystemSetting(setting_key=key, setting_value=default_value)
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    return row
+
+
+def _invite_only_enabled(db) -> bool:
+    row = _ensure_system_setting(db, BETA_INVITE_ONLY_KEY, 'true')
+    return str(row.setting_value or '').strip().lower() not in {'0', 'false', 'off', 'no'}
+
+
+def _set_invite_only_enabled(db, enabled: bool) -> bool:
+    row = _ensure_system_setting(db, BETA_INVITE_ONLY_KEY, 'true')
+    row.setting_value = 'true' if enabled else 'false'
+    db.commit()
+    return enabled
+
+
+def _ensure_invite_seed_codes(db, target: int = INVITE_SEED_TARGET) -> None:
+    total = int(db.execute(select(func.count()).select_from(InviteCode)).scalar_one() or 0)
+    if total >= target:
+        _ensure_system_setting(db, BETA_INVITE_ONLY_KEY, 'true')
+        return
+    existing = {row.code for row in db.execute(select(InviteCode.code)).all()}
+    to_add = target - total
+    batch = []
+    while len(batch) < to_add:
+        code = _generate_invite_code()
+        if code in existing:
+            continue
+        existing.add(code)
+        batch.append(InviteCode(code=code, used=0, used_by_phone=''))
+    if batch:
+        db.add_all(batch)
+    _ensure_system_setting(db, BETA_INVITE_ONLY_KEY, 'true')
+    db.commit()
+
+
+def _normalize_uid(raw: str) -> str:
+    value = re.sub(r'[^0-9A-Za-z_-]', '', str(raw or '').strip())
+    return value[:32]
+
+
+def _is_valid_uid(uid: str) -> bool:
+    value = _normalize_uid(uid)
+    return bool(value) and len(value) >= 3
+
+
+def _resolve_referrer(db, raw_code: str, current_phone: str) -> UserAccount | None:
+    raw = str(raw_code or '').strip()
+    if not raw:
+        return None
+    uid = _normalize_uid(raw)
+    if uid:
+        row = db.execute(select(UserAccount).where(UserAccount.uid == uid)).scalar_one_or_none()
+        if row is not None and row.phone != current_phone:
+            return row
+    phone = _normalize_phone(raw)
+    if phone:
+        row = db.execute(select(UserAccount).where(UserAccount.phone == phone)).scalar_one_or_none()
+        if row is not None and row.phone != current_phone:
+            return row
+    return None
 
 
 def _record_inheritance_review_hits(db, project_id: int, hits: list[dict]) -> None:
@@ -217,11 +320,200 @@ def _utc_now() -> datetime:
 def _ensure_user(db, phone: str) -> UserAccount:
     row = db.execute(select(UserAccount).where(UserAccount.phone == phone)).scalar_one_or_none()
     if row is None:
-        row = UserAccount(phone=phone, is_authorized=0, is_admin=0, daily_limit=3)
+        row = UserAccount(
+            phone=phone,
+            uid='',
+            ops_role_code='33',
+            user_tier_code='33',
+            is_authorized=0,
+            is_admin=0,
+            daily_limit=3,
+            daily_text_char_limit=5000,
+            daily_sfx_download_limit=100,
+            invite_activated=0,
+            invite_code_used='',
+            referred_by_phone='',
+            referred_by_uid='',
+            referral_input='',
+        )
         db.add(row)
         db.commit()
         db.refresh(row)
     return row
+
+
+def _ops_role_code(u: UserAccount | None) -> str:
+    return str(getattr(u, 'ops_role_code', '') or '33').zfill(2)
+
+
+def _user_tier_code(u: UserAccount | None) -> str:
+    return str(getattr(u, 'user_tier_code', '') or '33').zfill(2)
+
+
+def _default_limits_for_tier(tier_code: str) -> tuple[int, int]:
+    code = str(tier_code or '').zfill(2)
+    if code == '22':
+        return 10000, 200
+    return 5000, 100
+
+
+def _daily_usage_row(db, phone: str, action: str, ymd: str, *, create: bool = False) -> DailyUsage | None:
+    row = (
+        db.execute(
+            select(DailyUsage)
+            .where(DailyUsage.phone == phone)
+            .where(DailyUsage.action == action)
+            .where(DailyUsage.ymd == ymd)
+        ).scalar_one_or_none()
+    )
+    if row is None and create:
+        row = DailyUsage(phone=phone, action=action, ymd=ymd, used_count=0)
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    return row
+
+
+def _user_quota_snapshot(db, u: UserAccount) -> dict:
+    today = datetime.now().strftime('%Y-%m-%d')
+    text_used = int((_daily_usage_row(db, u.phone, 'text_chars', today, create=False) or DailyUsage(used_count=0)).used_count or 0)
+    sfx_used = int((_daily_usage_row(db, u.phone, 'sfx_download', today, create=False) or DailyUsage(used_count=0)).used_count or 0)
+    text_limit = int(getattr(u, 'daily_text_char_limit', 0) or 0)
+    sfx_limit = int(getattr(u, 'daily_sfx_download_limit', 0) or 0)
+    return {
+        'ymd': today,
+        'text_chars_used': text_used,
+        'text_chars_limit': text_limit,
+        'text_chars_remaining': max(0, text_limit - text_used) if text_limit > 0 else None,
+        'sfx_download_used': sfx_used,
+        'sfx_download_limit': sfx_limit,
+        'sfx_download_remaining': max(0, sfx_limit - sfx_used) if sfx_limit > 0 else None,
+    }
+
+
+def _consume_text_chars_or_error(db, u: UserAccount, text_len: int):
+    if int(u.is_authorized or 0) == 1:
+        return None
+    limit = int(getattr(u, 'daily_text_char_limit', 0) or 0)
+    if limit <= 0 or text_len <= 0:
+        return None
+    today = datetime.now().strftime('%Y-%m-%d')
+    row = _daily_usage_row(db, u.phone, 'text_chars', today, create=True)
+    used = int(row.used_count or 0)
+    if used + text_len > limit:
+        return (
+            jsonify(
+                {
+                    'detail': '今日文本分析字符量已达上限，请联系管理员调整额度',
+                    'quota': _user_quota_snapshot(db, u),
+                }
+            ),
+            403,
+        )
+    row.used_count = used + int(text_len)
+    db.commit()
+    return None
+
+
+TEXT_QUOTA_ACTIONS = {
+    'text_analysis',
+    'action_verb_analysis',
+    'scene_building_analysis',
+    'text_narration_analysis',
+}
+
+
+def _normalize_text_for_quota(text: str) -> str:
+    value = re.sub(r'\s+', ' ', str(text or '').strip())
+    return value
+
+
+def _build_text_fingerprint(text: str) -> str:
+    normalized = _normalize_text_for_quota(text)
+    if not normalized:
+        return ''
+    return hashlib.sha1(normalized.encode('utf-8')).hexdigest()
+
+
+def _has_text_fingerprint_logged_today(db, phone: str, text_fingerprint: str) -> bool:
+    if not phone or not text_fingerprint:
+        return False
+    day_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    rows = db.execute(
+        select(UserOperationLog).where(
+            UserOperationLog.user_phone == phone,
+            UserOperationLog.action.in_(TEXT_QUOTA_ACTIONS),
+            UserOperationLog.created_at >= day_start,
+        )
+    ).scalars().all()
+    for row in rows:
+        try:
+            payload = json.loads(row.input_json or '{}')
+        except json.JSONDecodeError:
+            payload = {}
+        if str(payload.get('text_fingerprint') or '').strip() == text_fingerprint:
+            return True
+    return False
+
+
+def _ensure_text_chars_available_once_or_error(db, u: UserAccount, text: str):
+    text_fingerprint = _build_text_fingerprint(text)
+    if text_fingerprint and _has_text_fingerprint_logged_today(db, u.phone, text_fingerprint):
+        return None
+    return _ensure_text_chars_available_or_error(db, u, len(str(text or '')))
+
+
+def _consume_text_chars_once_or_error(db, u: UserAccount, text: str):
+    text_fingerprint = _build_text_fingerprint(text)
+    if text_fingerprint and _has_text_fingerprint_logged_today(db, u.phone, text_fingerprint):
+        return None
+    return _consume_text_chars_or_error(db, u, len(str(text or '')))
+
+
+def _ensure_text_chars_available_or_error(db, u: UserAccount, text_len: int):
+    if int(u.is_authorized or 0) == 1:
+        return None
+    limit = int(getattr(u, 'daily_text_char_limit', 0) or 0)
+    if limit <= 0 or text_len <= 0:
+        return None
+    today = datetime.now().strftime('%Y-%m-%d')
+    row = _daily_usage_row(db, u.phone, 'text_chars', today, create=True)
+    used = int(row.used_count or 0)
+    if used + text_len > limit:
+        return (
+            jsonify(
+                {
+                    'detail': '今日文本分析字符量已达上限，请联系管理员调整额度',
+                    'quota': _user_quota_snapshot(db, u),
+                }
+            ),
+            403,
+        )
+    return None
+
+
+def _consume_sfx_download_or_error(db, u: UserAccount, count: int = 1):
+    if int(u.is_authorized or 0) == 1:
+        return None
+    limit = int(getattr(u, 'daily_sfx_download_limit', 0) or 0)
+    if limit <= 0 or count <= 0:
+        return None
+    today = datetime.now().strftime('%Y-%m-%d')
+    row = _daily_usage_row(db, u.phone, 'sfx_download', today, create=True)
+    used = int(row.used_count or 0)
+    if used + count > limit:
+        return (
+            jsonify(
+                {
+                    'detail': '今日音效下载数已达上限，请联系管理员调整额度',
+                    'quota': _user_quota_snapshot(db, u),
+                }
+            ),
+            403,
+        )
+    row.used_count = used + int(count)
+    db.commit()
+    return None
 
 
 def _get_session_user(db) -> UserAccount | None:
@@ -236,6 +528,10 @@ def _get_session_user(db) -> UserAccount | None:
         db.commit()
         return None
     u = db.execute(select(UserAccount).where(UserAccount.phone == s.phone)).scalar_one_or_none()
+    if u is None:
+        return None
+    if _invite_only_enabled(db) and _ops_role_code(u) not in {'00', '11'} and int(getattr(u, 'invite_activated', 0) or 0) != 1:
+        return None
     return u
 
 
@@ -247,11 +543,27 @@ def _ensure_bootstrap_admins(db) -> None:
             continue
         u = _ensure_user(db, phone)
         changed = False
+        if _ops_role_code(u) != '00':
+            u.ops_role_code = '00'
+            changed = True
         if int(u.is_admin or 0) != 1:
             u.is_admin = 1
             changed = True
         if int(u.is_authorized or 0) != 1:
             u.is_authorized = 1
+            changed = True
+        if _user_tier_code(u) not in {'22', '33'}:
+            u.user_tier_code = '33'
+            changed = True
+        text_limit, sfx_limit = _default_limits_for_tier(_user_tier_code(u))
+        if int(getattr(u, 'daily_text_char_limit', 0) or 0) != int(text_limit):
+            u.daily_text_char_limit = int(text_limit)
+            changed = True
+        if int(getattr(u, 'daily_sfx_download_limit', 0) or 0) != int(sfx_limit):
+            u.daily_sfx_download_limit = int(sfx_limit)
+            changed = True
+        if int(getattr(u, 'invite_activated', 0) or 0) != 1:
+            u.invite_activated = 1
             changed = True
         if changed:
             db.commit()
@@ -289,7 +601,7 @@ def _require_admin(fn):
             u = _get_session_user(db)
             if u is None:
                 return jsonify({'detail': '请先手机号登录'}), 401
-            if int(u.is_admin or 0) != 1:
+            if _ops_role_code(u) not in {'00', '11'} and int(u.is_admin or 0) != 1:
                 return jsonify({'detail': '需要管理员权限'}), 403
             g.current_user = u
             g.current_user_phone = u.phone
@@ -304,55 +616,11 @@ def _check_feature_access(action: str) -> tuple[UserAccount | None, dict | None,
         if u is None:
             return None, None, (jsonify({'detail': '请先手机号登录后再使用功能'}), 401)
 
-        # 授权用户不限次；非授权用户按日限额
-        if int(u.is_authorized or 0) == 1:
-            info = {'authorized': True, 'daily_limit': None, 'used_today': None, 'remaining': None}
-            return u, info, None
-
-        today = datetime.now().strftime('%Y-%m-%d')
-        action_key = 'core_feature'
-        row = (
-            db.execute(
-                select(DailyUsage)
-                .where(DailyUsage.phone == u.phone)
-                .where(DailyUsage.action == action_key)
-                .where(DailyUsage.ymd == today)
-            ).scalar_one_or_none()
-        )
-        if row is None:
-            row = DailyUsage(phone=u.phone, action=action_key, ymd=today, used_count=0)
-            db.add(row)
-            db.commit()
-            db.refresh(row)
-
-        limit = int(u.daily_limit or 3)
-        if row.used_count >= limit:
-            return (
-                None,
-                None,
-                (
-                    jsonify(
-                        {
-                            'detail': '今日调用次数已达上限，请联系管理员授权',
-                            'usage': {
-                                'authorized': False,
-                                'daily_limit': limit,
-                                'used_today': int(row.used_count),
-                                'remaining': 0,
-                            },
-                        }
-                    ),
-                    403,
-                ),
-            )
-
-        row.used_count += 1
-        db.commit()
         info = {
-            'authorized': False,
-            'daily_limit': limit,
-            'used_today': int(row.used_count),
-            'remaining': max(0, limit - int(row.used_count)),
+            'authorized': bool(int(u.is_authorized or 0)),
+            'ops_role_code': _ops_role_code(u),
+            'user_tier_code': _user_tier_code(u),
+            'quota': _user_quota_snapshot(db, u),
         }
         return u, info, None
 
@@ -421,6 +689,18 @@ def _log_user_operation(
     )
     db.add(row)
     db.commit()
+
+
+def _attach_quota_headers(resp, quota: dict | None):
+    snapshot = quota or {}
+    resp.headers['X-Quota-Ymd'] = str(snapshot.get('ymd') or '')
+    resp.headers['X-Quota-Text-Chars-Used'] = str(snapshot.get('text_chars_used') or 0)
+    resp.headers['X-Quota-Text-Chars-Limit'] = str(snapshot.get('text_chars_limit') or 0)
+    resp.headers['X-Quota-Text-Chars-Remaining'] = str(snapshot.get('text_chars_remaining') or 0)
+    resp.headers['X-Quota-Sfx-Download-Used'] = str(snapshot.get('sfx_download_used') or 0)
+    resp.headers['X-Quota-Sfx-Download-Limit'] = str(snapshot.get('sfx_download_limit') or 0)
+    resp.headers['X-Quota-Sfx-Download-Remaining'] = str(snapshot.get('sfx_download_remaining') or 0)
+    return resp
 
 
 def _normalize_phone_for_path(phone: str) -> str:
@@ -506,6 +786,9 @@ def _fallback_audio_result_on_error(err: Exception) -> dict:
 def ensure_tables():
     Base.metadata.create_all(bind=engine)
     _ensure_schema_columns()
+    with SessionLocal() as db:
+        _ensure_bootstrap_admins(db)
+        _ensure_invite_seed_codes(db)
 
 
 @app.get('/health')
@@ -540,7 +823,7 @@ def auth_request_code():
 
     with SessionLocal() as db:
         _ensure_bootstrap_admins(db)
-        _ensure_user(db, phone)
+        _ensure_invite_seed_codes(db)
         code = f'{random.randint(0, 999999):06d}'
         row = AuthCode(
             phone=phone,
@@ -551,7 +834,9 @@ def auth_request_code():
         db.add(row)
         db.commit()
     # 当前为MVP，本地直接返回验证码，正式上线改短信网关
-    return jsonify({'ok': True, 'phone': phone, 'code': code, 'ttl_sec': settings.auth_code_ttl_sec})
+    with SessionLocal() as db:
+        invite_only_enabled = _invite_only_enabled(db)
+    return jsonify({'ok': True, 'phone': phone, 'code': code, 'ttl_sec': settings.auth_code_ttl_sec, 'invite_only_enabled': invite_only_enabled})
 
 
 @app.post(f'{settings.api_prefix}/auth/login')
@@ -559,13 +844,19 @@ def auth_login():
     payload = request.get_json(force=True, silent=True) or {}
     phone = _normalize_phone(payload.get('phone') or '')
     code = str(payload.get('code') or '').strip()
+    invite_code = str(payload.get('invite_code') or '').strip().upper()
+    referral_code = str(payload.get('referral_code') or '').strip()
+    uid_input = _normalize_uid(payload.get('uid') or '')
     if not phone or not code:
         return jsonify({'detail': 'phone and code are required'}), 400
     if not _is_valid_phone(phone):
         return jsonify({'detail': '请输入有效的11位手机号'}), 400
+    if uid_input and not _is_valid_uid(uid_input):
+        return jsonify({'detail': 'UID 仅支持字母、数字、下划线或横线，且至少3位'}), 400
 
     with SessionLocal() as db:
         _ensure_bootstrap_admins(db)
+        _ensure_invite_seed_codes(db)
         c = (
             db.execute(
                 select(AuthCode)
@@ -577,9 +868,54 @@ def auth_login():
         )
         if c is None or c.expires_at < _utc_now():
             return jsonify({'detail': '验证码无效或已过期'}), 400
-        c.used = 1
 
         u = _ensure_user(db, phone)
+        beta_invite_only = _invite_only_enabled(db)
+        is_first_activation = int(getattr(u, 'invite_activated', 0) or 0) != 1
+        if uid_input:
+            same_uid = db.execute(select(UserAccount).where(UserAccount.uid == uid_input)).scalar_one_or_none()
+            if same_uid is not None and same_uid.phone != phone:
+                return jsonify({'detail': '该 UID 已被其他账号使用'}), 400
+        if beta_invite_only and is_first_activation and int(u.is_admin or 0) != 1:
+            if not invite_code:
+                return jsonify({'detail': '测试期需要邀请码激活后才能使用系统'}), 403
+            invite_row = db.execute(
+                select(InviteCode).where(InviteCode.code == invite_code, InviteCode.used == 0)
+            ).scalar_one_or_none()
+            if invite_row is None:
+                return jsonify({'detail': '邀请码无效或已失效'}), 403
+            invite_row.used = 1
+            invite_row.used_by_phone = phone
+            invite_row.used_at = _utc_now()
+            u.invite_activated = 1
+            u.invite_code_used = invite_code
+            if _user_tier_code(u) == '33':
+                u.user_tier_code = '22'
+        elif is_first_activation:
+            u.invite_activated = 1
+            if _user_tier_code(u) not in {'22', '33'}:
+                u.user_tier_code = '33'
+
+        text_limit, sfx_limit = _default_limits_for_tier(_user_tier_code(u))
+        if int(getattr(u, 'daily_text_char_limit', 0) or 0) <= 0:
+            u.daily_text_char_limit = text_limit
+        if int(getattr(u, 'daily_sfx_download_limit', 0) or 0) <= 0:
+            u.daily_sfx_download_limit = sfx_limit
+
+        if uid_input and not str(u.uid or '').strip():
+            u.uid = uid_input
+
+        if is_first_activation and referral_code and not int(u.referred_by_user_id or 0):
+            referrer = _resolve_referrer(db, referral_code, phone)
+            if referrer is None:
+                return jsonify({'detail': '推荐码无效，请输入有效的 UID 或手机号'}), 400
+            u.referred_by_user_id = int(referrer.id)
+            u.referred_by_phone = str(referrer.phone or '')
+            u.referred_by_uid = str(referrer.uid or '')
+            u.referral_input = referral_code
+
+        c.used = 1
+
         token = secrets.token_urlsafe(32)
         s = AuthSession(
             phone=phone,
@@ -588,6 +924,7 @@ def auth_login():
         )
         db.add(s)
         db.commit()
+        quota = _user_quota_snapshot(db, u)
 
         return jsonify(
             {
@@ -595,11 +932,23 @@ def auth_login():
                 'token': token,
                 'expires_in_sec': settings.auth_session_ttl_sec,
                 'user': {
+                    'id': int(u.id),
                     'phone': u.phone,
+                    'uid': str(u.uid or ''),
+                    'ops_role_code': _ops_role_code(u),
+                    'user_tier_code': _user_tier_code(u),
                     'is_admin': bool(int(u.is_admin or 0)),
                     'is_authorized': bool(int(u.is_authorized or 0)),
                     'daily_limit': int(u.daily_limit or 3),
+                    'daily_text_char_limit': int(getattr(u, 'daily_text_char_limit', 0) or 0),
+                    'daily_sfx_download_limit': int(getattr(u, 'daily_sfx_download_limit', 0) or 0),
+                    'invite_activated': bool(int(getattr(u, 'invite_activated', 0) or 0)),
+                    'invite_code_used': str(getattr(u, 'invite_code_used', '') or ''),
+                    'referred_by_phone': str(getattr(u, 'referred_by_phone', '') or ''),
+                    'referred_by_uid': str(getattr(u, 'referred_by_uid', '') or ''),
                 },
+                'beta_invite_only_enabled': beta_invite_only,
+                'quota': quota,
             }
         )
 
@@ -608,26 +957,45 @@ def auth_login():
 @_require_login
 def auth_me():
     u = g.current_user
-    usage = None
-    if int(u.is_authorized or 0) != 1:
-        today = datetime.now().strftime('%Y-%m-%d')
-        with SessionLocal() as db:
-            row = db.execute(
-                select(DailyUsage)
-                .where(DailyUsage.phone == u.phone)
-                .where(DailyUsage.action == 'core_feature')
-                .where(DailyUsage.ymd == today)
-            ).scalar_one_or_none()
-            used = int(row.used_count or 0) if row else 0
-        limit = int(u.daily_limit or 3)
-        usage = {'used_today': used, 'remaining': max(0, limit - used), 'daily_limit': limit}
+    with SessionLocal() as db:
+        referral_user_count = int(
+            db.execute(select(func.count()).select_from(UserAccount).where(UserAccount.referred_by_user_id == int(u.id))).scalar_one()
+            or 0
+        )
+        quota = _user_quota_snapshot(db, u)
     return jsonify(
         {
+            'id': int(u.id),
             'phone': u.phone,
+            'uid': str(u.uid or ''),
+            'ops_role_code': _ops_role_code(u),
+            'user_tier_code': _user_tier_code(u),
             'is_admin': bool(int(u.is_admin or 0)),
             'is_authorized': bool(int(u.is_authorized or 0)),
             'daily_limit': int(u.daily_limit or 3),
-            'usage': usage,
+            'daily_text_char_limit': int(getattr(u, 'daily_text_char_limit', 0) or 0),
+            'daily_sfx_download_limit': int(getattr(u, 'daily_sfx_download_limit', 0) or 0),
+            'invite_activated': bool(int(getattr(u, 'invite_activated', 0) or 0)),
+            'invite_code_used': str(getattr(u, 'invite_code_used', '') or ''),
+            'referred_by_phone': str(getattr(u, 'referred_by_phone', '') or ''),
+            'referred_by_uid': str(getattr(u, 'referred_by_uid', '') or ''),
+            'referral_user_count': referral_user_count,
+            'quota': quota,
+        }
+    )
+
+
+@app.get(f'{settings.api_prefix}/auth/settings')
+def auth_settings():
+    with SessionLocal() as db:
+        _ensure_invite_seed_codes(db)
+        invite_only_enabled = _invite_only_enabled(db)
+    return jsonify(
+        {
+            'invite_only_enabled': invite_only_enabled,
+            'invite_code_required': invite_only_enabled,
+            'referral_code_supported': True,
+            'uid_supported': True,
         }
     )
 
@@ -647,21 +1015,60 @@ def auth_logout():
 @app.get(f'{settings.api_prefix}/admin/users')
 @_require_admin
 def admin_list_users():
+    ymd = (request.args.get('ymd') or datetime.now().strftime('%Y-%m-%d')).strip()
     with SessionLocal() as db:
         rows = db.execute(select(UserAccount).order_by(UserAccount.id.desc()).limit(1000)).scalars().all()
+        ids = [int(r.id) for r in rows]
+        counts = {}
+        if ids:
+            ref_rows = db.execute(
+                select(UserAccount.referred_by_user_id, func.count())
+                .where(UserAccount.referred_by_user_id.in_(ids))
+                .group_by(UserAccount.referred_by_user_id)
+            ).all()
+            counts = {int(user_id): int(cnt) for user_id, cnt in ref_rows if user_id}
+        usage_rows = db.execute(
+            select(DailyUsage).where(
+                DailyUsage.phone.in_([str(r.phone or '') for r in rows]),
+                DailyUsage.ymd == ymd,
+                DailyUsage.action.in_(['text_chars', 'sfx_download']),
+            )
+        ).scalars().all() if rows else []
+        usage_map: dict[tuple[str, str], int] = {}
+        for usage in usage_rows:
+            usage_map[(str(usage.phone or ''), str(usage.action or ''))] = int(usage.used_count or 0)
     data = [
         {
             'id': r.id,
             'phone': r.phone,
+            'uid': str(r.uid or ''),
+            'ops_role_code': _ops_role_code(r),
+            'user_tier_code': _user_tier_code(r),
             'is_authorized': bool(int(r.is_authorized or 0)),
             'is_admin': bool(int(r.is_admin or 0)),
             'daily_limit': int(r.daily_limit or 3),
+            'daily_text_char_limit': int(getattr(r, 'daily_text_char_limit', 0) or 0),
+            'daily_sfx_download_limit': int(getattr(r, 'daily_sfx_download_limit', 0) or 0),
+            'invite_activated': bool(int(getattr(r, 'invite_activated', 0) or 0)),
+            'invite_code_used': str(getattr(r, 'invite_code_used', '') or ''),
+            'referred_by_phone': str(getattr(r, 'referred_by_phone', '') or ''),
+            'referred_by_uid': str(getattr(r, 'referred_by_uid', '') or ''),
+            'referral_user_count': int(counts.get(int(r.id), 0)),
+            'quota': {
+                'ymd': ymd,
+                'text_chars_used': int(usage_map.get((str(r.phone or ''), 'text_chars'), 0)),
+                'text_chars_limit': int(getattr(r, 'daily_text_char_limit', 0) or 0),
+                'text_chars_remaining': max(0, int(getattr(r, 'daily_text_char_limit', 0) or 0) - int(usage_map.get((str(r.phone or ''), 'text_chars'), 0))),
+                'sfx_download_used': int(usage_map.get((str(r.phone or ''), 'sfx_download'), 0)),
+                'sfx_download_limit': int(getattr(r, 'daily_sfx_download_limit', 0) or 0),
+                'sfx_download_remaining': max(0, int(getattr(r, 'daily_sfx_download_limit', 0) or 0) - int(usage_map.get((str(r.phone or ''), 'sfx_download'), 0))),
+            },
             'created_at': r.created_at.isoformat() if r.created_at else None,
             'updated_at': r.updated_at.isoformat() if r.updated_at else None,
         }
         for r in rows
     ]
-    return jsonify({'count': len(data), 'items': data})
+    return jsonify({'count': len(data), 'ymd': ymd, 'items': data})
 
 
 @app.post(f'{settings.api_prefix}/admin/users')
@@ -676,17 +1083,43 @@ def admin_upsert_user():
 
     is_authorized = 1 if bool(payload.get('is_authorized', False)) else 0
     is_admin = 1 if bool(payload.get('is_admin', False)) else 0
+    uid_input = _normalize_uid(payload.get('uid') or '')
+    ops_role_code = str(payload.get('ops_role_code') or '').strip().zfill(2) or '33'
+    user_tier_code = str(payload.get('user_tier_code') or '').strip().zfill(2) or '33'
     try:
         daily_limit = int(payload.get('daily_limit', 3))
     except (TypeError, ValueError):
         return jsonify({'detail': 'daily_limit must be integer'}), 400
     daily_limit = max(1, min(100, daily_limit))
+    try:
+        daily_text_char_limit = int(payload.get('daily_text_char_limit', 5000))
+        daily_sfx_download_limit = int(payload.get('daily_sfx_download_limit', 100))
+    except (TypeError, ValueError):
+        return jsonify({'detail': 'daily_text_char_limit / daily_sfx_download_limit must be integer'}), 400
+    daily_text_char_limit = max(0, min(200000, daily_text_char_limit))
+    daily_sfx_download_limit = max(0, min(10000, daily_sfx_download_limit))
+    if uid_input and not _is_valid_uid(uid_input):
+        return jsonify({'detail': 'uid 格式不合法'}), 400
+    if ops_role_code not in {'00', '11', '22', '33'}:
+        return jsonify({'detail': 'ops_role_code 不合法'}), 400
+    if user_tier_code not in {'22', '33'}:
+        return jsonify({'detail': 'user_tier_code 不合法'}), 400
 
     with SessionLocal() as db:
         row = _ensure_user(db, phone)
+        if uid_input:
+            same_uid = db.execute(select(UserAccount).where(UserAccount.uid == uid_input)).scalar_one_or_none()
+            if same_uid is not None and same_uid.phone != phone:
+                return jsonify({'detail': '该 UID 已被其他账号使用'}), 400
         row.is_authorized = is_authorized
-        row.is_admin = is_admin
+        row.ops_role_code = ops_role_code
+        row.user_tier_code = user_tier_code
+        row.is_admin = 1 if ops_role_code in {'00', '11'} or is_admin else 0
         row.daily_limit = daily_limit
+        row.daily_text_char_limit = daily_text_char_limit
+        row.daily_sfx_download_limit = daily_sfx_download_limit
+        if uid_input:
+            row.uid = uid_input
         db.commit()
         db.refresh(row)
     return jsonify(
@@ -694,12 +1127,100 @@ def admin_upsert_user():
             'ok': True,
             'item': {
                 'phone': row.phone,
+                'uid': str(row.uid or ''),
+                'ops_role_code': _ops_role_code(row),
+                'user_tier_code': _user_tier_code(row),
                 'is_authorized': bool(int(row.is_authorized or 0)),
                 'is_admin': bool(int(row.is_admin or 0)),
                 'daily_limit': int(row.daily_limit or 3),
+                'daily_text_char_limit': int(getattr(row, 'daily_text_char_limit', 0) or 0),
+                'daily_sfx_download_limit': int(getattr(row, 'daily_sfx_download_limit', 0) or 0),
             },
         }
     )
+
+
+@app.post(f'{settings.api_prefix}/admin/users/reset-usage')
+@_require_admin
+def admin_reset_user_usage():
+    payload = request.get_json(force=True, silent=True) or {}
+    phone = _normalize_phone(payload.get('phone') or '')
+    if not phone or not _is_valid_phone(phone):
+        return jsonify({'detail': '请输入有效的11位手机号'}), 400
+    ymd = str(payload.get('ymd') or datetime.now().strftime('%Y-%m-%d')).strip()
+    with SessionLocal() as db:
+        rows = db.execute(
+            select(DailyUsage).where(
+                DailyUsage.phone == phone,
+                DailyUsage.ymd == ymd,
+                DailyUsage.action.in_(['text_chars', 'sfx_download']),
+            )
+        ).scalars().all()
+        for row in rows:
+            row.used_count = 0
+        db.commit()
+    return jsonify({'ok': True, 'phone': phone, 'ymd': ymd, 'reset_actions': ['text_chars', 'sfx_download']})
+
+
+@app.get(f'{settings.api_prefix}/admin/beta-access')
+@_require_admin
+def admin_beta_access():
+    with SessionLocal() as db:
+        _ensure_invite_seed_codes(db)
+        enabled = _invite_only_enabled(db)
+        total_codes = int(db.execute(select(func.count()).select_from(InviteCode)).scalar_one() or 0)
+        unused_codes = int(
+            db.execute(select(func.count()).select_from(InviteCode).where(InviteCode.used == 0)).scalar_one() or 0
+        )
+    return jsonify(
+        {
+            'invite_only_enabled': enabled,
+            'invite_code_total': total_codes,
+            'invite_code_unused': unused_codes,
+        }
+    )
+
+
+@app.post(f'{settings.api_prefix}/admin/beta-access')
+@_require_admin
+def admin_set_beta_access():
+    payload = request.get_json(force=True, silent=True) or {}
+    enabled = bool(payload.get('invite_only_enabled', True))
+    with SessionLocal() as db:
+        _ensure_invite_seed_codes(db)
+        _set_invite_only_enabled(db, enabled)
+        total_codes = int(db.execute(select(func.count()).select_from(InviteCode)).scalar_one() or 0)
+        unused_codes = int(
+            db.execute(select(func.count()).select_from(InviteCode).where(InviteCode.used == 0)).scalar_one() or 0
+        )
+    return jsonify(
+        {
+            'ok': True,
+            'invite_only_enabled': enabled,
+            'invite_code_total': total_codes,
+            'invite_code_unused': unused_codes,
+        }
+    )
+
+
+@app.get(f'{settings.api_prefix}/admin/invite-codes')
+@_require_admin
+def admin_invite_codes():
+    with SessionLocal() as db:
+        _ensure_invite_seed_codes(db)
+        rows = db.execute(select(InviteCode).order_by(InviteCode.id.asc()).limit(500)).scalars().all()
+        enabled = _invite_only_enabled(db)
+    items = [
+        {
+            'id': int(r.id),
+            'code': r.code,
+            'used': bool(int(r.used or 0)),
+            'used_by_phone': str(r.used_by_phone or ''),
+            'used_at': r.used_at.isoformat() if r.used_at else None,
+        }
+        for r in rows
+    ]
+    return jsonify({'invite_only_enabled': enabled, 'count': len(items), 'items': items})
 
 
 @app.get(f'{settings.api_prefix}/semantic/expand')
@@ -1470,6 +1991,7 @@ def upload_audio(project_id: int):
 def analyze_text(project_id: int):
     payload = request.get_json(force=True)
     text = (payload.get('text') or '').strip()
+    text_fingerprint = _build_text_fingerprint(text)
     llm_provider_override = (payload.get('llm_provider_override') or '').strip()
     report_mode = (payload.get('report_mode') or request.args.get('report_mode') or settings.report_mode_default).strip().lower()
     debug_prompt = True
@@ -1480,6 +2002,12 @@ def analyze_text(project_id: int):
         project = db.get(Project, project_id)
         if not project:
             return jsonify({'detail': 'Project not found'}), 404
+        db_user = db.execute(select(UserAccount).where(UserAccount.phone == g.current_user.phone)).scalar_one_or_none()
+        if db_user is None:
+            return jsonify({'detail': '用户不存在，请重新登录'}), 401
+        quota_err = _ensure_text_chars_available_once_or_error(db, db_user, text)
+        if quota_err is not None:
+            return quota_err
 
         audio = db.execute(select(AudioAnalysis).where(AudioAnalysis.project_id == project_id)).scalar_one_or_none()
         audio_context = None
@@ -1495,6 +2023,9 @@ def analyze_text(project_id: int):
         result = analyze_text_for_audiobook(
             text, report_mode=report_mode, audio_context=audio_context, debug_prompt=debug_prompt, llm_provider_override=llm_provider_override
         )
+        quota_err = _consume_text_chars_once_or_error(db, db_user, text)
+        if quota_err is not None:
+            return quota_err
         row = db.execute(select(TextAnalysis).where(TextAnalysis.project_id == project_id)).scalar_one_or_none()
 
         if row is None:
@@ -1515,7 +2046,7 @@ def analyze_text(project_id: int):
             db=db,
             action='text_analysis',
             project_id=project_id,
-            req={'report_mode': report_mode, 'text_len': len(text), 'llm_provider_override': llm_provider_override},
+            req={'report_mode': report_mode, 'text_len': len(text), 'text_fingerprint': text_fingerprint, 'llm_provider_override': llm_provider_override},
             resp={
                 'analysis_mode': result.get('analysis_mode'),
                 'scene_count': len(result.get('scenes') or []),
@@ -1523,7 +2054,12 @@ def analyze_text(project_id: int):
             },
             file_refs=[],
         )
-        result['usage'] = getattr(g, 'usage_info', None)
+        result['usage'] = {
+            'authorized': bool(int(db_user.is_authorized or 0)),
+            'ops_role_code': _ops_role_code(db_user),
+            'user_tier_code': _user_tier_code(db_user),
+            'quota': _user_quota_snapshot(db, db_user),
+        }
         return jsonify(result)
 
 
@@ -1532,6 +2068,7 @@ def analyze_text(project_id: int):
 def analyze_action_verbs_api(project_id: int):
     payload = request.get_json(force=True)
     text = (payload.get('text') or '').strip()
+    text_fingerprint = _build_text_fingerprint(text)
     genre = (payload.get('genre') or '').strip()
     prompt_file = (payload.get('prompt_file') or '').strip()
     llm_provider_override = (payload.get('llm_provider_override') or '').strip()
@@ -1547,6 +2084,12 @@ def analyze_action_verbs_api(project_id: int):
         ).first()
         if not project_row:
             return jsonify({'detail': 'Project not found'}), 404
+        db_user = db.execute(select(UserAccount).where(UserAccount.phone == g.current_user.phone)).scalar_one_or_none()
+        if db_user is None:
+            return jsonify({'detail': '用户不存在，请重新登录'}), 401
+        quota_err = _ensure_text_chars_available_once_or_error(db, db_user, text)
+        if quota_err is not None:
+            return quota_err
 
         effective_genre = genre or '玄幻'
         result = analyze_action_verbs(
@@ -1557,11 +2100,14 @@ def analyze_action_verbs_api(project_id: int):
             debug_prompt=debug_prompt,
             llm_provider_override=llm_provider_override,
         )
+        quota_err = _consume_text_chars_once_or_error(db, db_user, text)
+        if quota_err is not None:
+            return quota_err
         _log_user_operation(
             db=db,
             action='action_verb_analysis',
             project_id=project_id,
-            req={'report_mode': report_mode, 'text_len': len(text), 'genre': effective_genre, 'prompt_file': prompt_file, 'llm_provider_override': llm_provider_override},
+            req={'report_mode': report_mode, 'text_len': len(text), 'text_fingerprint': text_fingerprint, 'genre': effective_genre, 'prompt_file': prompt_file, 'llm_provider_override': llm_provider_override},
             resp={
                 'analysis_mode': result.get('analysis_mode'),
                 'genre': result.get('genre'),
@@ -1571,7 +2117,12 @@ def analyze_action_verbs_api(project_id: int):
             },
             file_refs=[],
         )
-        result['usage'] = getattr(g, 'usage_info', None)
+        result['usage'] = {
+            'authorized': bool(int(db_user.is_authorized or 0)),
+            'ops_role_code': _ops_role_code(db_user),
+            'user_tier_code': _user_tier_code(db_user),
+            'quota': _user_quota_snapshot(db, db_user),
+        }
         return jsonify(result)
 
 
@@ -1618,6 +2169,7 @@ def analyze_action_sfx_api(project_id: int):
 def analyze_scene_building_api(project_id: int):
     payload = request.get_json(force=True) or {}
     text = (payload.get('text') or '').strip()
+    text_fingerprint = _build_text_fingerprint(text)
     genre = (payload.get('genre') or '').strip()
     prompt_file = (payload.get('prompt_file') or '').strip()
     llm_provider_override = (payload.get('llm_provider_override') or '').strip()
@@ -1632,6 +2184,12 @@ def analyze_scene_building_api(project_id: int):
         ).first()
         if not project_row:
             return jsonify({'detail': 'Project not found'}), 404
+        db_user = db.execute(select(UserAccount).where(UserAccount.phone == g.current_user.phone)).scalar_one_or_none()
+        if db_user is None:
+            return jsonify({'detail': '用户不存在，请重新登录'}), 401
+        quota_err = _ensure_text_chars_available_once_or_error(db, db_user, text)
+        if quota_err is not None:
+            return quota_err
 
         effective_genre = genre or '玄幻'
         result = analyze_scene_building(
@@ -1641,6 +2199,9 @@ def analyze_scene_building_api(project_id: int):
             debug_prompt=debug_prompt,
             llm_provider_override=llm_provider_override,
         )
+        quota_err = _consume_text_chars_once_or_error(db, db_user, text)
+        if quota_err is not None:
+            return quota_err
         scene_row = db.execute(select(SceneAnalysis).where(SceneAnalysis.project_id == project_id)).scalar_one_or_none()
         if scene_row is None:
             scene_row = SceneAnalysis(
@@ -1661,7 +2222,7 @@ def analyze_scene_building_api(project_id: int):
             db=db,
             action='scene_building_analysis',
             project_id=project_id,
-            req={'text_len': len(text), 'genre': effective_genre, 'prompt_file': prompt_file, 'llm_provider_override': llm_provider_override},
+            req={'text_len': len(text), 'text_fingerprint': text_fingerprint, 'genre': effective_genre, 'prompt_file': prompt_file, 'llm_provider_override': llm_provider_override},
             resp={
                 'analysis_mode': result.get('analysis_mode'),
                 'genre': result.get('genre'),
@@ -1670,7 +2231,12 @@ def analyze_scene_building_api(project_id: int):
             },
             file_refs=[],
         )
-        result['usage'] = getattr(g, 'usage_info', None)
+        result['usage'] = {
+            'authorized': bool(int(db_user.is_authorized or 0)),
+            'ops_role_code': _ops_role_code(db_user),
+            'user_tier_code': _user_tier_code(db_user),
+            'quota': _user_quota_snapshot(db, db_user),
+        }
         return jsonify(result)
 
 
@@ -2975,6 +3541,7 @@ def analyze_narration(project_id: int):
 @_enforce_feature_access('text_narration_analysis')
 def analyze_text_narration(project_id: int):
     text = (request.form.get('text') or '').strip()
+    text_fingerprint = _build_text_fingerprint(text)
     file = request.files.get('file')
     llm_provider_override = (request.form.get('llm_provider_override') or request.args.get('llm_provider_override') or '').strip()
     report_mode = (request.form.get('report_mode') or request.args.get('report_mode') or settings.report_mode_default).strip().lower()
@@ -2988,6 +3555,12 @@ def analyze_text_narration(project_id: int):
         project = db.get(Project, project_id)
         if not project:
             return jsonify({'detail': 'Project not found'}), 404
+        db_user = db.execute(select(UserAccount).where(UserAccount.phone == g.current_user.phone)).scalar_one_or_none()
+        if db_user is None:
+            return jsonify({'detail': '用户不存在，请重新登录'}), 401
+        quota_err = _ensure_text_chars_available_once_or_error(db, db_user, text)
+        if quota_err is not None:
+            return quota_err
 
         audio = db.execute(select(AudioAnalysis).where(AudioAnalysis.project_id == project_id)).scalar_one_or_none()
         audio_context = None
@@ -3003,6 +3576,9 @@ def analyze_text_narration(project_id: int):
         text_result = analyze_text_for_audiobook(
             text, report_mode=report_mode, audio_context=audio_context, debug_prompt=debug_prompt, llm_provider_override=llm_provider_override
         )
+        quota_err = _consume_text_chars_once_or_error(db, db_user, text)
+        if quota_err is not None:
+            return quota_err
         text_row = db.execute(select(TextAnalysis).where(TextAnalysis.project_id == project_id)).scalar_one_or_none()
         if text_row is None:
             text_row = TextAnalysis(
@@ -3066,7 +3642,7 @@ def analyze_text_narration(project_id: int):
             db=db,
             action='text_narration_analysis',
             project_id=project_id,
-            req={'report_mode': report_mode, 'text_len': len(text), 'file_name': file.filename or save_path.name, 'llm_provider_override': llm_provider_override},
+            req={'report_mode': report_mode, 'text_len': len(text), 'text_fingerprint': text_fingerprint, 'file_name': file.filename or save_path.name, 'llm_provider_override': llm_provider_override},
             resp={
                 'analysis_mode': response_payload['analysis_mode'],
                 'text_scene_count': len((text_result or {}).get('scenes') or []),
@@ -3076,7 +3652,12 @@ def analyze_text_narration(project_id: int):
             },
             file_refs=[str(save_path)],
         )
-        response_payload['usage'] = getattr(g, 'usage_info', None)
+        response_payload['usage'] = {
+            'authorized': bool(int(db_user.is_authorized or 0)),
+            'ops_role_code': _ops_role_code(db_user),
+            'user_tier_code': _user_tier_code(db_user),
+            'quota': _user_quota_snapshot(db, db_user),
+        }
         return jsonify(response_payload)
 
 
@@ -3391,6 +3972,13 @@ def export_report_assets(project_id: int):
             return send_file(out, as_attachment=True, download_name=out.name, mimetype='text/csv')
 
         out_zip, summary = export_sfx_zip(project_id=project.id, project_title=project.title, cues=cues)
+        quota_err = _consume_sfx_download_or_error(db, g.current_user, int(summary.get('found_count') or 0))
+        if quota_err is not None:
+            try:
+                out_zip.unlink(missing_ok=True)
+            except Exception:
+                pass
+            return quota_err
         log_reason_event(
             db=db,
             event_type='export_download',
@@ -3411,6 +3999,7 @@ def export_report_assets(project_id: int):
         resp.headers['X-SFX-Required-Count'] = str(summary['required_count'])
         resp.headers['X-SFX-Found-Count'] = str(summary['found_count'])
         resp.headers['X-SFX-Missing-Count'] = str(summary['missing_count'])
+        resp = _attach_quota_headers(resp, _user_quota_snapshot(db, g.current_user))
         return resp
 
 
@@ -3963,6 +4552,12 @@ def download_sfx_file():
     except ValueError:
         project_id = None
     with SessionLocal() as db:
+        db_user = db.execute(select(UserAccount).where(UserAccount.phone == g.current_user.phone)).scalar_one_or_none()
+        if db_user is None:
+            return jsonify({'detail': '用户不存在，请重新登录'}), 401
+        quota_err = _consume_sfx_download_or_error(db, db_user, 1)
+        if quota_err is not None:
+            return quota_err
         _log_user_operation(
             db=db,
             action='action_sfx_asset_download',
@@ -3976,7 +4571,9 @@ def download_sfx_file():
             resp={'ok': True},
             file_refs=[str(abs_p)],
         )
-    return send_file(abs_p, as_attachment=True, download_name=abs_p.name)
+        resp = send_file(abs_p, as_attachment=True, download_name=abs_p.name)
+        resp = _attach_quota_headers(resp, _user_quota_snapshot(db, db_user))
+        return resp
 
 
 if __name__ == '__main__':

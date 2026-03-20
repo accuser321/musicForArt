@@ -137,9 +137,20 @@ class UserAccount(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     phone: Mapped[str] = mapped_column(String(32), unique=True, index=True, nullable=False)
+    uid: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False, default='')
+    ops_role_code: Mapped[str] = mapped_column(String(2), index=True, nullable=False, default='33')
+    user_tier_code: Mapped[str] = mapped_column(String(2), index=True, nullable=False, default='33')
     is_authorized: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # 0/1
     is_admin: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # 0/1
     daily_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    daily_text_char_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=5000)
+    daily_sfx_download_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    invite_activated: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # 0/1
+    invite_code_used: Mapped[str] = mapped_column(String(64), nullable=False, default='')
+    referred_by_user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=True)
+    referred_by_phone: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='')
+    referred_by_uid: Mapped[str] = mapped_column(String(64), index=True, nullable=False, default='')
+    referral_input: Mapped[str] = mapped_column(String(64), nullable=False, default='')
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
@@ -165,6 +176,28 @@ class AuthSession(Base):
     token: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class InviteCode(Base):
+    __tablename__ = 'invite_code'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # 0/1
+    used_by_phone: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='')
+    used_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class SystemSetting(Base):
+    __tablename__ = 'system_setting'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    setting_key: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    setting_value: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )
 
 
 class DailyUsage(Base):
