@@ -10,6 +10,7 @@ from urllib.parse import quote, urlparse, parse_qs, unquote
 import random
 import secrets
 from functools import wraps
+from zoneinfo import ZoneInfo
 
 from flask import Flask, jsonify, request, send_file, g
 from flask_cors import CORS
@@ -18,6 +19,7 @@ from sqlalchemy import func, inspect, select, text as sql_text
 from app.config import settings
 from app.db import SessionLocal, engine
 from app.models import (
+    ActionFallbackRiskTerm,
     ActionSupplementAsset,
     ActionGraphInheritanceReview,
     ActionSupplementTask,
@@ -58,6 +60,7 @@ from app.services.action_sfx_graph import (
     get_action_node_layer_term_items,
     load_global_sfx_label_coverage,
     load_action_node_coverage,
+    resolve_action_fallback_head,
 )
 from app.services.scene_building import analyze_scene_building
 from app.services.scene_graph_manage import (
@@ -86,17 +89,21 @@ from app.services.action_graph_neo4j import (
     sync_action_graph_to_neo4j,
 )
 from app.services.action_graph_manage import (
+    apply_action_fallback_resolution,
     delete_action_graph_node,
     demote_action_graph_terms_to_genre,
     get_action_graph_node_layers,
+    has_action_formal_head,
+    list_action_fallback_alias_rules,
     list_action_graph_inheritance_blocks,
     list_action_graph_maintenance_catalog,
     promote_action_graph_terms_to_common,
+    remove_action_fallback_alias_rule,
     remove_action_graph_overlap_terms,
     set_action_graph_inheritance_block,
     update_action_graph_node_layer,
 )
-from app.services.exporter import export_cue_csv, export_sfx_zip
+from app.services.exporter import export_cue_csv
 from app.services.reasoning_observability import get_reason_cache, log_reason_event, set_reason_cache
 from app.services.ops_draft import generate_lexicon_draft
 from app.services.nlp_zh import analyze_cn_tokens
@@ -121,6 +128,7 @@ BETA_INVITE_ONLY_KEY = 'beta_invite_only_enabled'
 INVITE_SEED_TARGET = 200
 LEADERBOARD_LAYOUT_KEY = 'homepage_leaderboard_layout'
 FRONTEND_DEBUG_EXPOSE_KEY = 'frontend_debug_expose_enabled'
+ACTION_FALLBACK_RISK_SEEDED_KEY = 'action_fallback_risk_seeded'
 LEADERBOARD_WINDOWS = {
     '1d': 1,
     '10d': 10,
@@ -128,6 +136,37 @@ LEADERBOARD_WINDOWS = {
     '90d': 90,
 }
 LEADERBOARD_GENRES = ['玄幻', '言情', '科幻', '悬疑']
+DEFAULT_ACTION_FALLBACK_RISK_TERMS = [
+    ('走', 'danger', '单字泛词，极易误伤其他动作，默认高风险。'),
+    ('看', 'danger', '单字泛词，容易跨大量上下文误归并。'),
+    ('听', 'danger', '单字泛词，容易误伤非动作语义。'),
+    ('说', 'danger', '单字泛词，容易误伤对白相关语义。'),
+    ('道', 'danger', '常见口语尾词，容易和大量表达混淆。'),
+    ('向', 'danger', '方向词，容易被短语误拆后误归并。'),
+    ('来', 'danger', '单字泛词，建议谨慎处理。'),
+    ('去', 'danger', '单字泛词，建议谨慎处理。'),
+    ('上', 'danger', '方向词，语义过宽。'),
+    ('下', 'danger', '方向词，语义过宽。'),
+    ('进', 'danger', '单字泛词，跨语境误伤概率高。'),
+    ('出', 'danger', '单字泛词，跨语境误伤概率高。'),
+    ('拿', 'warn', '常见动作泛词，建议先观察。'),
+    ('放', 'warn', '常见动作泛词，建议先观察。'),
+    ('推', 'warn', '常见动作泛词，建议结合上下文判断。'),
+    ('拉', 'warn', '常见动作泛词，建议结合上下文判断。'),
+    ('打', 'warn', '常见动作泛词，语义跨度较大。'),
+    ('撞', 'warn', '高频动作词，建议谨慎归并。'),
+    ('叫', 'warn', '常见表达词，建议先观察。'),
+    ('喊', 'warn', '常见表达词，建议先观察。'),
+    ('望', 'warn', '单字词，容易与多种短语混淆。'),
+    ('走去', 'warn', '高频泛短语，建议谨慎归并。'),
+    ('走来', 'warn', '高频泛短语，建议谨慎归并。'),
+    ('说道', 'warn', '口语尾词型短语，容易误收敛。'),
+    ('来到', 'warn', '高频泛短语，建议谨慎归并。'),
+    ('出去', 'warn', '高频泛短语，建议谨慎归并。'),
+    ('进去', 'warn', '高频泛短语，建议谨慎归并。'),
+    ('抬手', 'warn', '常见动作起手式，建议结合正式词判断。'),
+    ('伸手', 'warn', '常见动作起手式，建议结合正式词判断。'),
+]
 
 
 def _is_composite_sfx_term(term: str, children: dict | None = None) -> bool:
@@ -239,6 +278,48 @@ def _set_frontend_debug_expose_enabled(db, enabled: bool) -> bool:
     row.setting_value = 'true' if enabled else 'false'
     db.commit()
     return enabled
+
+
+def _ensure_action_fallback_risk_terms(db) -> None:
+    seeded = _ensure_system_setting(db, ACTION_FALLBACK_RISK_SEEDED_KEY, 'false')
+    if str(seeded.setting_value or '').strip().lower() in {'1', 'true', 'yes', 'on'}:
+        return
+    existing = {
+        str(row.term or '').strip(): row
+        for row in db.execute(select(ActionFallbackRiskTerm)).scalars().all()
+        if str(row.term or '').strip()
+    }
+    changed = False
+    for term, level, note in DEFAULT_ACTION_FALLBACK_RISK_TERMS:
+        if term in existing:
+            continue
+        db.add(
+            ActionFallbackRiskTerm(
+                term=term,
+                risk_level=level,
+                note=note,
+                enabled=1,
+            )
+        )
+        changed = True
+    seeded.setting_value = 'true'
+    db.commit()
+
+
+def _list_action_fallback_risk_terms(db) -> list[dict]:
+    rows = db.execute(
+        select(ActionFallbackRiskTerm).order_by(ActionFallbackRiskTerm.risk_level.desc(), ActionFallbackRiskTerm.term.asc())
+    ).scalars().all()
+    return [
+        {
+            'id': row.id,
+            'term': str(row.term or '').strip(),
+            'risk_level': str(row.risk_level or 'warn').strip() or 'warn',
+            'note': str(row.note or '').strip(),
+            'enabled': bool(int(row.enabled or 0)),
+        }
+        for row in rows
+    ]
 
 
 def _ensure_invite_seed_codes(db, target: int = INVITE_SEED_TARGET) -> None:
@@ -734,6 +815,19 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+def _local_now() -> datetime:
+    return datetime.now(LOCAL_TZ)
+
+
+def _local_today_ymd() -> str:
+    return _local_now().strftime('%Y-%m-%d')
+
+
+def _local_day_start_utc_naive() -> datetime:
+    local_start = _local_now().replace(hour=0, minute=0, second=0, microsecond=0)
+    return local_start.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 def _ensure_user(db, phone: str) -> UserAccount:
     row = db.execute(select(UserAccount).where(UserAccount.phone == phone)).scalar_one_or_none()
     if row is None:
@@ -792,7 +886,7 @@ def _daily_usage_row(db, phone: str, action: str, ymd: str, *, create: bool = Fa
 
 
 def _user_quota_snapshot(db, u: UserAccount) -> dict:
-    today = datetime.now().strftime('%Y-%m-%d')
+    today = _local_today_ymd()
     text_used = int((_daily_usage_row(db, u.phone, 'text_chars', today, create=False) or DailyUsage(used_count=0)).used_count or 0)
     sfx_used = int((_daily_usage_row(db, u.phone, 'sfx_download', today, create=False) or DailyUsage(used_count=0)).used_count or 0)
     text_limit = int(getattr(u, 'daily_text_char_limit', 0) or 0)
@@ -814,19 +908,11 @@ def _consume_text_chars_or_error(db, u: UserAccount, text_len: int):
     limit = int(getattr(u, 'daily_text_char_limit', 0) or 0)
     if limit <= 0 or text_len <= 0:
         return None
-    today = datetime.now().strftime('%Y-%m-%d')
+    today = _local_today_ymd()
     row = _daily_usage_row(db, u.phone, 'text_chars', today, create=True)
     used = int(row.used_count or 0)
-    if used + text_len > limit:
-        return (
-            jsonify(
-                {
-                    'detail': '今日文本分析字符量已达上限，请联系管理员调整额度',
-                    'quota': _user_quota_snapshot(db, u),
-                }
-            ),
-            403,
-        )
+    if not _can_consume_text_chars_with_grace(limit, used, text_len):
+        return _text_quota_error_response(db, u)
     row.used_count = used + int(text_len)
     db.commit()
     return None
@@ -838,6 +924,9 @@ TEXT_QUOTA_ACTIONS = {
     'scene_building_analysis',
     'text_narration_analysis',
 }
+
+TEXT_QUOTA_GRACE_CHARS = 1000
+LOCAL_TZ = ZoneInfo('Asia/Shanghai')
 
 
 def _normalize_text_for_quota(text: str) -> str:
@@ -855,7 +944,7 @@ def _build_text_fingerprint(text: str) -> str:
 def _has_text_fingerprint_logged_today(db, phone: str, text_fingerprint: str) -> bool:
     if not phone or not text_fingerprint:
         return False
-    day_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    day_start = _local_day_start_utc_naive()
     rows = db.execute(
         select(UserOperationLog).where(
             UserOperationLog.user_phone == phone,
@@ -887,25 +976,37 @@ def _consume_text_chars_once_or_error(db, u: UserAccount, text: str):
     return _consume_text_chars_or_error(db, u, len(str(text or '')))
 
 
+def _text_quota_error_response(db, u: UserAccount):
+    return (
+        jsonify(
+            {
+                'detail': f'今日文本分析字符量已达上限，用量超额，请联系管理员调整额度。系统支持单次最多超额 {TEXT_QUOTA_GRACE_CHARS} 字的缓冲，超出后将暂停使用。',
+                'quota': _user_quota_snapshot(db, u),
+            }
+        ),
+        403,
+    )
+
+
+def _can_consume_text_chars_with_grace(limit: int, used: int, text_len: int) -> bool:
+    if limit <= 0 or text_len <= 0:
+        return True
+    if used >= limit:
+        return False
+    return used + text_len <= limit + TEXT_QUOTA_GRACE_CHARS
+
+
 def _ensure_text_chars_available_or_error(db, u: UserAccount, text_len: int):
     if int(u.is_authorized or 0) == 1:
         return None
     limit = int(getattr(u, 'daily_text_char_limit', 0) or 0)
     if limit <= 0 or text_len <= 0:
         return None
-    today = datetime.now().strftime('%Y-%m-%d')
+    today = _local_today_ymd()
     row = _daily_usage_row(db, u.phone, 'text_chars', today, create=True)
     used = int(row.used_count or 0)
-    if used + text_len > limit:
-        return (
-            jsonify(
-                {
-                    'detail': '今日文本分析字符量已达上限，请联系管理员调整额度',
-                    'quota': _user_quota_snapshot(db, u),
-                }
-            ),
-            403,
-        )
+    if not _can_consume_text_chars_with_grace(limit, used, text_len):
+        return _text_quota_error_response(db, u)
     return None
 
 
@@ -915,7 +1016,7 @@ def _consume_sfx_download_or_error(db, u: UserAccount, count: int = 1):
     limit = int(getattr(u, 'daily_sfx_download_limit', 0) or 0)
     if limit <= 0 or count <= 0:
         return None
-    today = datetime.now().strftime('%Y-%m-%d')
+    today = _local_today_ymd()
     row = _daily_usage_row(db, u.phone, 'sfx_download', today, create=True)
     used = int(row.used_count or 0)
     if used + count > limit:
@@ -1112,6 +1213,177 @@ def _log_user_operation(
     db.commit()
 
 
+def _extract_action_fallback_clusters(result: dict | None) -> list[dict]:
+    data = result if isinstance(result, dict) else {}
+    genre = str(data.get('genre') or '').strip()
+    out = []
+    for item in (data.get('graph_items') or []):
+        if not isinstance(item, dict):
+            continue
+        children = item.get('children') or {}
+        semantic_items = children.get('semantic_term_items') or []
+        sfx_items = children.get('sfx_term_items') or []
+        fallback_terms = []
+        for row in list(semantic_items) + list(sfx_items):
+            if not isinstance(row, dict):
+                continue
+            if str(row.get('source') or '').strip() != 'fallback':
+                continue
+            term = str(row.get('term') or '').strip()
+            if term and term not in fallback_terms:
+                fallback_terms.append(term)
+        if not fallback_terms:
+            continue
+        suggested = max(fallback_terms, key=lambda x: (len(str(x or '').strip()), str(x or '').strip()))
+        parent = item.get('parent_node') or {}
+        out.append(
+            {
+                'genre': genre,
+                'parent_head': str(parent.get('verb_head') or item.get('verb') or '').strip(),
+                'fallback_terms': fallback_terms,
+                'suggested_formal_term': str(suggested or '').strip(),
+                'sentence_excerpt': str(item.get('sentence_excerpt') or '').strip(),
+                'raw_verbs': [str(x).strip() for x in (item.get('raw_verbs') or []) if str(x).strip()],
+            }
+        )
+    return out
+
+
+def _action_fallback_rule_maps() -> dict:
+    rules = list_action_fallback_alias_rules().get('items', [])
+    out = {'common': {}, 'genres': {}}
+    for item in rules:
+        if not isinstance(item, dict):
+            continue
+        alias = str(item.get('alias_term') or '').strip()
+        target = str(item.get('formal_head') or '').strip()
+        scope = str(item.get('scope') or 'common').strip()
+        genre = str(item.get('genre') or '').strip()
+        if not alias or not target:
+            continue
+        if scope == 'genre' and genre:
+            out['genres'].setdefault(genre, {})[alias] = target
+        else:
+            out['common'][alias] = target
+    return out
+
+
+def _is_action_fallback_cluster_resolved(cluster: dict | None, rule_maps: dict | None = None) -> bool:
+    data = cluster if isinstance(cluster, dict) else {}
+    terms = [str(x).strip() for x in (data.get('fallback_terms') or []) if str(x).strip()]
+    if not terms:
+        return True
+    formal_head = str(data.get('suggested_formal_term') or '').strip() or max(terms, key=lambda x: (len(x), x))
+    genre = str(data.get('genre') or '').strip()
+    preferred_scope = 'genre' if genre else 'common'
+    if has_action_formal_head(formal_head, scope=preferred_scope, genre=genre) or has_action_formal_head(formal_head, scope='common', genre=''):
+        return True
+    resolved_terms = []
+    for term in terms:
+        resolved = str(resolve_action_fallback_head(genre, term) or '').strip()
+        if resolved and resolved not in resolved_terms:
+            resolved_terms.append(resolved)
+    if len(resolved_terms) == 1:
+        target = str(resolved_terms[0] or '').strip()
+        if target and target != formal_head:
+            if has_action_formal_head(target, scope=preferred_scope, genre=genre) or has_action_formal_head(target, scope='common', genre=''):
+                return True
+    aliases = [term for term in terms if term != formal_head]
+    if not aliases:
+        return False
+    maps = rule_maps if isinstance(rule_maps, dict) else _action_fallback_rule_maps()
+    genre_map = (maps.get('genres') or {}).get(genre, {}) if genre else {}
+    common_map = maps.get('common') or {}
+    return all(str(genre_map.get(alias) or common_map.get(alias) or '').strip() == formal_head for alias in aliases)
+
+
+def _collect_action_fallback_monitor(days: int = 30, limit: int = 2000) -> dict:
+    window_days = max(1, min(int(days or 30), 180))
+    row_limit = max(1, min(int(limit or 2000), 5000))
+    cutoff = datetime.now(timezone.utc) - timedelta(days=window_days)
+    with SessionLocal() as db:
+        rows = db.execute(
+            select(UserOperationLog)
+            .where(
+                UserOperationLog.action == 'action_sfx_graph',
+                UserOperationLog.created_at >= cutoff,
+            )
+            .order_by(UserOperationLog.created_at.desc())
+            .limit(row_limit)
+        ).scalars().all()
+        risk_terms = _list_action_fallback_risk_terms(db)
+
+    grouped: dict[str, dict] = {}
+    for row in rows:
+        try:
+            output_json = json.loads(row.output_json or '{}')
+        except json.JSONDecodeError:
+            output_json = {}
+        for cluster in (output_json.get('fallback_clusters') or []):
+            if not isinstance(cluster, dict):
+                continue
+            terms = [str(x).strip() for x in (cluster.get('fallback_terms') or []) if str(x).strip()]
+            if not terms:
+                continue
+            genre = str(cluster.get('genre') or '').strip()
+            suggested = str(cluster.get('suggested_formal_term') or '').strip() or max(terms, key=lambda x: (len(x), x))
+            key = f"{genre}||{'/'.join(sorted(terms))}"
+            bucket = grouped.setdefault(
+                key,
+                {
+                    'cluster_key': key,
+                    'genre': genre,
+                    'fallback_terms': sorted(terms),
+                    'suggested_formal_term': suggested,
+                    'hit_count': 0,
+                    'project_ids': [],
+                    'user_phones': [],
+                    'parent_heads': [],
+                    'raw_verbs': [],
+                    'examples': [],
+                    'latest_at': '',
+                },
+            )
+            bucket['hit_count'] += 1
+            if row.project_id and row.project_id not in bucket['project_ids']:
+                bucket['project_ids'].append(row.project_id)
+            phone = str(row.user_phone or '').strip()
+            if phone and phone not in bucket['user_phones']:
+                bucket['user_phones'].append(phone)
+            for field, target in (
+                ('parent_head', 'parent_heads'),
+                ('sentence_excerpt', 'examples'),
+            ):
+                value = str(cluster.get(field) or '').strip()
+                if value and value not in bucket[target]:
+                    bucket[target].append(value)
+            for raw_verb in [str(x).strip() for x in (cluster.get('raw_verbs') or []) if str(x).strip()]:
+                if raw_verb not in bucket['raw_verbs']:
+                    bucket['raw_verbs'].append(raw_verb)
+            created_at = row.created_at.isoformat() if row.created_at else ''
+            if created_at and created_at > str(bucket.get('latest_at') or ''):
+                bucket['latest_at'] = created_at
+
+    rule_maps = _action_fallback_rule_maps()
+    items = []
+    for bucket in grouped.values():
+        enriched = dict(bucket)
+        enriched['resolved'] = _is_action_fallback_cluster_resolved(enriched, rule_maps)
+        items.append(enriched)
+    items.sort(key=lambda item: (-int(item.get('hit_count') or 0), str(item.get('latest_at') or ''), str(item.get('cluster_key') or '')))
+    rules = list_action_fallback_alias_rules().get('items', [])
+    pending_items = [item for item in items if not item.get('resolved')]
+    return {
+        'days': window_days,
+        'count': len(items),
+        'pending_count': len(pending_items),
+        'items': items,
+        'pending_items': pending_items,
+        'rules': rules,
+        'risk_terms': risk_terms,
+    }
+
+
 def _attach_quota_headers(resp, quota: dict | None):
     snapshot = quota or {}
     resp.headers['X-Quota-Ymd'] = str(snapshot.get('ymd') or '')
@@ -1210,6 +1482,7 @@ def ensure_tables():
     with SessionLocal() as db:
         _ensure_bootstrap_admins(db)
         _ensure_invite_seed_codes(db)
+        _ensure_action_fallback_risk_terms(db)
 
 
 @app.get('/health')
@@ -1928,6 +2201,138 @@ def api_action_graph_maintenance_catalog():
     return jsonify(out), 200
 
 
+@app.get(f'{settings.api_prefix}/action-graph/fallback-monitor')
+@_require_admin
+def api_action_graph_fallback_monitor():
+    days = max(1, min(int((request.args.get('days') or '30').strip()), 180))
+    out = _collect_action_fallback_monitor(days=days)
+    return jsonify(
+        {
+            'days': out.get('days', days),
+            'count': out.get('count', 0),
+            'pending_count': out.get('pending_count', 0),
+            'items': out.get('items', []),
+            'pending_items': out.get('pending_items', []),
+            'rules': out.get('rules', []),
+            'risk_terms': out.get('risk_terms', []),
+        }
+    )
+
+
+@app.get(f'{settings.api_prefix}/action-graph/fallback-risk-terms')
+@_require_admin
+def api_action_graph_fallback_risk_terms():
+    with SessionLocal() as db:
+        items = _list_action_fallback_risk_terms(db)
+    return jsonify({'count': len(items), 'items': items})
+
+
+@app.post(f'{settings.api_prefix}/action-graph/fallback-risk-terms')
+@_require_admin
+def api_action_graph_fallback_risk_terms_save():
+    payload = request.get_json(force=True) or {}
+    term = str(payload.get('term') or '').strip()
+    risk_level = str(payload.get('risk_level') or 'warn').strip().lower() or 'warn'
+    note = str(payload.get('note') or '').strip()
+    enabled = 1 if bool(payload.get('enabled', True)) else 0
+    if not term:
+        return jsonify({'detail': 'term is required'}), 400
+    if risk_level not in {'warn', 'danger'}:
+        return jsonify({'detail': 'risk_level must be warn or danger'}), 400
+    with SessionLocal() as db:
+        row = db.execute(select(ActionFallbackRiskTerm).where(ActionFallbackRiskTerm.term == term)).scalar_one_or_none()
+        if row is None:
+            row = ActionFallbackRiskTerm(term=term, risk_level=risk_level, note=note, enabled=enabled)
+            db.add(row)
+        else:
+            row.risk_level = risk_level
+            row.note = note
+            row.enabled = enabled
+        db.commit()
+        items = _list_action_fallback_risk_terms(db)
+    return jsonify({'ok': True, 'count': len(items), 'items': items})
+
+
+@app.post(f'{settings.api_prefix}/action-graph/fallback-risk-terms/delete')
+@_require_admin
+def api_action_graph_fallback_risk_terms_delete():
+    payload = request.get_json(force=True) or {}
+    term = str(payload.get('term') or '').strip()
+    if not term:
+        return jsonify({'detail': 'term is required'}), 400
+    with SessionLocal() as db:
+        row = db.execute(select(ActionFallbackRiskTerm).where(ActionFallbackRiskTerm.term == term)).scalar_one_or_none()
+        if row is None:
+            return jsonify({'detail': 'term not found'}), 404
+        db.delete(row)
+        db.commit()
+        items = _list_action_fallback_risk_terms(db)
+    return jsonify({'ok': True, 'count': len(items), 'items': items})
+
+
+@app.get(f'{settings.api_prefix}/action-graph/fallback-monitor/alerts')
+@_require_admin
+def api_action_graph_fallback_monitor_alerts():
+    days = max(1, min(int((request.args.get('days') or '7').strip()), 90))
+    limit = max(1, min(int((request.args.get('limit') or '5').strip()), 20))
+    out = _collect_action_fallback_monitor(days=days)
+    pending_items = list(out.get('pending_items') or [])
+    recent_pending = sorted(
+        pending_items,
+        key=lambda item: (str(item.get('latest_at') or ''), int(item.get('hit_count') or 0)),
+        reverse=True,
+    )[:limit]
+    return jsonify(
+        {
+            'days': out.get('days', days),
+            'pending_count': out.get('pending_count', 0),
+            'has_pending': bool(pending_items),
+            'recent_items': recent_pending,
+            'latest_at': recent_pending[0].get('latest_at', '') if recent_pending else '',
+        }
+    )
+
+
+@app.post(f'{settings.api_prefix}/action-graph/fallback-monitor/resolve')
+@_require_admin
+def api_action_graph_fallback_monitor_resolve():
+    payload = request.get_json(force=True) or {}
+    formal_head = str(payload.get('formal_head') or '').strip()
+    fallback_terms = [str(x).strip() for x in (payload.get('fallback_terms') or []) if str(x).strip()]
+    alias_terms = [str(x).strip() for x in (payload.get('alias_terms') or []) if str(x).strip()]
+    if fallback_terms:
+        for term in fallback_terms:
+            if term != formal_head and term not in alias_terms:
+                alias_terms.append(term)
+    out = apply_action_fallback_resolution(
+        formal_head=formal_head,
+        alias_terms=alias_terms,
+        scope=str(payload.get('scope') or 'common').strip(),
+        genre=str(payload.get('genre') or '').strip(),
+    )
+    if out.get('ok'):
+        neo4j_sync = sync_action_graph_to_neo4j()
+        out['neo4j_sync'] = neo4j_sync
+    code = 200 if out.get('ok') else 400
+    return jsonify(out), code
+
+
+@app.post(f'{settings.api_prefix}/action-graph/fallback-monitor/release')
+@_require_admin
+def api_action_graph_fallback_monitor_release():
+    payload = request.get_json(force=True) or {}
+    out = remove_action_fallback_alias_rule(
+        alias_term=str(payload.get('alias_term') or '').strip(),
+        scope=str(payload.get('scope') or 'common').strip(),
+        genre=str(payload.get('genre') or '').strip(),
+    )
+    if out.get('ok'):
+        neo4j_sync = sync_action_graph_to_neo4j()
+        out['neo4j_sync'] = neo4j_sync
+    code = 200 if out.get('ok') else 400
+    return jsonify(out), code
+
+
 @app.post(f'{settings.api_prefix}/action-graph/node-layer')
 @_require_admin
 def api_action_graph_node_layer_update():
@@ -2601,6 +3006,7 @@ def analyze_action_sfx_api(project_id: int):
         result = build_action_sfx_recommendation(project_id=project_id, action_report=action_report)
         _record_inheritance_review_hits(db, project_id, result.get('blocked_inheritance_hits') or [])
         db.commit()
+        fallback_clusters = _extract_action_fallback_clusters(result)
         _log_user_operation(
             db=db,
             action='action_sfx_graph',
@@ -2612,6 +3018,8 @@ def analyze_action_sfx_api(project_id: int):
             resp={
                 'graph_item_count': len(result.get('graph_items') or []),
                 'asset_count': (result.get('summary') or {}).get('asset_count', 0),
+                'fallback_cluster_count': len(fallback_clusters),
+                'fallback_clusters': fallback_clusters,
             },
             file_refs=[],
         )
@@ -4399,8 +4807,8 @@ def get_report(project_id: int):
 @_enforce_feature_access('export_assets')
 def export_report_assets(project_id: int):
     export_type = (request.args.get('type') or '').strip().lower()
-    if export_type not in {'cue_csv', 'sfx_zip'}:
-        return jsonify({'detail': "type must be one of: cue_csv, sfx_zip"}), 400
+    if export_type not in {'cue_csv'}:
+        return jsonify({'detail': "type must be cue_csv"}), 400
 
     with SessionLocal() as db:
         project = db.get(Project, project_id)
@@ -4425,38 +4833,6 @@ def export_report_assets(project_id: int):
                 resp={'success': True, 'cue_count': len(cues)},
             )
             return send_file(out, as_attachment=True, download_name=out.name, mimetype='text/csv')
-
-        out_zip, summary = export_sfx_zip(project_id=project.id, project_title=project.title, cues=cues)
-        quota_err = _consume_sfx_download_or_error(db, g.current_user, int(summary.get('found_count') or 0))
-        if quota_err is not None:
-            try:
-                out_zip.unlink(missing_ok=True)
-            except Exception:
-                pass
-            return quota_err
-        log_reason_event(
-            db=db,
-            event_type='export_download',
-            term='sfx_zip',
-            backend='n/a',
-            project_id=project_id,
-            req={'type': 'sfx_zip'},
-            resp={
-                'success': True,
-                'required_count': summary.get('required_count'),
-                'found_count': summary.get('found_count'),
-                'missing_count': summary.get('missing_count'),
-                'missing_sfx': summary.get('missing_sfx', []),
-            },
-        )
-        # response headers provide a quick machine-readable summary
-        resp = send_file(out_zip, as_attachment=True, download_name=out_zip.name, mimetype='application/zip')
-        resp.headers['X-SFX-Required-Count'] = str(summary['required_count'])
-        resp.headers['X-SFX-Found-Count'] = str(summary['found_count'])
-        resp.headers['X-SFX-Missing-Count'] = str(summary['missing_count'])
-        resp = _attach_quota_headers(resp, _user_quota_snapshot(db, g.current_user))
-        return resp
-
 
 @app.get(f'{settings.api_prefix}/ops/funnel')
 @_require_admin
@@ -4897,23 +5273,33 @@ def ops_user_events():
 
     with SessionLocal() as db:
         stmt = select(UserOperationLog)
+        summary_stmt = select(UserOperationLog.action, func.count()).group_by(UserOperationLog.action)
         if phone:
             stmt = stmt.where(UserOperationLog.user_phone == phone)
+            summary_stmt = summary_stmt.where(UserOperationLog.user_phone == phone)
         if action:
             stmt = stmt.where(UserOperationLog.action == action)
+            summary_stmt = summary_stmt.where(UserOperationLog.action == action)
         if project_id is not None:
             stmt = stmt.where(UserOperationLog.project_id == project_id)
+            summary_stmt = summary_stmt.where(UserOperationLog.project_id == project_id)
         if date_from:
             try:
-                stmt = stmt.where(UserOperationLog.created_at >= datetime.fromisoformat(date_from))
+                dt_from = datetime.fromisoformat(date_from)
+                stmt = stmt.where(UserOperationLog.created_at >= dt_from)
+                summary_stmt = summary_stmt.where(UserOperationLog.created_at >= dt_from)
             except ValueError:
                 return jsonify({'detail': 'date_from must be ISO format'}), 400
         if date_to:
             try:
-                stmt = stmt.where(UserOperationLog.created_at <= datetime.fromisoformat(date_to))
+                dt_to = datetime.fromisoformat(date_to)
+                stmt = stmt.where(UserOperationLog.created_at <= dt_to)
+                summary_stmt = summary_stmt.where(UserOperationLog.created_at <= dt_to)
             except ValueError:
                 return jsonify({'detail': 'date_to must be ISO format'}), 400
         rows = db.execute(stmt.order_by(UserOperationLog.id.desc()).limit(limit)).scalars().all()
+        action_counts = {str(key or '').strip(): int(count or 0) for key, count in db.execute(summary_stmt).all()}
+        total_matched = int(sum(action_counts.values()))
         phones = {str(r.user_phone or '').strip() for r in rows if str(r.user_phone or '').strip()}
         uid_rows = []
         if phones:
@@ -4949,7 +5335,7 @@ def ops_user_events():
                 'file_refs': file_refs,
             }
         )
-    return jsonify({'count': len(items), 'items': items})
+    return jsonify({'count': len(items), 'total_matched': total_matched, 'action_counts': action_counts, 'items': items})
 
 
 @app.get(f'{settings.api_prefix}/ops/project/<int:project_id>/flow-bundle')

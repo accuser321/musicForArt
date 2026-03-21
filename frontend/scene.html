@@ -944,6 +944,28 @@
         node.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
       }
 
+      function formatReadableTime(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return '-';
+        let normalized = raw.replace(/\.\d+$/, '');
+        if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(normalized)) normalized = normalized.replace(' ', 'T');
+        const hasTimezone = /(?:Z|[+\-]\d{2}:\d{2})$/.test(normalized);
+        const d = new Date(hasTimezone ? normalized : `${normalized}Z`);
+        if (Number.isNaN(d.getTime())) return raw.replace('T', ' ').replace(/\.\d+$/, '');
+        const parts = new Intl.DateTimeFormat('zh-CN', {
+          timeZone: 'Asia/Shanghai',
+          hour12: false,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        }).formatToParts(d);
+        const map = Object.fromEntries(parts.map(p => [p.type, p.value]));
+        return `${map.year || '0000'}-${map.month || '00'}-${map.day || '00'} ${map.hour || '00'}:${map.minute || '00'}:${map.second || '00'}`;
+      }
+
       function currentSceneLeaderboardWindow() {
         return (document.getElementById('sceneLeaderboardWindow')?.value || '10d').trim() || '10d';
       }
@@ -2942,7 +2964,7 @@
           const canNotify = String(item?.status || '') === 'ready_to_notify' && !alreadyNotified;
           const notifyLabel = !token ? '请先登录后通知' : (alreadyNotified ? '已通知用户' : (canNotify ? '标记已通知' : '暂不可通知'));
           const notifyHint = alreadyNotified
-            ? `已通知：${item.notified_at}`
+            ? `已通知：${formatReadableTime(item.notified_at)}`
             : (!token ? '请先登录 scene 后台，再执行通知操作。' : (canNotify ? '当前可通知用户' : '当前未达到可通知状态'));
           return `
             <div class="scene-group" id="scene-supp-${item.id}" data-scene-node-key="${escHtml(item.node_key || '')}">

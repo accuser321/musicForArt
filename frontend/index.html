@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>有声书声音设计台 - MVP</title>
+    <title>有声书·后期·设计台 - MVP</title>
     <style>
       :root {
         --bg: #f4efe6;
@@ -54,32 +54,66 @@
         text-shadow: 0 1px 0 rgba(255,255,255,.55);
       }
       .hero-subtitle {
-        margin-top: 6px;
+        margin-top: 8px;
         max-width: 920px;
         font-size: 13px;
-        line-height: 1.55;
+        line-height: 1.7;
         color: #7a5a41;
+      }
+      .hero-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin: 0 6px 1px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #a83f33, #7f271d);
+        box-shadow: 0 0 0 2px rgba(168, 63, 51, 0.08);
+        vertical-align: middle;
       }
       .hero-inline {
         display: inline-flex;
         flex-wrap: wrap;
-        gap: 5px;
+        gap: 6px;
         align-items: center;
         vertical-align: baseline;
       }
       .hero-inline-chip {
         display: inline-flex;
         align-items: center;
-        padding: 2px 8px;
+        padding: 3px 9px;
         border-radius: 999px;
         border: 1px solid #d7bea0;
-        background: rgba(255,255,255,.82);
+        background: linear-gradient(135deg, rgba(255,255,255,.92), rgba(253, 242, 225, .92));
         color: #744b32;
         font-size: 12px;
         font-weight: 700;
         line-height: 1.2;
         transform: translateY(-1px);
-        box-shadow: 0 4px 10px rgba(123, 87, 47, 0.05);
+        box-shadow: 0 6px 12px rgba(123, 87, 47, 0.07);
+      }
+      .hero-inline-chip.capability {
+        border-color: #d7bea0;
+        color: #744b32;
+      }
+      .hero-inline-chip.outcome {
+        border-color: #c97e68;
+        background: linear-gradient(135deg, rgba(255, 243, 239, .96), rgba(255, 223, 214, .94));
+        color: #8a2f24;
+        box-shadow: 0 7px 14px rgba(169, 70, 53, 0.1);
+      }
+      .hero-lead {
+        font-weight: 600;
+        color: #734b32;
+      }
+      .hero-sep {
+        display: inline-block;
+        margin: 0 8px;
+        color: #b64e42;
+        font-weight: 700;
+        background: linear-gradient(90deg, #8d2b20, #c85d50);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
       }
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
       .card {
@@ -215,6 +249,16 @@
         font-size: 12px;
         color: #7e6440;
         line-height: 1.7;
+      }
+      .usage-alert {
+        margin-top: 8px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid #d49c95;
+        background: linear-gradient(135deg, #fff5f2, #ffe6e0);
+        color: #9f2f2a;
+        font-size: 12px;
+        line-height: 1.6;
       }
       .panel h4 {
         margin: 0 0 8px;
@@ -887,17 +931,22 @@
   <body>
     <div class="wrap">
       <section class="hero-top">
-        <h1>有声书声音设计台</h1>
+        <h1>有声书·后期·设计台</h1>
         <div class="hero-subtitle">
-          围绕
+          <span class="hero-lead">帮助有声书<span class="hero-dot" aria-hidden="true"></span>后期从业者，快速完成</span>
           <span class="hero-inline">
-            <span class="hero-inline-chip">文本</span>
-            <span class="hero-inline-chip">动作音效</span>
-            <span class="hero-inline-chip">场景搭建</span>
-            <span class="hero-inline-chip">音乐分析</span>
-            <span class="hero-inline-chip">后期执行单</span>
+            <span class="hero-inline-chip capability">文本分析</span>
+            <span class="hero-inline-chip capability">动作音效</span>
+            <span class="hero-inline-chip capability">场景搭建</span>
+            <span class="hero-inline-chip capability">音乐分析</span>
+            <span class="hero-inline-chip capability">后期执行单</span>
           </span>
-          ，帮助有声书后期快速完成声音拆解、音效命中、素材下载与制作决策。
+          <span class="hero-sep">实现</span>
+          <span class="hero-inline">
+            <span class="hero-inline-chip outcome">音效命中</span>
+            <span class="hero-inline-chip outcome">素材下载</span>
+            <span class="hero-inline-chip outcome">制作决策</span>
+          </span>
         </div>
       </section>
       <section class="leaderboard-shell">
@@ -1013,7 +1062,6 @@
             <div class="flow-buttons">
               <button data-auth-required="1" onclick="fetchReport()">11) 拉取完整报告</button>
               <button data-auth-required="1" onclick="downloadCueCsv()">12) 下载 Cue CSV</button>
-              <button data-auth-required="1" onclick="downloadSfxZip()">13) 下载 SFX ZIP</button>
             </div>
           </div>
         </section>
@@ -1321,21 +1369,21 @@
         const wrap = document.getElementById('debugJsonWrap');
         const box = document.getElementById('debugOutput');
         if (!wrap || !box) return;
-        const enabled = Boolean(authSettings && authSettings.frontend_debug_expose_enabled);
-        const hasIssue = typeof data === 'string'
-          || (data && typeof data === 'object' && (
-            data.detail
-            || data.error
-            || data.ok === false
-            || data.frontend_debug_expose_enabled
-          ));
-        if (!enabled && !hasIssue) {
+        const enabled = isFrontendDebugEnabled(data);
+        if (!enabled) {
           wrap.style.display = 'none';
           box.textContent = '';
           return;
         }
         wrap.style.display = 'block';
         box.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      }
+
+      function isFrontendDebugEnabled(data = null) {
+        return Boolean(
+          (authSettings && authSettings.frontend_debug_expose_enabled)
+          || (data && data.frontend_debug_expose_enabled)
+        );
       }
 
       function syncAuthUsage(data) {
@@ -1386,6 +1434,11 @@
           return;
         }
         const tierLabel = tierCode === '22' ? '种子用户' : (tierCode === '33' ? '普通用户' : '当前用户');
+        const textRemaining = Number(quota.text_chars_remaining || 0);
+        const sfxRemaining = Number(quota.sfx_download_remaining || 0);
+        const overLimitHint = (!isAuthorized && (textRemaining <= 0 || sfxRemaining <= 0))
+          ? '<div class="usage-alert">用量超额，请联系管理员。文本分析支持单次最多超额 1000 字的缓冲；缓冲使用完后，当天将暂停继续使用。</div>'
+          : '<div class="usage-alert">如今日用量达到上限，请联系管理员协助调整额度。</div>';
         box.style.display = 'block';
         box.innerHTML = `
           <h4>今日用量</h4>
@@ -1407,6 +1460,7 @@
             统计日期：${escHtml(quota.ymd || '今日')}<br/>
             ${isAuthorized ? '当前账号为授权用户：默认不扣减每日额度。' : '当前账号按每日额度计数。'}
           </div>
+          ${overLimitHint}
         `;
       }
 
@@ -1921,7 +1975,8 @@
         const candidates = Array.isArray(report.action_candidates) ? report.action_candidates : [];
         const qualified = Array.isArray(report.qualified_actions) ? report.qualified_actions : [];
         const rules = Array.isArray(report.rule_summary) ? report.rule_summary : [];
-        if (meta && typeof meta === 'object') {
+        const showDebugPanels = isFrontendDebugEnabled(report);
+        if (showDebugPanels && meta && typeof meta === 'object') {
           const contractText = meta.contract_valid === true
             ? '通过'
             : (meta.contract_valid === false ? `不通过：${escHtml(meta.contract_reason || '')}` : '未校验');
@@ -1980,7 +2035,7 @@
           blocks.push(panel('模型完整说明', `<div class="md">${mdToHtml(report.markdown)}</div>`));
         }
         const segReports = meta && Array.isArray(meta.segment_reports) ? meta.segment_reports : [];
-        if (segReports.length > 1) {
+        if (showDebugPanels && segReports.length > 1) {
           const rows = segReports.map(seg => {
             const segReport = seg.report_json || {};
             const count = Array.isArray(segReport.action_candidates) ? segReport.action_candidates.length : 0;
@@ -2002,7 +2057,7 @@
           }).join('');
           blocks.push(panel('分段明细（系统逐段调用后合并）', `<table class="table-lite"><thead><tr><th>段号</th><th>字符区间</th><th>段字数</th><th>该段缩略原文</th><th>候选数</th><th>Contract</th><th>Fallback</th><th>Prompt</th></tr></thead><tbody>${rows}</tbody></table>`));
         }
-        if (!candidates.length && !qualified.length) {
+        if (showDebugPanels && !candidates.length && !qualified.length) {
           blocks.push(panel('LLM 原始结构化结果', `<pre>${escHtml(JSON.stringify(report, null, 2))}</pre>`));
         }
         return blocks;
@@ -2066,26 +2121,6 @@
             childNode.sfx_terms || item.sfx_terms || [],
             childNode.missing_sfx_terms || item.missing_sfx_terms || []
           );
-          const whyReasons = [
-            `父节点命中：${(parentNode.genre || data.genre || '-') + ' -> ' + (parentNode.verb_head || item.verb || '-')}`,
-            graphSource
-              ? `图谱来源：通用层${graphSource.common_hit ? '命中' : '未命中'}，赛道层${graphSource.genre_hit ? '命中' : '未命中'}`
-              : '图谱来源：未标注',
-            (childNode.semantic_terms || item.semantic_terms || []).length
-              ? `语义扩展：${(childNode.semantic_terms || item.semantic_terms || []).join('、')}`
-              : '语义扩展：暂无',
-            (childNode.direct_sfx_terms || []).length
-              ? `直达音效边：${(childNode.direct_sfx_terms || []).join('、')}`
-              : '直达音效边：暂无',
-            (childNode.composite_sfx_terms || []).length
-              ? `组合音效边：${(childNode.composite_sfx_terms || []).map(x => `${x}（组合）`).join('、')}`
-              : '组合音效边：暂无',
-            (graphSource.direct_sfx_term_items || []).length || (graphSource.composite_sfx_term_items || []).length
-              ? `来源归属：${[...(graphSource.direct_sfx_term_items || []), ...(graphSource.composite_sfx_term_items || [])].map(x => `${x.term}(${x.source_label})`).join('、')}`
-              : '来源归属：暂无',
-            graphSource.has_fallback_terms ? '提示：含保底生成词，说明部分结果来自系统兜底，不是图谱已维护的精准边。' : '',
-            item.reason ? `推荐判断：${item.reason}` : '',
-          ].filter(Boolean);
           const assetRows = assetGroups.length
             ? assetGroups.map((group, idx) => {
                 const primary = group.assets[0] || {};
@@ -2130,7 +2165,6 @@
                   <div style="font-size:17px; font-weight:700;">${escHtml((parentNode.verb_head || item.verb || '动作词'))}</div>
                   <div class="asset-meta" style="margin-top:6px;">父节点：${escHtml((parentNode.genre || data.genre || '-') + '::' + (parentNode.verb_head || item.verb || '-'))}</div>
                   <div class="asset-meta" style="margin-top:6px;">原句：${escHtml(item.sentence_excerpt || '无')}</div>
-                  <div class="asset-meta" style="margin-top:6px;">推荐判断：${escHtml(item.reason || '图谱推荐')}</div>
                   <div class="status-bar" style="justify-content:center; margin-top:10px;">
                     <span class="badge">直达 ${escHtml((childNode.direct_sfx_terms || []).length)}</span>
                     <span class="badge">组合 ${escHtml((childNode.composite_sfx_terms || []).length)}</span>
@@ -2150,12 +2184,6 @@
                   </div>
                 </div>
               </div>
-            </div>
-            <div class="explain-box">
-              <h5>为什么推荐这些音效</h5>
-              <ul class="reason-list">
-                ${whyReasons.map(x => `<li>${escHtml(x)}</li>`).join('')}
-              </ul>
             </div>
           `;
           return `
@@ -2181,12 +2209,6 @@
                 <div class="kv-lite"><span class="kv-title">组合音效来源(可下载)</span>${compositeTermItems.length ? renderTermItemsWithSource(compositeTermItems, '（组合）') : renderPills((childNode.composite_sfx_terms || []).map(x => `${x}（组合）`))}</div>
                 <div class="kv-lite"><span class="kv-title">待补子级音效</span>${sfxBuckets.missing}</div>
                 <div class="kv-lite"><span class="kv-title">素材覆盖</span>已覆盖 ${escHtml((childNode.covered_sfx_terms || []).length)} 个音效词，当前命中 ${escHtml(assetGroups.length)} 个词、共 ${escHtml(assets.length)} 条素材候选</div>
-                <div class="explain-box">
-                  <h5>为什么推荐这些音效</h5>
-                  <ul class="reason-list">
-                    ${whyReasons.map(x => `<li>${escHtml(x)}</li>`).join('')}
-                  </ul>
-                </div>
                 <table class="table-lite" style="margin-top:8px;">
                   <thead><tr><th>#</th><th>音效词</th><th>最佳素材</th><th>分数</th><th>下载</th></tr></thead>
                   <tbody>${assetRows}</tbody>
@@ -2235,14 +2257,10 @@
           const rows = items.map((it, idx) => `<tr>
             <td>${idx + 1}</td>
             <td>${escHtml(it.verb || '')}</td>
-            <td>${escHtml(it.target_head || '')}</td>
-            <td>${escHtml(it.target_bucket || '')}${it.target_genre ? `/${escHtml(it.target_genre)}` : ''}</td>
-            <td>${it.confidence ?? '-'}</td>
             <td>${escHtml((it.semantic_terms || []).join('、') || '无')}</td>
-            <td>${escHtml((((it.sfx_terms_classified || {}).display_terms) || it.sfx_terms || []).join('、') || '无')}</td>
             <td>${escHtml((((it.missing_sfx_terms_classified || {}).display_terms) || it.missing_sfx_terms || []).join('、') || '无')}</td>
           </tr>`).join('');
-          blocks.push(panel('动作补充单明细', `<table class="table-lite"><thead><tr><th>#</th><th>动作词</th><th>建议头词</th><th>写入位置</th><th>置信度</th><th>语义词</th><th>推荐音效词</th><th>缺口词</th></tr></thead><tbody>${rows}</tbody></table>`));
+          blocks.push(panel('动作补充单明细', `<table class="table-lite"><thead><tr><th>#</th><th>动作词</th><th>关联语义</th><th>待补充音效词</th></tr></thead><tbody>${rows}</tbody></table><div class="hint" style="margin-top:10px; font-weight:700; color:#9f2f2a;">补充单已经提交系统，待系统完成补充后，会给您手机号发送补足提醒，敬请期待。</div>`));
         }
         return blocks;
       }
@@ -2583,6 +2601,68 @@
         return blocks;
       }
 
+      function parseServerDate(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return null;
+        let normalized = raw.replace(/\.\d+$/, '');
+        if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(normalized)) normalized = normalized.replace(' ', 'T');
+        const hasTimezone = /(?:Z|[+\-]\d{2}:\d{2})$/.test(normalized);
+        const candidate = hasTimezone ? normalized : `${normalized}Z`;
+        const d = new Date(candidate);
+        if (Number.isNaN(d.getTime())) return null;
+        return d;
+      }
+
+      function formatReadableShortTime(value) {
+        const d = parseServerDate(value);
+        if (!d) {
+          const raw = String(value || '').trim();
+          return raw ? raw.replace('T', ' ').replace(/\.\d+$/, '') : '-';
+        }
+        const parts = new Intl.DateTimeFormat('zh-CN', {
+          timeZone: 'Asia/Shanghai',
+          hour12: false,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        }).formatToParts(d);
+        const map = Object.fromEntries(parts.map(p => [p.type, p.value]));
+        const yyyy = map.year || '0000';
+        const mm = map.month || '00';
+        const dd = map.day || '00';
+        const hh = map.hour || '00';
+        const mi = map.minute || '00';
+        return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
+      }
+
+      function renderProjectCreatedPanels(data, panel) {
+        const blocks = [];
+        const title = String(data.title || '').trim() || '未命名项目';
+        const genre = String(data.genre || '').trim() || '-';
+        const createdAt = formatReadableShortTime(data.created_at || '');
+        const nextSteps = [
+          '先上传音乐，执行音乐分析',
+          '再输入文本，继续动作提取或场景搭建分析',
+          '如果已有演绎音频，可继续文本演绎分析和后期执行单',
+        ];
+        blocks.push(`
+          <section class="music-hero">
+            <h4>项目已创建</h4>
+            <div style="font-size:14px; line-height:1.55;">当前项目已可继续进入声音制作流程。你可以直接开始音乐分析、动作提取、场景搭建或文本演绎分析。</div>
+            <div class="music-grid" style="margin-top:10px;">
+              <div class="music-stat"><div class="k">项目名称</div><div class="v" style="font-size:16px;">${escHtml(title)}</div></div>
+              <div class="music-stat"><div class="k">赛道</div><div class="v" style="font-size:16px;">${escHtml(genre)}</div></div>
+              <div class="music-stat"><div class="k">项目编号</div><div class="v" style="font-size:16px;">#${escHtml(data.id ?? '-')}</div></div>
+              <div class="music-stat"><div class="k">创建时间</div><div class="v" style="font-size:15px;">${escHtml(createdAt)}</div></div>
+            </div>
+          </section>
+        `);
+        blocks.push(panel('建议下一步', `<ul>${nextSteps.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`));
+        return blocks;
+      }
+
       function renderPretty(data) {
         const box = document.getElementById('prettyOutput');
         if (typeof data === 'string') {
@@ -2642,7 +2722,23 @@
           typeof data.duration_sec === 'number'
           && Array.isArray(data.markers)
         );
+        const isProjectCreatedResult = Boolean(
+          typeof data.id !== 'undefined'
+          && data.title
+          && data.genre
+          && data.created_at
+          && !report
+          && !isMusicResult
+          && !isActionVerbResult
+          && !isActionGraphResult
+          && !isSceneBuildingResult
+          && !isSceneSfxResult
+          && !isSceneSupplementResult
+        );
 
+        if (isProjectCreatedResult) {
+          blocks.push(...renderProjectCreatedPanels(data, panel));
+        }
         if (isMusicResult) {
           blocks.push(...renderMusicAnalysisPanels(data, userView || fallbackMusicReport, panel));
         }
@@ -2686,7 +2782,7 @@
             <div class="kv"><div>演绎证据</div><div>${n.has_data ? '已加载' : '缺失'}（场景时间线${n.scene_timeline_count ?? 0}条，语句时间线${n.clause_timeline_count ?? 0}条）</div></div>
           `));
         }
-        if (data.prompt_guard && typeof data.prompt_guard === 'object') {
+        if (isFrontendDebugEnabled(data) && data.prompt_guard && typeof data.prompt_guard === 'object') {
           const ok = !!data.prompt_guard.passed;
           blocks.push(`
             <div class="${ok ? 'ok' : 'error'}">
@@ -3355,11 +3451,6 @@
       async function downloadCueCsv() {
         if (!projectId) return show('请先创建项目');
         await _download(`${apiBase()}/analysis/${projectId}/export?type=cue_csv`, `project_${projectId}_cue.csv`);
-      }
-
-      async function downloadSfxZip() {
-        if (!projectId) return show('请先创建项目');
-        await _download(`${apiBase()}/analysis/${projectId}/export?type=sfx_zip`, `project_${projectId}_sfx.zip`);
       }
 
       async function graphReason() {

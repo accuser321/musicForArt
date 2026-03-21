@@ -75,6 +75,198 @@ def _write_inheritance_blocks(graph: dict, blocks: dict[str, set[str]]) -> None:
     }
 
 
+def _fallback_alias_meta(graph: dict | None = None) -> dict:
+    data = graph if isinstance(graph, dict) else _load_action_graph()
+    meta = data.get('_meta') or {}
+    raw = meta.get('fallback_alias_map') or {}
+    out = {'common': {}, 'genres': {}}
+    if not isinstance(raw, dict):
+        return out
+    common = raw.get('common') or {}
+    if isinstance(common, dict):
+        out['common'] = {
+            str(alias or '').strip(): str(target or '').strip()
+            for alias, target in common.items()
+            if str(alias or '').strip() and str(target or '').strip()
+        }
+    genres = raw.get('genres') or {}
+    if isinstance(genres, dict):
+        for genre, mapping in genres.items():
+            genre_key = str(genre or '').strip()
+            if not genre_key or not isinstance(mapping, dict):
+                continue
+            normalized = {
+                str(alias or '').strip(): str(target or '').strip()
+                for alias, target in mapping.items()
+                if str(alias or '').strip() and str(target or '').strip()
+            }
+            if normalized:
+                out['genres'][genre_key] = normalized
+    return out
+
+
+def _write_fallback_alias_meta(graph: dict, alias_meta: dict) -> None:
+    graph.setdefault('_meta', {})
+    common = (alias_meta or {}).get('common') or {}
+    genres = (alias_meta or {}).get('genres') or {}
+    graph['_meta']['fallback_alias_map'] = {
+        'common': {
+            str(alias or '').strip(): str(target or '').strip()
+            for alias, target in sorted(common.items())
+            if str(alias or '').strip() and str(target or '').strip()
+        },
+        'genres': {
+            str(genre or '').strip(): {
+                str(alias or '').strip(): str(target or '').strip()
+                for alias, target in sorted((mapping or {}).items())
+                if str(alias or '').strip() and str(target or '').strip()
+            }
+            for genre, mapping in sorted((genres or {}).items())
+            if str(genre or '').strip() and any(str(a or '').strip() and str(t or '').strip() for a, t in (mapping or {}).items())
+        },
+    }
+
+
+def list_action_fallback_alias_rules() -> dict:
+    graph = _load_action_graph()
+    alias_meta = _fallback_alias_meta(graph)
+    items = []
+    for alias, target in sorted((alias_meta.get('common') or {}).items()):
+        items.append({
+            'scope': 'common',
+            'genre': '',
+            'alias_term': alias,
+            'formal_head': target,
+        })
+    for genre, mapping in sorted((alias_meta.get('genres') or {}).items()):
+        for alias, target in sorted((mapping or {}).items()):
+            items.append({
+                'scope': 'genre',
+                'genre': genre,
+                'alias_term': alias,
+                'formal_head': target,
+            })
+    return {'count': len(items), 'items': items}
+
+
+def has_action_formal_head(formal_head: str, *, scope: str = 'common', genre: str = '') -> bool:
+    head = str(formal_head or '').strip()
+    scope_key = str(scope or 'common').strip().lower()
+    genre_key = str(genre or '').strip()
+    if not head:
+        return False
+    graph = _load_action_graph()
+    if scope_key == 'genre' and genre_key:
+        return bool((((graph.get('genres') or {}).get(genre_key) or {}).get(head)) or {})
+    return bool(((graph.get('common') or {}).get(head)) or {})
+
+
+def apply_action_fallback_resolution(
+    formal_head: str,
+    alias_terms: list[str],
+    *,
+    scope: str = 'common',
+    genre: str = '',
+) -> dict:
+    head = str(formal_head or '').strip()
+    scope_key = str(scope or 'common').strip().lower()
+    genre_key = str(genre or '').strip()
+    aliases = _merge_unique([str(x or '').strip() for x in (alias_terms or []) if str(x or '').strip()])
+    aliases = [term for term in aliases if term != head]
+    if not head:
+        return {'ok': False, 'detail': 'formal_head is required'}
+    if scope_key not in {'common', 'genre'}:
+        return {'ok': False, 'detail': 'scope must be common or genre'}
+    if scope_key == 'genre' and not genre_key:
+        return {'ok': False, 'detail': 'genre scope requires genre'}
+    graph = _load_action_graph()
+    graph.setdefault('common', {})
+    graph.setdefault('genres', {})
+
+    target_bucket = graph['common'] if scope_key == 'common' else graph['genres'].setdefault(genre_key, {})
+    existing = target_bucket.get(head) or {}
+    semantic_terms, sfx_terms = _row_terms(existing)
+    semantic_terms = _merge_unique(semantic_terms + [head])
+    sfx_terms = _merge_unique(sfx_terms + [head])
+    row_genre = '' if scope_key == 'common' else genre_key
+    target_bucket[head] = {
+        'parent_node': {
+            'genre': row_genre,
+            'verb_head': head,
+            'node_key': build_action_node_key(row_genre, head),
+        },
+        'children': {
+            'semantic_terms': semantic_terms,
+            'sfx_terms': sfx_terms,
+        },
+        'semantic_terms': semantic_terms,
+        'sfx_terms': sfx_terms,
+    }
+
+    alias_meta = _fallback_alias_meta(graph)
+    common_map = dict(alias_meta.get('common') or {})
+    genre_maps = {str(k): dict(v or {}) for k, v in (alias_meta.get('genres') or {}).items()}
+    if scope_key == 'common':
+        for alias in aliases:
+            common_map[alias] = head
+        for mapping in genre_maps.values():
+            for alias in aliases:
+                mapping.pop(alias, None)
+    else:
+        genre_map = genre_maps.setdefault(genre_key, {})
+        for alias in aliases:
+            genre_map[alias] = head
+    _write_fallback_alias_meta(graph, {'common': common_map, 'genres': genre_maps})
+    _save_action_graph(graph)
+    return {
+        'ok': True,
+        'scope': scope_key,
+        'genre': genre_key,
+        'formal_head': head,
+        'alias_terms': aliases,
+        'node_key': build_action_node_key(row_genre, head),
+        'rules': list_action_fallback_alias_rules(),
+    }
+
+
+def remove_action_fallback_alias_rule(alias_term: str, *, scope: str = 'common', genre: str = '') -> dict:
+    alias = str(alias_term or '').strip()
+    scope_key = str(scope or 'common').strip().lower()
+    genre_key = str(genre or '').strip()
+    if not alias:
+        return {'ok': False, 'detail': 'alias_term is required'}
+    if scope_key not in {'common', 'genre'}:
+        return {'ok': False, 'detail': 'scope must be common or genre'}
+    if scope_key == 'genre' and not genre_key:
+        return {'ok': False, 'detail': 'genre scope requires genre'}
+
+    graph = _load_action_graph()
+    alias_meta = _fallback_alias_meta(graph)
+    common_map = dict(alias_meta.get('common') or {})
+    genre_maps = {str(k): dict(v or {}) for k, v in (alias_meta.get('genres') or {}).items()}
+
+    removed = ''
+    if scope_key == 'common':
+        removed = str(common_map.pop(alias, '') or '').strip()
+    else:
+        genre_map = genre_maps.setdefault(genre_key, {})
+        removed = str(genre_map.pop(alias, '') or '').strip()
+
+    if not removed:
+        return {'ok': False, 'detail': 'rule not found'}
+
+    _write_fallback_alias_meta(graph, {'common': common_map, 'genres': genre_maps})
+    _save_action_graph(graph)
+    return {
+        'ok': True,
+        'scope': scope_key,
+        'genre': genre_key,
+        'alias_term': alias,
+        'formal_head': removed,
+        'rules': list_action_fallback_alias_rules(),
+    }
+
+
 def _source_key(common_hit: bool, genre_hit: bool) -> str:
     if common_hit and genre_hit:
         return 'common+genre'

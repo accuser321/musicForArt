@@ -228,6 +228,160 @@
         font-size:12px;
         line-height:1.7;
       }
+      .fallback-monitor-grid {
+        display:grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap:12px;
+        margin-top:10px;
+      }
+      .fallback-monitor-card {
+        border:1px solid var(--line);
+        border-radius:12px;
+        padding:12px;
+        background:linear-gradient(180deg, rgba(13,28,49,.96), rgba(9,19,37,.98));
+      }
+      .fallback-monitor-head {
+        display:flex;
+        justify-content:space-between;
+        gap:8px;
+        flex-wrap:wrap;
+        align-items:flex-start;
+      }
+      .fallback-monitor-title {
+        font-size:15px;
+        font-weight:700;
+      }
+      .fallback-monitor-meta {
+        color:var(--muted);
+        font-size:11px;
+        line-height:1.7;
+      }
+      .fallback-monitor-card textarea {
+        min-height:76px;
+      }
+      .fallback-inline-feedback {
+        margin-top:8px;
+        padding:8px 10px;
+        border-radius:10px;
+        border:1px solid var(--line);
+        font-size:12px;
+        line-height:1.6;
+        background:#0c1c34;
+      }
+      .fallback-inline-feedback.success {
+        border-color:#2f8f66;
+        background:#0d2119;
+        color:#e8fff5;
+      }
+      .fallback-inline-feedback.error {
+        border-color:#9b4c4c;
+        background:#271314;
+        color:#ffe7e7;
+      }
+      .fallback-inline-feedback.info {
+        border-color:#2d4f80;
+        background:#0c1c34;
+        color:#d9ecff;
+      }
+      .field-disabled-note {
+        color:var(--muted);
+        font-size:11px;
+        margin-top:4px;
+      }
+      .fallback-rule-list {
+        display:flex;
+        flex-wrap:wrap;
+        gap:6px;
+      }
+      .fallback-rule-chip {
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        padding:6px 10px;
+        border:1px dashed var(--line);
+        border-radius:999px;
+        background:#0d1a31;
+        color:var(--muted);
+        font-size:12px;
+      }
+      .fallback-rule-chip.safe {
+        border-color:#2f8f66;
+        background:rgba(13, 33, 25, 0.95);
+        color:#e8fff5;
+      }
+      .fallback-rule-chip.warn,
+      .fallback-rule-chip.danger {
+        border-color:#b56a6a;
+        background:rgba(47, 20, 22, 0.95);
+        color:#ffe6e6;
+      }
+      .risk-title {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+      }
+      .risk-badge {
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        width:24px;
+        height:24px;
+        border-radius:999px;
+        background:linear-gradient(135deg, #ffb84d, #ff6b57);
+        color:#fff8ef;
+        font-size:14px;
+        font-weight:800;
+        box-shadow:0 4px 14px rgba(255,107,87,.24);
+      }
+      .alert-banner {
+        border:1px solid #6c2b2b;
+        border-radius:12px;
+        background:linear-gradient(135deg, rgba(63, 16, 16, 0.96), rgba(26, 7, 7, 0.98));
+        padding:12px;
+        margin-bottom:14px;
+      }
+      .alert-banner.ok {
+        border-color:#24564c;
+        background:linear-gradient(135deg, rgba(11, 44, 39, 0.96), rgba(7, 22, 20, 0.98));
+      }
+      .alert-banner-head {
+        display:flex;
+        justify-content:space-between;
+        gap:10px;
+        flex-wrap:wrap;
+        align-items:center;
+      }
+      .alert-banner-title {
+        display:flex;
+        align-items:center;
+        gap:10px;
+        font-size:15px;
+        font-weight:700;
+      }
+      .alert-dot {
+        width:14px;
+        height:14px;
+        border-radius:999px;
+        background:#ff5f5f;
+        box-shadow:0 0 0 4px rgba(255,95,95,.16);
+      }
+      .alert-banner.ok .alert-dot {
+        background:#39d7a5;
+        box-shadow:0 0 0 4px rgba(57,215,165,.14);
+      }
+      .alert-banner-list {
+        display:grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap:8px;
+        margin-top:10px;
+      }
+      .alert-banner-item {
+        border:1px dashed rgba(255,255,255,.12);
+        border-radius:10px;
+        background:rgba(255,255,255,.03);
+        padding:10px;
+      }
       .ops-kv-list {
         display:grid;
         grid-template-columns: 120px 1fr;
@@ -431,6 +585,7 @@
         <div class="muted">手机号登录 · 用户与测试期管理 · 运营审计与全流程数据下载</div>
         <div style="margin-top:8px;">
           <a href="/prompt_graph.html" style="color:#7de8ff; text-decoration:none; border:1px solid #2d4f80; border-radius:8px; padding:6px 10px; display:inline-block;">打开 Prompt 字段图谱</a>
+          <button class="ghost-btn" style="margin-left:8px;" onclick="scrollToFallbackMonitor()">跳到保底生成监控卡</button>
         </div>
       </section>
 
@@ -446,6 +601,21 @@
         <div style="margin-top:8px;">
           <span class="tag" id="loginState">未登录</span>
         </div>
+      </section>
+
+      <section id="fallbackAlertBanner" class="alert-banner" style="display:none;">
+        <div class="alert-banner-head">
+          <div class="alert-banner-title">
+            <span class="alert-dot"></span>
+            <span id="fallbackAlertTitle">保底生成待办提醒</span>
+          </div>
+          <div class="row" style="margin:0; gap:8px;">
+            <div class="cell" style="flex:0 0 160px;"><button onclick="scrollToFallbackMonitor()">去处理保底生成</button></div>
+            <div class="cell" style="flex:0 0 140px;"><button class="ghost-btn" onclick="loadActionFallbackAlerts(true)">刷新提醒</button></div>
+          </div>
+        </div>
+        <div id="fallbackAlertSummary" class="muted" style="margin-top:8px;">等待登录后检查待办...</div>
+        <div id="fallbackAlertList" class="alert-banner-list"></div>
       </section>
 
       <section class="grid">
@@ -656,13 +826,16 @@
             <div class="cell">
               <input id="graphManageVerbQuery" placeholder="可选：搜索动作词，如 躲闪" oninput="onGraphManageVerbQueryChange()" />
             </div>
+            <div class="cell">
+              <button class="ghost-btn" onclick="scrollToFallbackMonitor()">去保底生成监控卡</button>
+            </div>
           </div>
           <div class="muted" style="margin-top:8px;">
             先选赛道，再选动作词进入维护。
           </div>
           <div id="graphInheritanceDashboard" style="margin-top:10px;"></div>
           <div id="graphManagePickerHint" class="muted-sm note-prefix" style="margin-top:6px;">正在加载维护目录...</div>
-          <div id="graphSeedHint" class="muted-sm" style="margin-top:6px;">通用层基础种子摘要待加载。</div>
+          <div id="graphSeedHint" class="muted-sm" style="margin-top:6px;">动态优先级提醒区待加载。</div>
           <div id="graphSeedStats" style="margin-top:8px;"></div>
           <div id="graphSeedActions" style="margin-top:8px;"></div>
           <details style="margin-top:8px;">
@@ -675,6 +848,29 @@
           <div id="graphManageBox" style="margin-top:10px;"></div>
           <pre id="graphManageOut">等待加载...</pre>
         </div>
+
+        <div id="fallbackMonitorCard" class="card wide">
+          <h3>保底生成监控卡</h3>
+          <div class="row">
+            <div class="cell">
+              <select id="fallbackMonitorDays">
+                <option value="1">过去1天</option>
+                <option value="10">过去10天</option>
+                <option value="30" selected>过去30天</option>
+                <option value="90">过去3个月</option>
+              </select>
+            </div>
+            <div class="cell"><button onclick="loadActionFallbackMonitor()">加载保底生成监控</button></div>
+          </div>
+          <div class="muted" style="margin-top:8px;">
+            这里专门处理“LLM 把动作词拆得过碎”的情况。运营可把高频保底词收敛成正式词，例如把“惊叹”提升为正式词，并把“惊、叹”归并到它下面；这样下一次前台再出现同类文本时，系统会优先命中正式词，不再把碎词继续推荐给用户。
+          </div>
+        <div id="fallbackMonitorSummary" class="muted-sm note-prefix" style="margin-top:8px;">等待加载保底生成监控数据...</div>
+        <div id="fallbackMonitorRules" style="margin-top:10px;"></div>
+        <div id="fallbackRiskTermsAdmin" style="margin-top:10px;"></div>
+        <div id="fallbackMonitorView" style="margin-top:10px;"></div>
+        <pre id="fallbackMonitorOut">等待加载...</pre>
+      </div>
 
         <div class="card wide">
           <h3>动作补充单运营</h3>
@@ -808,20 +1004,52 @@
         totalPages: 1,
         items: [],
       };
+      let actionFallbackMonitorState = {
+        days: 30,
+        items: [],
+        rules: [],
+      };
+      let fallbackAlertState = {
+        pendingCount: 0,
+        items: [],
+        latestAt: '',
+      };
+      let fallbackAlertTimer = null;
+      let fallbackRiskTermState = [];
+      let fallbackRuleState = {
+        items: [],
+        query: '',
+        page: 1,
+        pageSize: 8,
+      };
+      const GENRE_OPTIONS = ['玄幻', '言情', '悬疑', '科幻'];
+      const DEFAULT_SINGLE_CHAR_RISK_TERMS = new Set(['走', '看', '听', '说', '道', '向', '来', '去', '上', '下', '进', '出', '拿', '放', '推', '拉', '打', '撞', '叫', '喊', '望']);
 
       function formatReadableTime(value) {
         const raw = String(value || '').trim();
         if (!raw) return '-';
-        const normalized = raw.replace('T', ' ').replace(/\.\d+$/, '');
-        if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(normalized)) return normalized;
-        const d = new Date(raw);
-        if (Number.isNaN(d.getTime())) return normalized;
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        const hh = String(d.getHours()).padStart(2, '0');
-        const mi = String(d.getMinutes()).padStart(2, '0');
-        const ss = String(d.getSeconds()).padStart(2, '0');
+        let normalized = raw.replace(/\.\d+$/, '');
+        if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(normalized)) normalized = normalized.replace(' ', 'T');
+        const hasTimezone = /(?:Z|[+\-]\d{2}:\d{2})$/.test(normalized);
+        const d = new Date(hasTimezone ? normalized : `${normalized}Z`);
+        if (Number.isNaN(d.getTime())) return raw.replace('T', ' ').replace(/\.\d+$/, '');
+        const parts = new Intl.DateTimeFormat('zh-CN', {
+          timeZone: 'Asia/Shanghai',
+          hour12: false,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        }).formatToParts(d);
+        const map = Object.fromEntries(parts.map(p => [p.type, p.value]));
+        const yyyy = map.year || '0000';
+        const mm = map.month || '00';
+        const dd = map.day || '00';
+        const hh = map.hour || '00';
+        const mi = map.minute || '00';
+        const ss = map.second || '00';
         return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
       }
 
@@ -947,6 +1175,9 @@
           .replaceAll('"', '&quot;')
           .replaceAll("'", '&#39;');
       }
+      function escAttr(s) {
+        return escHtml(s);
+      }
       function renderPills(list) {
         const arr = Array.isArray(list) ? list.filter(Boolean) : [];
         if (!arr.length) return '<span class="muted">无</span>';
@@ -1015,6 +1246,524 @@
             ${reviewHtml}
           </div>
         `;
+      }
+      function currentFallbackMonitorDays() {
+        return Number((document.getElementById('fallbackMonitorDays')?.value || '30').trim() || 30) || 30;
+      }
+      function fallbackScopeDefault(item) {
+        return String(item?.genre || '').trim() ? 'genre' : 'common';
+      }
+      function renderGenreSelectOptions(selectedValue = '') {
+        const selected = String(selectedValue || '').trim();
+        return [
+          '<option value="">请选择赛道</option>',
+          ...GENRE_OPTIONS.map(genre => `<option value="${escAttr(genre)}" ${genre === selected ? 'selected' : ''}>${escHtml(genre)}</option>`),
+        ].join('');
+      }
+      function classifyFallbackRisk(term, formalHead = '') {
+        const value = String(term || '').trim();
+        const head = String(formalHead || '').trim();
+        const matchedRule = (Array.isArray(fallbackRiskTermState) ? fallbackRiskTermState : []).find(item => {
+          return Boolean(item?.enabled) && String(item?.term || '').trim() === value;
+        });
+        if (!value) return { level: 'safe', label: '可归并', hint: '当前词可作为普通归并项处理。' };
+        if (value === head) return { level: 'safe', label: '正式词', hint: '这是当前准备保留的正式词。' };
+        if (matchedRule) {
+          return {
+            level: String(matchedRule.risk_level || 'warn').trim() === 'danger' ? 'danger' : 'warn',
+            label: String(matchedRule.risk_level || 'warn').trim() === 'danger' ? '高风险单字' : '泛词谨慎',
+            hint: String(matchedRule.note || '').trim() || '这个词已在风险词表中，请谨慎归并。',
+          };
+        }
+        if (value.length === 1 && DEFAULT_SINGLE_CHAR_RISK_TERMS.has(value)) {
+          return { level: 'danger', label: '高风险单字', hint: '这是单字泛词，直接归并后可能误伤大量其他动作，建议谨慎处理或先忽略。' };
+        }
+        if (value.length === 1) {
+          return { level: 'warn', label: '单字谨慎', hint: '单字词语义太宽，建议谨慎归并。' };
+        }
+        return { level: 'safe', label: '建议归并', hint: '当前词更像误拆出来的碎词，可优先归并。' };
+      }
+      function hasFallbackRiskRule(term) {
+        const value = String(term || '').trim();
+        return (Array.isArray(fallbackRiskTermState) ? fallbackRiskTermState : []).some(item => {
+          return Boolean(item?.enabled) && String(item?.term || '').trim() === value;
+        });
+      }
+      function renderFallbackRiskPills(terms, formalHead = '') {
+        const arr = Array.isArray(terms) ? terms.filter(Boolean) : [];
+        if (!arr.length) return '<span class="muted">当前没有待归并碎词。</span>';
+        return arr.map(term => {
+          const risk = classifyFallbackRisk(term, formalHead);
+          const tone = risk.level === 'danger' ? 'danger' : (risk.level === 'warn' ? 'warn' : 'safe');
+          const canAddRisk = String(term || '').trim() && String(term || '').trim() !== String(formalHead || '').trim() && !hasFallbackRiskRule(term);
+          return `<span class="fallback-rule-chip ${tone}" title="${escAttr(risk.hint)}">${escHtml(term)}<span class="pill">${escHtml(risk.label)}</span>${canAddRisk ? `<button class="ghost-btn" style="padding:2px 8px;" onclick="addFallbackRiskTermFromMonitor('${escAttr(term)}','${escAttr(risk.level)}')">加入高风险词表</button>` : ''}</span>`;
+        }).join('');
+      }
+      function syncFallbackScopeUi(idx) {
+        const scope = String(document.getElementById(`fallbackScope_${idx}`)?.value || 'common').trim();
+        const genreSelect = document.getElementById(`fallbackGenre_${idx}`);
+        const note = document.getElementById(`fallbackGenreNote_${idx}`);
+        if (!genreSelect || !note) return;
+        const isGenre = scope === 'genre';
+        genreSelect.disabled = !isGenre;
+        if (!isGenre) genreSelect.value = '';
+        note.textContent = isGenre
+          ? '当前选择的是赛道层，请明确指定要落到哪个赛道。'
+          : '当前选择的是通用层，下面的赛道不会写入系统。';
+      }
+      function renderActionFallbackRules(rules) {
+        const box = document.getElementById('fallbackMonitorRules');
+        if (!box) return;
+        fallbackRuleState.items = Array.isArray(rules) ? rules : [];
+        const query = String(fallbackRuleState.query || '').trim().toLowerCase();
+        const filtered = fallbackRuleState.items.filter(item => {
+          if (!query) return true;
+          const hay = [
+            item?.alias_term,
+            item?.formal_head,
+            item?.genre,
+            item?.scope,
+          ].map(v => String(v || '').toLowerCase()).join(' ');
+          return hay.includes(query);
+        });
+        const totalPages = Math.max(1, Math.ceil(filtered.length / fallbackRuleState.pageSize));
+        fallbackRuleState.page = Math.min(fallbackRuleState.page, totalPages);
+        const start = (fallbackRuleState.page - 1) * fallbackRuleState.pageSize;
+        const pageItems = filtered.slice(start, start + fallbackRuleState.pageSize);
+        if (!fallbackRuleState.items.length) {
+          box.innerHTML = '<div class="section-box"><h5>现有正式收敛规则</h5><div class="muted-sm note-prefix">当前还没有已保存的保底归并规则。</div></div>';
+          return;
+        }
+        box.innerHTML = `
+          <div class="section-box">
+            <h5>现有正式收敛规则</h5>
+            <div class="row" style="margin-top:8px;">
+              <div class="cell"><input id="fallbackRuleSearch" placeholder="搜索 alias / 正式词 / 赛道" value="${escAttr(fallbackRuleState.query || '')}" oninput="updateFallbackRuleSearch(this.value)" /></div>
+            </div>
+            <div class="muted-sm note-prefix" style="margin-top:6px;">共 ${filtered.length} 条匹配结果；当前第 ${fallbackRuleState.page} / ${totalPages} 页。</div>
+            <div class="fallback-rule-list">
+              ${pageItems.map(item => `
+                <span class="fallback-rule-chip">
+                  ${escHtml(item.alias_term || '')} → ${escHtml(item.formal_head || '')}
+                  <span class="pill">${escHtml(String(item.scope || '') === 'genre' ? `赛道层${item.genre ? `·${item.genre}` : ''}` : '通用层')}</span>
+                  <button class="ghost-btn" style="padding:2px 8px;" onclick="releaseActionFallbackRule('${escAttr(item.alias_term || '')}','${escAttr(item.scope || 'common')}','${escAttr(item.genre || '')}')">释放</button>
+                </span>
+              `).join('')}
+            </div>
+            <div class="ops-pager" style="margin-top:10px;">
+              <button style="width:auto; min-width:120px;" ${fallbackRuleState.page <= 1 ? 'disabled' : ''} onclick="changeFallbackRulePage(-1)">上一页</button>
+              <div class="ops-pager-info">当前显示 ${filtered.length ? `${start + 1}-${Math.min(start + pageItems.length, filtered.length)}` : '0'} / ${filtered.length}</div>
+              <button style="width:auto; min-width:120px;" ${fallbackRuleState.page >= totalPages ? 'disabled' : ''} onclick="changeFallbackRulePage(1)">下一页</button>
+            </div>
+          </div>
+        `;
+      }
+      function updateFallbackRuleSearch(value) {
+        fallbackRuleState.query = String(value || '').trim();
+        fallbackRuleState.page = 1;
+        renderActionFallbackRules(fallbackRuleState.items);
+      }
+      function changeFallbackRulePage(delta) {
+        const query = String(fallbackRuleState.query || '').trim().toLowerCase();
+        const filteredCount = (fallbackRuleState.items || []).filter(item => {
+          if (!query) return true;
+          const hay = [
+            item?.alias_term,
+            item?.formal_head,
+            item?.genre,
+            item?.scope,
+          ].map(v => String(v || '').toLowerCase()).join(' ');
+          return hay.includes(query);
+        }).length;
+        const totalPages = Math.max(1, Math.ceil(filteredCount / fallbackRuleState.pageSize));
+        const next = Math.max(1, Math.min(totalPages, fallbackRuleState.page + delta));
+        if (next === fallbackRuleState.page) return;
+        fallbackRuleState.page = next;
+        renderActionFallbackRules(fallbackRuleState.items);
+      }
+      function renderActionFallbackRiskTermsAdmin(items) {
+        const box = document.getElementById('fallbackRiskTermsAdmin');
+        if (!box) return;
+        const rows = Array.isArray(items) ? items : [];
+        box.innerHTML = `
+          <div class="section-box">
+            <div class="risk-title">
+              <h5>高风险碎词词表维护</h5>
+              <span class="risk-badge" title="这里维护的是运营可编辑的风险词表，监控卡会优先使用这里的规则。">!</span>
+            </div>
+            <div class="muted-sm note-prefix" style="margin-top:6px;">这里维护的是“高风险单字 / 泛词谨慎”词表。后续监控卡会优先读取这里的规则，而不是只依赖代码默认值。</div>
+            <div class="muted-sm note-prefix" style="margin-top:6px;">目标是：告诉运营“哪些词不要轻易归并”。例如，高风险碎词词表里更适合放“围”“住”，而不是“围住”；因为“围住”更像应该沉淀到图谱里的正式词，而“围”“住”更像容易误伤其他语义的碎词。</div>
+            <div class="row" style="margin-top:8px;">
+              <div class="cell"><input id="fallbackRiskTermInput" placeholder="词，例如 走" /></div>
+              <div class="cell">
+                <select id="fallbackRiskLevelInput">
+                  <option value="danger">高风险单字</option>
+                  <option value="warn">泛词谨慎</option>
+                </select>
+              </div>
+              <div class="cell"><input id="fallbackRiskNoteInput" placeholder="备注，例如 单字泛词，极易误伤其他动作" /></div>
+              <div class="cell">
+                <select id="fallbackRiskEnabledInput">
+                  <option value="1">启用</option>
+                  <option value="0">停用</option>
+                </select>
+              </div>
+              <div class="cell"><button onclick="saveFallbackRiskTerm()">保存风险词</button></div>
+            </div>
+            <div class="fallback-rule-list" style="margin-top:10px;">
+              ${rows.map(item => `
+                <span class="fallback-rule-chip ${String(item.risk_level || 'warn') === 'danger' ? 'danger' : 'warn'}">
+                  ${escHtml(item.term || '')}
+                  <span class="pill">${escHtml(String(item.risk_level || 'warn') === 'danger' ? '高风险单字' : '泛词谨慎')}</span>
+                  ${item.note ? `<span class="muted-sm">${escHtml(item.note)}</span>` : ''}
+                  <button class="ghost-btn" style="padding:2px 8px;" onclick="prefillFallbackRiskTerm('${escAttr(item.term || '')}','${escAttr(item.risk_level || 'warn')}','${escAttr(item.note || '')}','${item.enabled ? '1' : '0'}')">编辑</button>
+                  <button class="ghost-btn" style="padding:2px 8px;" onclick="deleteFallbackRiskTerm('${escAttr(item.term || '')}')">删除</button>
+                </span>
+              `).join('') || '<span class="muted">当前还没有自定义风险词。</span>'}
+            </div>
+          </div>
+        `;
+      }
+      function prefillFallbackRiskTerm(term, riskLevel, note, enabled) {
+        const termInput = document.getElementById('fallbackRiskTermInput');
+        const levelInput = document.getElementById('fallbackRiskLevelInput');
+        const noteInput = document.getElementById('fallbackRiskNoteInput');
+        const enabledInput = document.getElementById('fallbackRiskEnabledInput');
+        if (termInput) termInput.value = String(term || '').trim();
+        if (levelInput) levelInput.value = String(riskLevel || 'warn').trim() || 'warn';
+        if (noteInput) noteInput.value = String(note || '').trim();
+        if (enabledInput) enabledInput.value = String(enabled || '1').trim() || '1';
+      }
+      async function saveFallbackRiskTerm() {
+        const term = String(document.getElementById('fallbackRiskTermInput')?.value || '').trim();
+        const riskLevel = String(document.getElementById('fallbackRiskLevelInput')?.value || 'warn').trim();
+        const note = String(document.getElementById('fallbackRiskNoteInput')?.value || '').trim();
+        const enabled = (document.getElementById('fallbackRiskEnabledInput')?.value || '1') === '1';
+        if (!term) return show('fallbackMonitorOut', '请先填写风险词');
+        const res = await fetch(`${base()}/action-graph/fallback-risk-terms`, {
+          method: 'POST',
+          headers: h({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ term, risk_level: riskLevel, note, enabled }),
+        });
+        const data = await read(res);
+        show('fallbackMonitorOut', data);
+        if (!res.ok) return;
+        fallbackRiskTermState = Array.isArray(data?.items) ? data.items : [];
+        renderActionFallbackRiskTermsAdmin(fallbackRiskTermState);
+        await loadActionFallbackMonitor();
+      }
+      async function deleteFallbackRiskTerm(term) {
+        const res = await fetch(`${base()}/action-graph/fallback-risk-terms/delete`, {
+          method: 'POST',
+          headers: h({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ term: String(term || '').trim() }),
+        });
+        const data = await read(res);
+        show('fallbackMonitorOut', data);
+        if (!res.ok) return;
+        fallbackRiskTermState = Array.isArray(data?.items) ? data.items : [];
+        renderActionFallbackRiskTermsAdmin(fallbackRiskTermState);
+        await loadActionFallbackMonitor();
+      }
+      async function addFallbackRiskTermFromMonitor(term, level = 'warn') {
+        const value = String(term || '').trim();
+        if (!value) return;
+        const riskLevel = String(level || 'warn').trim() === 'danger' ? 'danger' : 'warn';
+        const note = riskLevel === 'danger'
+          ? '来自保底生成监控卡的一键加入，高风险单字或高风险泛词。'
+          : '来自保底生成监控卡的一键加入，建议谨慎归并。';
+        const res = await fetch(`${base()}/action-graph/fallback-risk-terms`, {
+          method: 'POST',
+          headers: h({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ term: value, risk_level: riskLevel, note, enabled: true }),
+        });
+        const data = await read(res);
+        show('fallbackMonitorOut', data);
+        if (!res.ok) return;
+        fallbackRiskTermState = Array.isArray(data?.items) ? data.items : [];
+        renderActionFallbackRiskTermsAdmin(fallbackRiskTermState);
+        renderActionFallbackMonitor({
+          ...actionFallbackMonitorState,
+          pending_items: actionFallbackMonitorState.items,
+          rules: actionFallbackMonitorState.rules,
+          risk_terms: fallbackRiskTermState,
+        });
+      }
+      function renderActionFallbackMonitor(data) {
+        const summary = document.getElementById('fallbackMonitorSummary');
+        const box = document.getElementById('fallbackMonitorView');
+        if (!summary || !box) return;
+        const items = Array.isArray(data?.pending_items)
+          ? data.pending_items
+          : (Array.isArray(data?.items) ? data.items : []);
+        const rules = Array.isArray(data?.rules) ? data.rules : [];
+        actionFallbackMonitorState = {
+          days: Number(data?.days || currentFallbackMonitorDays() || 30),
+          items,
+          rules,
+        };
+        fallbackRiskTermState = Array.isArray(data?.risk_terms) ? data.risk_terms : [];
+        renderActionFallbackRules(rules);
+        renderActionFallbackRiskTermsAdmin(fallbackRiskTermState);
+        renderGraphPriorityTodo();
+        if (!items.length) {
+          summary.textContent = `过去${actionFallbackMonitorState.days}天内暂时没有新的保底生成词集。`;
+          box.innerHTML = '<div class="muted">当前没有需要人工收敛的高频保底词。</div>';
+          return;
+        }
+        const totalHits = items.reduce((sum, item) => sum + Number(item?.hit_count || 0), 0);
+        summary.textContent = `过去${actionFallbackMonitorState.days}天共发现 ${items.length} 组保底词集，累计命中 ${totalHits} 次。建议优先处理高频、碎词明显、且已经影响前台推荐体验的词集。`;
+        box.innerHTML = `
+          <div class="section-box" style="margin-bottom:10px;">
+            <h5>人工收敛设置说明</h5>
+            <div class="muted-sm note-prefix">“人工收敛设置”里出现的词，比如“显 / 现”，表示这是这一次真实保底词组里，系统拆出来的候选碎词。</div>
+            <div class="muted-sm note-prefix" style="margin-top:6px;">它们不等于已经进入高风险碎词词表；高风险碎词词表是运营长期维护的“不要轻易归并”的危险词名单。</div>
+          </div>
+          <div class="fallback-monitor-grid">
+            ${items.map((item, idx) => {
+              const suggested = String(item?.suggested_formal_term || '').trim();
+              const fallbackTerms = Array.isArray(item?.fallback_terms) ? item.fallback_terms.filter(Boolean) : [];
+              const defaultAliases = fallbackTerms.filter(term => String(term || '').trim() && String(term || '').trim() !== suggested);
+              const scope = fallbackScopeDefault(item);
+              const genre = String(item?.genre || '').trim();
+              const latestAt = formatReadableTime(item?.latest_at);
+              const parentHeads = Array.isArray(item?.parent_heads) ? item.parent_heads.slice(0, 6) : [];
+              const rawVerbs = Array.isArray(item?.raw_verbs) ? item.raw_verbs.slice(0, 6) : [];
+              const examples = Array.isArray(item?.examples) ? item.examples.slice(0, 2) : [];
+              return `
+                <div class="fallback-monitor-card">
+                  <div class="fallback-monitor-head">
+                    <div>
+                      <div class="fallback-monitor-title">${escHtml(suggested || '待确认正式词')}</div>
+                      <div class="fallback-monitor-meta">建议先把这组保底词收敛成一个正式词，再决定它进入通用层还是赛道层。</div>
+                    </div>
+                    <div class="status-bar" style="margin-top:0;">
+                      <span class="status-chip">命中 ${escHtml(item?.hit_count || 0)} 次</span>
+                      <span class="status-chip">${escHtml(genre || '通用候选')}</span>
+                    </div>
+                  </div>
+                  <div class="section-box" style="margin-top:10px;">
+                    <h5>这组保底词</h5>
+                    <div>${renderPills(fallbackTerms)}</div>
+                    <div class="muted-sm note-prefix" style="margin-top:6px;">最近命中时间：${escHtml(latestAt)}</div>
+                    <div class="muted-sm note-prefix" style="margin-top:4px;">关联动作头词：${parentHeads.length ? escHtml(parentHeads.join(' / ')) : '暂无'}</div>
+                    <div class="muted-sm note-prefix" style="margin-top:4px;">前台原始动词：${rawVerbs.length ? escHtml(rawVerbs.join(' / ')) : '暂无'}</div>
+                    <div class="muted-sm note-prefix" style="margin-top:4px;">示例片段：${examples.length ? escHtml(examples.join(' / ')) : '暂无示例片段'}</div>
+                  </div>
+                  <div class="editor-group">
+                    <h6>人工收敛设置</h6>
+                    <div class="row">
+                      <div class="cell">
+                        <input id="fallbackFormal_${idx}" value="${escHtml(suggested)}" placeholder="正式词，如 惊叹" />
+                      </div>
+                      <div class="cell">
+                        <select id="fallbackScope_${idx}">
+                          <option value="common" ${scope === 'common' ? 'selected' : ''}>提升到通用层</option>
+                          <option value="genre" ${scope === 'genre' ? 'selected' : ''}>提升到赛道层</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                      <div class="cell">
+                        <select id="fallbackGenre_${idx}">
+                          ${renderGenreSelectOptions(genre)}
+                        </select>
+                        <div id="fallbackGenreNote_${idx}" class="field-disabled-note"></div>
+                      </div>
+                      <div class="cell">
+                        <div class="muted-sm note-prefix">先确认正式词和归属层，再点击下方保存按钮。</div>
+                      </div>
+                    </div>
+                    <div class="muted-sm note-prefix" style="margin-top:8px;">下面填写需要被收敛掉的碎词。保存后，这些词会归并到正式词，不再单独向前台推荐。</div>
+                    <textarea id="fallbackAliases_${idx}" placeholder="每行一个碎词，例如&#10;惊&#10;叹">${escHtml(defaultAliases.join('\n'))}</textarea>
+                    <div class="section-box" style="margin-top:8px;">
+                      <div class="risk-title">
+                        <h5>碎词风险提示</h5>
+                        <span class="risk-badge" title="这里会提醒哪些词适合归并，哪些词属于高风险泛词。">!</span>
+                      </div>
+                      <div class="fallback-rule-list">${renderFallbackRiskPills(defaultAliases, suggested)}</div>
+                      <div class="muted-sm note-prefix" style="margin-top:6px;">像“走、道、看、向”这类泛词，建议优先观察或释放，不要轻易直接归并到具体动作短语里。</div>
+                    </div>
+                    <div id="fallbackFeedback_${idx}" class="fallback-inline-feedback info">保存后，这组碎词会归并到正式词，下次前台再命中时，系统会优先推荐正式词。</div>
+                    <div class="mini-action-row">
+                      <button id="fallbackSaveBtn_${idx}" onclick="applyActionFallbackResolution(${idx})">保存为正式收敛规则</button>
+                      <button class="ghost-btn" onclick="openFallbackGraphMaintenance(${idx})">去图谱维护</button>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+        items.forEach((_, idx) => syncFallbackScopeUi(idx));
+        items.forEach((_, idx) => {
+          const scopeSelect = document.getElementById(`fallbackScope_${idx}`);
+          if (scopeSelect) {
+            scopeSelect.onchange = () => syncFallbackScopeUi(idx);
+          }
+        });
+      }
+      function renderActionFallbackAlerts(data) {
+        const banner = document.getElementById('fallbackAlertBanner');
+        const title = document.getElementById('fallbackAlertTitle');
+        const summary = document.getElementById('fallbackAlertSummary');
+        const list = document.getElementById('fallbackAlertList');
+        if (!banner || !title || !summary || !list) return;
+        const pendingCount = Number(data?.pending_count || 0);
+        const items = Array.isArray(data?.recent_items) ? data.recent_items : [];
+        const latestAt = formatReadableTime(data?.latest_at);
+        fallbackAlertState = { pendingCount, items, latestAt };
+        banner.style.display = loginPhone ? '' : 'none';
+        banner.classList.toggle('ok', pendingCount <= 0);
+        if (pendingCount > 0) {
+          title.textContent = `保底生成待办提醒 · ${pendingCount} 组待处理`;
+          summary.textContent = `系统已自动识别到最近 ${Number(data?.days || 7)} 天内仍未收敛的保底词。它们来自前台用户真实触发的“动作图谱推荐”，现在可以直接交给运营处理。${latestAt && latestAt !== '-' ? ` 最近一组命中时间：${latestAt}。` : ''}`;
+          list.innerHTML = items.map(item => `
+            <div class="alert-banner-item">
+              <div style="font-weight:700; font-size:13px;">${escHtml(item?.suggested_formal_term || '待确认正式词')}</div>
+              <div class="muted-sm" style="margin-top:4px;">保底词集：${escHtml((item?.fallback_terms || []).join(' / ') || '暂无')}</div>
+              <div class="muted-sm" style="margin-top:4px;">赛道：${escHtml(item?.genre || '通用候选')} ｜ 命中 ${escHtml(item?.hit_count || 0)} 次</div>
+              <div class="muted-sm" style="margin-top:4px;">最近命中：${escHtml(formatReadableTime(item?.latest_at))}</div>
+            </div>
+          `).join('');
+        } else {
+          title.textContent = '保底生成待办提醒 · 当前已清空';
+          summary.textContent = `最近 ${Number(data?.days || 7)} 天内没有新的未处理保底词，当前后台无需额外介入。`;
+          list.innerHTML = '';
+        }
+      }
+      async function loadActionFallbackAlerts(force = false) {
+        if (!loginPhone && !force) return;
+        const res = await fetch(`${base()}/action-graph/fallback-monitor/alerts?days=7&limit=4`, { headers: h() });
+        const data = await read(res);
+        if (!res.ok) {
+          show('fallbackMonitorOut', data);
+          return;
+        }
+        renderActionFallbackAlerts(data);
+      }
+      function startFallbackAlertPolling() {
+        if (fallbackAlertTimer) clearInterval(fallbackAlertTimer);
+        if (!loginPhone) return;
+        fallbackAlertTimer = setInterval(() => {
+          loadActionFallbackAlerts().catch(err => show('fallbackMonitorOut', String(err?.message || err)));
+        }, 60000);
+      }
+      function scrollToFallbackMonitor() {
+        const card = document.getElementById('fallbackMonitorCard') || document.getElementById('fallbackMonitorView');
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+      async function openFallbackGraphMaintenance(idx) {
+        const formalHead = String(document.getElementById(`fallbackFormal_${idx}`)?.value || '').trim();
+        const scope = String(document.getElementById(`fallbackScope_${idx}`)?.value || 'common').trim();
+        const genre = String(document.getElementById(`fallbackGenre_${idx}`)?.value || '').trim();
+        if (!formalHead) return show('graphManageOut', '请先填写正式词，再进入图谱维护');
+        const nodeKey = scope === 'genre' && genre ? `${genre}::${formalHead}` : formalHead;
+        const maintenanceCard = document.getElementById('graphManageBox')?.closest('.card');
+        if (maintenanceCard) {
+          maintenanceCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        await openGraphMaintenance(nodeKey);
+      }
+      async function loadActionFallbackMonitor() {
+        const days = currentFallbackMonitorDays();
+        const res = await fetch(`${base()}/action-graph/fallback-monitor?days=${encodeURIComponent(days)}`, { headers: h() });
+        const data = await read(res);
+        renderActionFallbackMonitor(data);
+        show('fallbackMonitorOut', data);
+      }
+      async function applyActionFallbackResolution(idx) {
+        const item = (actionFallbackMonitorState?.items || [])[idx];
+        if (!item) return;
+        const feedback = document.getElementById(`fallbackFeedback_${idx}`);
+        const button = document.getElementById(`fallbackSaveBtn_${idx}`);
+        const formalHead = String(document.getElementById(`fallbackFormal_${idx}`)?.value || '').trim();
+        const scope = String(document.getElementById(`fallbackScope_${idx}`)?.value || 'common').trim();
+        const genre = String(document.getElementById(`fallbackGenre_${idx}`)?.value || '').trim();
+        const aliasTerms = mergeUniqueTerms(parseTermLines(document.getElementById(`fallbackAliases_${idx}`)?.value || ''))
+          .filter(term => String(term || '').trim() && String(term || '').trim() !== formalHead);
+        if (!formalHead) {
+          if (feedback) {
+            feedback.className = 'fallback-inline-feedback error';
+            feedback.textContent = '请先填写正式词。';
+          }
+          return show('fallbackMonitorOut', '请先填写正式词');
+        }
+        if (scope === 'genre' && !genre) {
+          if (feedback) {
+            feedback.className = 'fallback-inline-feedback error';
+            feedback.textContent = '选择“提升到赛道层”时，请填写赛道。';
+          }
+          return show('fallbackMonitorOut', '选择“提升到赛道层”时，请填写赛道');
+        }
+        if (button) {
+          button.disabled = true;
+          button.textContent = '保存中...';
+        }
+        if (feedback) {
+          feedback.className = 'fallback-inline-feedback info';
+          feedback.textContent = '正在保存正式收敛规则，并同步刷新图谱维护视图...';
+        }
+        try {
+          const res = await fetch(`${base()}/action-graph/fallback-monitor/resolve`, {
+            method: 'POST',
+            headers: h({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({
+              formal_head: formalHead,
+              alias_terms: aliasTerms,
+              fallback_terms: Array.isArray(item?.fallback_terms) ? item.fallback_terms : [],
+              scope,
+              genre,
+            }),
+          });
+          const data = await read(res);
+          show('fallbackMonitorOut', data);
+          if (!res.ok) {
+            if (feedback) {
+              feedback.className = 'fallback-inline-feedback error';
+              feedback.textContent = `保存失败：${data?.detail || data?.message || '请检查当前输入后重试。'}`;
+            }
+            return;
+          }
+          if (feedback) {
+            feedback.className = 'fallback-inline-feedback success';
+            feedback.textContent = `保存成功：已将 ${aliasTerms.join('、')} 收敛到 ${formalHead}。下次前台再命中这些碎词时，系统会优先推荐正式词。`;
+          }
+          await loadActionFallbackMonitor();
+          await loadActionFallbackAlerts(true);
+          await loadGraphMaintenanceCatalog(scope === 'common' ? formalHead : `${genre}::${formalHead}`);
+          await loadGraphMaintenance(scope === 'common' ? formalHead : `${genre}::${formalHead}`);
+        } catch (err) {
+          const message = String(err?.message || err || 'unknown error');
+          show('fallbackMonitorOut', { ok: false, detail: message });
+          if (feedback) {
+            feedback.className = 'fallback-inline-feedback error';
+            feedback.textContent = `保存失败：${message}`;
+          }
+        } finally {
+          if (button) {
+            button.disabled = false;
+            button.textContent = '保存为正式收敛规则';
+          }
+        }
+      }
+      async function releaseActionFallbackRule(aliasTerm, scope, genre) {
+        const res = await fetch(`${base()}/action-graph/fallback-monitor/release`, {
+          method: 'POST',
+          headers: h({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({
+            alias_term: String(aliasTerm || '').trim(),
+            scope: String(scope || 'common').trim(),
+            genre: String(genre || '').trim(),
+          }),
+        });
+        const data = await read(res);
+        show('fallbackMonitorOut', data);
+        if (!res.ok) return;
+        await loadActionFallbackMonitor();
+        await loadActionFallbackAlerts(true);
       }
       function supplementScopeDefault(source) {
         const key = String(source || '').trim();
@@ -1127,6 +1876,143 @@
             <span class="status-chip" title="当前已有基础素材覆盖">已覆盖 ${escHtml(data.covered || 0)}</span>
           </div>
         `;
+      }
+      function supplementGroupMap() {
+        const groups = new Map();
+        for (const item of Array.isArray(latestSupplements) ? latestSupplements : []) {
+          const key = String((item?.parent_node && item.parent_node.node_key) || `${item?.genre || ''}::${item?.verb || ''}`).trim();
+          if (!key) continue;
+          const current = groups.get(key) || {
+            node_key: key,
+            genre: String(item?.genre || '').trim(),
+            verb: String(item?.verb || '').trim(),
+            target_head: String(item?.target_head || item?.verb || '').trim(),
+            items: [],
+            pending_count: 0,
+            covered_count: 0,
+            ready_to_notify_count: 0,
+            oldest_created_at: '',
+            latest_created_at: '',
+          };
+          current.items.push(item);
+          current.pending_count += Number((item?.progress && item.progress.pending_count) || 0);
+          current.covered_count += Number((item?.progress && item.progress.covered_count) || 0);
+          if (item?.ready_to_notify && String(item?.notification_status || '') !== '已通知') current.ready_to_notify_count += 1;
+          const createdAt = String(item?.created_at || '').trim();
+          if (createdAt && (!current.oldest_created_at || createdAt < current.oldest_created_at)) current.oldest_created_at = createdAt;
+          if (createdAt && (!current.latest_created_at || createdAt > current.latest_created_at)) current.latest_created_at = createdAt;
+          groups.set(key, current);
+        }
+        return groups;
+      }
+      function daysSinceIso(value) {
+        const text = String(value || '').trim();
+        if (!text) return null;
+        const d = new Date(text);
+        if (Number.isNaN(d.getTime())) return null;
+        return Math.floor((Date.now() - d.getTime()) / 86400000);
+      }
+      function buildGraphPriorityBuckets() {
+        const fallbackItems = Array.isArray(actionFallbackMonitorState?.items) ? actionFallbackMonitorState.items : [];
+        const sections = Array.isArray(graphMaintenanceCatalogState?.genres) ? graphMaintenanceCatalogState.genres : [];
+        const groupMap = supplementGroupMap();
+        const recentFallback = [...fallbackItems]
+          .sort((a, b) => Number(b?.hit_count || 0) - Number(a?.hit_count || 0) || String(b?.latest_at || '').localeCompare(String(a?.latest_at || '')))
+          .slice(0, 5)
+          .map(item => ({
+            kind: 'fallback',
+            title: String(item?.suggested_formal_term || '待确认正式词').trim(),
+            subtitle: `${String(item?.genre || '通用候选').trim() || '通用候选'} ｜ 命中 ${Number(item?.hit_count || 0)} 次`,
+            extra: `保底词：${(item?.fallback_terms || []).join(' / ') || '暂无'}`,
+            latest_at: formatReadableTime(item?.latest_at),
+            primaryText: '去处理保底生成',
+            primaryAction: `scrollToFallbackMonitor()`,
+          }));
+        const supplementMissing = [];
+        for (const item of fallbackItems) {
+          const suggested = String(item?.suggested_formal_term || '').trim();
+          const genre = String(item?.genre || '').trim();
+          const nodeKey = genre ? `${genre}::${suggested}` : suggested;
+          if (!suggested || !nodeKey || groupMap.has(nodeKey)) continue;
+          const key = nodeKey;
+          if (supplementMissing.some(entry => entry.nodeKey === key)) continue;
+          supplementMissing.push({
+            nodeKey: key,
+            title: suggested,
+            subtitle: `${genre || '通用层'} ｜ 最近真实命中 ${Number(item?.hit_count || 0)} 次`,
+            extra: `前台原始动词：${(item?.raw_verbs || []).join(' / ') || (item?.parent_heads || []).join(' / ') || '暂无'}`,
+            latest_at: formatReadableTime(item?.latest_at),
+          });
+        }
+        const recentHitNoSupplement = supplementMissing
+          .sort((a, b) => String(b.latest_at || '').localeCompare(String(a.latest_at || '')))
+          .slice(0, 5)
+          .map(item => ({
+            kind: 'hit',
+            title: item.title,
+            subtitle: item.subtitle,
+            extra: item.extra,
+            latest_at: item.latest_at,
+            primaryText: '去图谱维护',
+            primaryAction: `openGraphMaintenance('${escAttr(item.nodeKey)}')`,
+          }));
+        const longPending = [...groupMap.values()]
+          .filter(item => Number(item.pending_count || 0) > 0)
+          .map(item => ({
+            ...item,
+            stale_days: daysSinceIso(item.oldest_created_at),
+          }))
+          .filter(item => item.stale_days === null || item.stale_days >= 7)
+          .sort((a, b) => Number(b.stale_days ?? -1) - Number(a.stale_days ?? -1) || Number(b.pending_count || 0) - Number(a.pending_count || 0))
+          .slice(0, 5)
+          .map(item => ({
+            kind: 'pending',
+            title: String(item.target_head || item.verb || item.node_key || '').trim(),
+            subtitle: `${String(item.genre || '通用层').trim() || '通用层'} ｜ 待补 ${Number(item.pending_count || 0)} 个`,
+            extra: `补充单 ${item.items.length} 条 ｜ 已挂起 ${item.stale_days === null ? '多日' : `${item.stale_days} 天`}`,
+            latest_at: formatReadableTime(item.oldest_created_at || item.latest_created_at),
+            primaryText: '去补充',
+            primaryAction: `jumpToSupplementGroup('${escAttr(item.node_key)}', 'pending')`,
+          }));
+        return { recentFallback, recentHitNoSupplement, longPending };
+      }
+      function renderGraphPriorityTodo() {
+        const hint = document.getElementById('graphSeedHint');
+        const stats = document.getElementById('graphSeedStats');
+        const actions = document.getElementById('graphSeedActions');
+        if (!hint || !stats || !actions) return;
+        const buckets = buildGraphPriorityBuckets();
+        const total = buckets.recentFallback.length + buckets.recentHitNoSupplement.length + buckets.longPending.length;
+        hint.textContent = total
+          ? '动态优先级提醒区：这里只给运营待办摘要，帮助快速判断“先处理什么”，不再展示固定种子清单。'
+          : '动态优先级提醒区：当前还没有新的重点待办。';
+        stats.innerHTML = `
+          <div class="status-bar">
+            <span class="status-chip" title="最近高频保底生成词">高频保底 ${escHtml(buckets.recentFallback.length)}</span>
+            <span class="status-chip" title="最近真实命中但还没建补充单的动作词">待建补充 ${escHtml(buckets.recentHitNoSupplement.length)}</span>
+            <span class="status-chip" title="已建补充单但长期未补齐的动作词">长期未补齐 ${escHtml(buckets.longPending.length)}</span>
+          </div>
+        `;
+        const renderCards = (title, desc, list) => `
+          <div class="section-box" style="margin-bottom:10px;">
+            <h5>${title}</h5>
+            <div class="muted-sm note-prefix" style="margin-bottom:8px;">${desc}</div>
+            ${list.length ? `<div class="fallback-rule-list">${list.map(item => `
+              <div class="term-block">
+                <div class="term-title">${escHtml(item.title || '')}</div>
+                <div class="muted-sm">${escHtml(item.subtitle || '')}</div>
+                <div class="muted-sm" style="margin-top:4px;">${escHtml(item.extra || '')}</div>
+                <div class="muted-sm" style="margin-top:4px;">最近时间：${escHtml(item.latest_at || '-')}</div>
+                <button class="link-btn" style="margin-top:6px;" onclick="${item.primaryAction}">${escHtml(item.primaryText || '查看')}</button>
+              </div>
+            `).join('')}</div>` : '<div class="muted-sm">当前没有需要优先处理的项目。</div>'}
+          </div>
+        `;
+        actions.innerHTML = [
+          renderCards('最近高频保底生成词', '来自前台用户真实触发后的保底词集。优先处理命中频率高、碎词明显的词组。', buckets.recentFallback),
+          renderCards('最近真实命中但还没建补充单的动作词', '这些词已经被真实前台使用命中，但当前还没有进入补充单链路，适合先判断是否要启动补库。', buckets.recentHitNoSupplement),
+          renderCards('已建补充单但长期未补齐的动作词', '这些词已经进入补充单，但仍有待补项，且已挂起较久，适合优先清理积压。', buckets.longPending),
+        ].join('');
       }
       function normalizeCompositeTerm(raw) {
         return String(raw || '').trim().replace(/（组合）$/u, '').trim();
@@ -1501,6 +2387,9 @@
           loadUsers();
           loadNotifyTargets();
           loadAssetFeedback();
+          loadActionFallbackMonitor();
+          loadActionFallbackAlerts();
+          startFallbackAlertPolling();
         }
         show('usersOut', data);
       }
@@ -1674,6 +2563,8 @@
         const box = document.getElementById('opsAuditView');
         if (!note || !box) return;
         const items = Array.isArray(data && data.items) ? data.items : [];
+        const actionCounts = (data && typeof data.action_counts === 'object' && data.action_counts) ? data.action_counts : {};
+        const totalMatched = Number((data && data.total_matched) || items.length || 0);
         if (!items.length) {
           note.textContent = '行为日志：来自用户行为日志表，主要记录谁在什么时间做了什么业务动作。当前筛选条件下没有结果。';
           box.innerHTML = '<div class="ops-section"><h4>行为时间线</h4><div class="muted">当前筛选条件下没有行为日志。</div></div>';
@@ -1681,21 +2572,16 @@
         }
         const uniqueUsers = new Set(items.map(item => String(item.user_phone || '').trim()).filter(Boolean)).size;
         const uniqueProjects = new Set(items.map(item => String(item.project_id || '').trim()).filter(Boolean)).size;
-        const actionCounter = {};
-        for (const item of items) {
-          const action = String(item.action || '').trim() || 'unknown';
-          actionCounter[action] = (actionCounter[action] || 0) + 1;
-        }
-        const topActions = Object.entries(actionCounter).sort((a, b) => b[1] - a[1]).slice(0, 8);
+        const topActions = Object.entries(actionCounts).sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0)).slice(0, 8);
         opsTimelineState.items = items;
         opsTimelineState.totalPages = Math.max(1, Math.ceil(opsTimelineState.items.length / OPS_TIMELINE_PAGE_SIZE));
         opsTimelineState.currentPage = 1;
-        note.textContent = '行为日志：来自用户行为日志表，用来回答“谁在什么时间做了什么业务动作、结果如何、是否形成下载或执行单”等问题。默认先展示给运营看得懂的摘要卡和时间线，原始 JSON 仍保留在下方折叠区。';
+        note.textContent = `行为日志：来自用户行为日志表，用来回答“谁在什么时间做了什么业务动作、结果如何、是否形成下载或执行单”等问题。当前时间范围内共命中 ${totalMatched} 条；下方时间线默认展示最新 ${items.length} 条。`;
         const summaryHtml = `
           <div class="ops-section">
             <h4>行为总览</h4>
             <div class="stats">
-              <div class="stat"><div class="k">行为总数</div><div class="v">${escHtml(items.length)}</div></div>
+              <div class="stat"><div class="k">行为总数</div><div class="v">${escHtml(totalMatched)}</div></div>
               <div class="stat"><div class="k">涉及用户</div><div class="v">${escHtml(uniqueUsers)}</div></div>
               <div class="stat"><div class="k">涉及项目</div><div class="v">${escHtml(uniqueProjects)}</div></div>
               <div class="stat"><div class="k">最近一条</div><div class="v" style="font-size:14px;">${escHtml(formatReadableTime(items[0].created_at || '-'))}</div></div>
@@ -1707,7 +2593,7 @@
           <div class="ops-section">
             <h4>行为分布</h4>
             ${topActions.map(([action, count]) => {
-              const ratio = Math.max(4, Math.round((count / items.length) * 100));
+              const ratio = Math.max(4, Math.round((Number(count || 0) / Math.max(1, totalMatched)) * 100));
               return `
                 <div class="ops-bar-row">
                   <div class="ops-bar-label">
@@ -2098,6 +2984,10 @@
           feedbackLevel: 'info',
         });
         renderGraphMaintenance(graphMaintenanceState?.rawData || {});
+        const maintenanceCard = document.getElementById('graphManageBox')?.closest('.card');
+        if (maintenanceCard) {
+          maintenanceCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
       }
 
       function nodeKeyToId(nodeKey) {
@@ -2137,45 +3027,11 @@
           verbQueryInput.value = graphMaintenanceCatalogState.verbQuery || '';
           verbSel.innerHTML = '<option value="">暂无动作词</option>';
           if (hint) hint.textContent = '当前还没有可维护的图谱目录。';
-          if (seedHint) seedHint.textContent = '当前还没有基础动作种子摘要。';
+          if (seedHint) seedHint.textContent = '当前还没有可用于生成动态优先级提醒的数据。';
           if (seedActions) seedActions.innerHTML = '';
           return;
         }
-        if (seedHint) {
-          const commonSection = sections.find(section => String(section.genre_key || '') === 'common');
-          const commonCount = Number(commonSection?.node_count || (Array.isArray(commonSection?.items) ? commonSection.items.length : 0) || 0);
-          const genreCount = sections.filter(section => String(section.genre_key || '') !== 'common').length;
-          const preferredSeeds = ['走', '快走', '跳', '爬', '飞', '抓', '推', '拉', '摩擦', '蹲下'];
-          const commonItems = Array.isArray(commonSection?.items) ? commonSection.items : [];
-          const quickItems = preferredSeeds
-            .map(name => commonItems.find(item => String(item?.verb_head || '').trim() === name))
-            .filter(Boolean)
-            .sort((a, b) => {
-              const aStatus = findSupplementSeedStatus(a.node_key).label;
-              const bStatus = findSupplementSeedStatus(b.node_key).label;
-              const prio = actionSeedStatusPriority(aStatus) - actionSeedStatusPriority(bStatus);
-              if (prio !== 0) return prio;
-              return String(a?.verb_head || '').localeCompare(String(b?.verb_head || ''), 'zh-CN');
-            });
-          const quickSummary = summarizeActionSeedStatuses(quickItems);
-          seedHint.textContent = `基础种子摘要：当前动作通用层约 ${commonCount} 个基础动作词，覆盖 ${genreCount} 个赛道维护目录。优先种子中待补 ${quickSummary.pending} 个、待用户命中验证 ${quickSummary.untracked} 个、已覆盖 ${quickSummary.covered} 个。上线前建议先围绕“走、跳、爬、飞、抓、推、拉、摩擦、蹲下”等高复用动作补基础素材。`;
-          renderActionSeedStats(quickSummary);
-          if (seedActions) {
-            seedActions.innerHTML = quickItems.length
-              ? `<div class="muted-sm" style="margin-bottom:6px;">建议优先补库：先处理“待补”，再跟进“待用户命中验证”的基础种子，最后回看“已覆盖”。</div><div class="muted-sm" style="margin-bottom:6px;">说明：待用户命中验证不是异常，而是上线前预置好的基础动作词，后续需等真实文本命中后再进入补充链路。</div>${quickItems.map(item => {
-                  const status = findSupplementSeedStatus(item.node_key);
-                  const canJumpSupp = status.label !== '未建补充单';
-                  const nextStep = canJumpSupp ? '先去补充单补素材' : '先等待真实用户文本命中验证';
-                  return `
-                    <div style="display:inline-flex; gap:6px; align-items:center; margin:0 6px 6px 0;">
-                      <button class="link-btn" title="${escAttr(actionSeedReason(item.verb_head))}" onclick="openGraphMaintenance('${escAttr(item.node_key || '')}')">${escHtml(item.verb_head || '')} <span class="muted-sm">(${escHtml(status.label)}｜${escHtml(actionSeedReason(item.verb_head))}｜${escHtml(actionSeedStatusExplain(status.label))}｜${escHtml(nextStep)})</span></button>
-                      ${canJumpSupp ? `<button class="link-btn" onclick="jumpToSupplementGroup('${escAttr(item.node_key || '')}', 'pending')">去补充</button>` : ''}
-                    </div>
-                  `;
-                }).join('')}`
-              : '<div class="muted-sm">当前还没有可直接跳转的基础动作种子。</div>';
-          }
-        }
+        renderGraphPriorityTodo();
         const preferred = splitGraphManageNodeKey(preferredNodeKey);
         const selectedGenreKey = (
           preferred.genreKey && sections.some(section => String(section.genre_key || '') === preferred.genreKey)
@@ -2533,7 +3389,7 @@
             </td>
             <td>${escHtml(item.user_phone || '')}</td>
             <td>${escHtml(item.sentence_excerpt || '')}</td>
-            <td>${escHtml(item.created_at || '')}</td>
+            <td>${escHtml(formatReadableTime(item.created_at || ''))}</td>
             <td>
               <div class="muted-sm">已补 ${escHtml(item.covered_count || 0)} / 待补 ${escHtml(item.pending_count || 0)}</div>
               <div class="progress-line"><div class="progress-fill" style="width:${Math.round(((item.completion_ratio || 0) * 100))}%"></div></div>
@@ -3606,6 +4462,7 @@
         const summaryBox = document.getElementById('suppSummary');
         if (summaryBox) summaryBox.innerHTML = renderStats((data && data.summary) || {});
         renderSupplementTable(latestSupplements);
+        renderGraphPriorityTodo();
         await loadNotifyTargets();
         show('suppOut', data);
       }
@@ -3907,6 +4764,9 @@
       if (token) {
         loadFrontendSecurity().catch(err => show('frontendSecurityOut', String(err?.message || err)));
         loadAssetFeedback().catch(err => show('assetFeedbackOut', String(err?.message || err)));
+        loadActionFallbackMonitor().catch(err => show('fallbackMonitorOut', String(err?.message || err)));
+        loadActionFallbackAlerts().catch(err => show('fallbackMonitorOut', String(err?.message || err)));
+        startFallbackAlertPolling();
       }
       loadInheritanceDashboard();
       loadGraphMaintenanceCatalog('玄幻::躲闪').then(() => loadGraphMaintenance('玄幻::躲闪'));

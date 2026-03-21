@@ -284,6 +284,20 @@ class ActionGraphInheritanceReview(Base):
     )
 
 
+class ActionFallbackRiskTerm(Base):
+    __tablename__ = 'action_fallback_risk_term'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    term: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    risk_level: Mapped[str] = mapped_column(String(16), index=True, nullable=False, default='warn')
+    note: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    enabled: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
 class SceneSupplementTask(Base):
     __tablename__ = 'scene_supplement_task'
 
