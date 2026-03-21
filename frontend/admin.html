@@ -283,6 +283,50 @@
         color:var(--muted);
         font-size:12px;
       }
+      .leader-admin-box {
+        border:1px solid var(--line);
+        border-radius:10px;
+        background:#0a1830;
+        padding:10px;
+        margin-top:10px;
+      }
+      .leader-admin-board {
+        border:1px solid var(--line);
+        border-radius:10px;
+        background:#0c1c34;
+        padding:10px;
+        margin-top:10px;
+      }
+      .leader-admin-board h4 {
+        margin:0 0 8px;
+        font-size:13px;
+      }
+      .leader-admin-item {
+        border:1px solid #1f3557;
+        border-radius:10px;
+        padding:10px;
+        background:#0b1730;
+        margin-top:8px;
+      }
+      .leader-admin-item-head {
+        display:flex;
+        justify-content:space-between;
+        gap:10px;
+        flex-wrap:wrap;
+        margin-bottom:8px;
+        font-size:12px;
+      }
+      .leader-admin-rank {
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        width:24px;
+        height:24px;
+        border-radius:999px;
+        background:#123256;
+        color:#e6f0ff;
+        font-weight:700;
+      }
       .priority-high { border-color:#2a8fcb; background:#0b2137; }
       .priority-normal { border-color:#37506f; }
       .result-banner {
@@ -468,6 +512,21 @@
             <div class="cell"><input id="usageViewDate" placeholder="查看用量日期 YYYY-MM-DD，默认今天" /></div>
             <div class="cell"><button onclick="loadUsers()">刷新用户列表</button></div>
           </div>
+          <div class="ops-section" style="margin-top:12px;">
+            <h4 style="margin-bottom:8px;">前端安全设置</h4>
+            <div class="row">
+              <div class="cell">
+                <select id="frontendDebugExpose">
+                  <option value="1">测试期：允许展开调试 JSON</option>
+                  <option value="0">正式期：关闭调试 JSON 暴露</option>
+                </select>
+              </div>
+              <div class="cell"><button onclick="loadFrontendSecurity()">读取当前安全配置</button></div>
+              <div class="cell"><button onclick="saveFrontendSecurity()">保存前端安全设置</button></div>
+            </div>
+            <div id="frontendSecurityHint" class="muted" style="margin-top:8px;">等待读取前端安全配置...</div>
+            <pre id="frontendSecurityOut">等待加载前端安全配置...</pre>
+          </div>
           <pre id="betaAccessOut">等待加载测试期开关...</pre>
           <pre id="inviteCodesOut">等待加载邀请码池...</pre>
           <pre id="usageResetOut">等待重置操作...</pre>
@@ -499,12 +558,23 @@
         </div>
 
         <div class="card">
-          <h3>素材反馈看板</h3>
+          <h3>前台排行榜管理</h3>
           <div class="row">
-            <div class="cell"><input id="assetDays" value="7" placeholder="统计天数" /></div>
-            <div class="cell"><button onclick="loadAssetFeedback()">加载素材反馈</button></div>
+            <div class="cell">
+              <select id="leaderboardWindow">
+                <option value="1d">过去1天</option>
+                <option value="10d" selected>过去10天</option>
+                <option value="30d">过去30天</option>
+                <option value="90d">过去3个月</option>
+              </select>
+            </div>
+            <div class="cell"><button onclick="loadAssetFeedback()">加载动作榜配置</button></div>
           </div>
-          <pre id="assetFeedbackOut">等待查询...</pre>
+          <div id="leaderboardAdminView" class="leader-admin-box">等待加载前台排行榜管理数据...</div>
+          <details style="margin-top:10px;">
+            <summary style="cursor:pointer; color:#9eb5d8;">查看排行榜原始 JSON</summary>
+            <pre id="assetFeedbackOut">等待查询...</pre>
+          </details>
         </div>
 
         <div class="card">
@@ -707,7 +777,6 @@
       function h(extra = {}) {
         const x = { ...(extra || {}) };
         if (token) x.Authorization = `Bearer ${token}`;
-        if (loginPhone) x['X-User-Phone'] = loginPhone;
         return x;
       }
       function setState() {
@@ -727,6 +796,11 @@
         totalPages: 1,
         items: [],
         ymd: '',
+      };
+      let leaderboardAdminState = {
+        domain: 'action',
+        windowKey: '10d',
+        data: null,
       };
       const OPS_TIMELINE_PAGE_SIZE = 4;
       let opsTimelineState = {
@@ -766,6 +840,7 @@
           'text_narration_analysis': '文本演绎分析',
           'fusion_execution': '生成后期执行单',
           'action_sfx_asset_download': '下载单个音效',
+          'scene_sfx_asset_download': '下载场景音效',
           'export_download': '导出下载',
         })[key] || key || '未标注动作';
       }
@@ -832,8 +907,8 @@
             <table style="width:100%; border-collapse:collapse; font-size:12px;">
               <thead>
                 <tr>
-                  <th style="text-align:left; padding:8px; border-bottom:1px solid #2d4f80;">手机号</th>
-                  <th style="text-align:left; padding:8px; border-bottom:1px solid #2d4f80;">UID / 等级</th>
+                  <th style="text-align:left; padding:8px; border-bottom:1px solid #2d4f80;">识别信息</th>
+                  <th style="text-align:left; padding:8px; border-bottom:1px solid #2d4f80;">前台等级</th>
                   <th style="text-align:left; padding:8px; border-bottom:1px solid #2d4f80;">角色</th>
                   <th style="text-align:left; padding:8px; border-bottom:1px solid #2d4f80;">邀请码</th>
                   <th style="text-align:left; padding:8px; border-bottom:1px solid #2d4f80;">文本额度</th>
@@ -849,8 +924,8 @@
                     : '未激活';
                   return `
                     <tr>
-                      <td style="padding:8px; border-bottom:1px solid #1f3557;">${escHtml(item.phone || '')}</td>
-                      <td style="padding:8px; border-bottom:1px solid #1f3557;">UID:${escHtml(item.uid || '-')}<br/>前台级别:${escHtml(item.user_tier_code || '')}</td>
+                      <td style="padding:8px; border-bottom:1px solid #1f3557;">手机号:${escHtml(item.phone || '-')}<br/>UID:${escHtml(item.uid || '-')}</td>
+                      <td style="padding:8px; border-bottom:1px solid #1f3557;">级别:${escHtml(item.user_tier_code || '')}<br/>标记:${item.is_authorized ? '授权不限额' : '按日计数'}</td>
                       <td style="padding:8px; border-bottom:1px solid #1f3557;">后台角色:${escHtml(item.ops_role_code || '')}<br/>授权:${item.is_authorized ? '不限次' : '受限'}</td>
                       <td style="padding:8px; border-bottom:1px solid #1f3557;">${inviteText}</td>
                       <td style="padding:8px; border-bottom:1px solid #1f3557;">已用 ${escHtml(quota.text_chars_used || 0)} / 限额 ${escHtml(quota.text_chars_limit || 0)}<br/>剩余 ${escHtml(quota.text_chars_remaining || 0)}</td>
@@ -1421,9 +1496,11 @@
           localStorage.setItem('mfa_admin_phone', loginPhone);
           setState();
           loadBetaAccess();
+          loadFrontendSecurity();
           loadInviteCodes();
           loadUsers();
           loadNotifyTargets();
+          loadAssetFeedback();
         }
         show('usersOut', data);
       }
@@ -1456,6 +1533,40 @@
           body: JSON.stringify({ invite_only_enabled }),
         });
         show('betaAccessOut', await read(res));
+      }
+
+      function renderFrontendSecurityState(data) {
+        const hint = document.getElementById('frontendSecurityHint');
+        if (!hint) return;
+        if (!data || typeof data !== 'object') {
+          hint.textContent = '当前没有可展示的前端安全配置。';
+          return;
+        }
+        const debugText = data.frontend_debug_expose_enabled ? '测试期调试 JSON 已开启' : '正式期调试 JSON 已关闭';
+        const downloadText = data.signed_downloads_required ? '正式环境签名下载已开启' : '当前环境仍兼容本地直连下载';
+        const ttlText = `下载令牌时效 ${Number(data.download_token_ttl_sec || 300)} 秒`;
+        hint.textContent = `${debugText}；${downloadText}；${ttlText}。`;
+        const sel = document.getElementById('frontendDebugExpose');
+        if (sel) sel.value = data.frontend_debug_expose_enabled ? '1' : '0';
+      }
+
+      async function loadFrontendSecurity() {
+        const res = await fetch(`${base()}/admin/frontend-security`, { headers: h() });
+        const data = await read(res);
+        renderFrontendSecurityState(data);
+        show('frontendSecurityOut', data);
+      }
+
+      async function saveFrontendSecurity() {
+        const frontend_debug_expose_enabled = document.getElementById('frontendDebugExpose').value === '1';
+        const res = await fetch(`${base()}/admin/frontend-security`, {
+          method: 'POST',
+          headers: h({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ frontend_debug_expose_enabled }),
+        });
+        const data = await read(res);
+        renderFrontendSecurityState(data);
+        show('frontendSecurityOut', data);
       }
 
       async function loadInviteCodes() {
@@ -1554,6 +1665,7 @@
         if (action === 'text_narration_analysis') return `完成文本演绎分析，输入 ${Number(input.text_len || 0)} 字，生成 ${Number(output.narration_clause_timeline_count || 0)} 条语句时间线。`;
         if (action === 'fusion_execution') return `生成后期执行单，输出 ${Number(output.cue_count || 0)} 条 cue。`;
         if (action === 'action_sfx_asset_download') return `下载单个音效：${input.file_name || input.label || '未标注音效'}。`;
+        if (action === 'scene_sfx_asset_download') return `下载场景音效：${input.file_name || input.label || '未标注音效'}。`;
         return `记录到行为：${action || '未标注动作'}。`;
       }
 
@@ -1655,7 +1767,7 @@
                     <div class="ops-event-meta">${escHtml(formatReadableTime(item.created_at || '-'))}</div>
                   </div>
                   <div class="ops-kv-list">
-                    <div class="k">手机号</div><div>${escHtml(item.user_phone || '-')}</div>
+                    <div class="k">识别信息</div><div>UID：${escHtml(item.user_uid || '-')}<br/>手机号：${escHtml(item.user_phone || '-')}</div>
                     <div class="k">项目 ID</div><div>${escHtml(item.project_id || '-')}</div>
                     <div class="k">动作码</div><div>${escHtml(item.action || '-')}</div>
                     <div class="k">行为摘要</div><div>${escHtml(summarizeEvent(item))}</div>
@@ -1739,10 +1851,154 @@
         `;
       }
 
+      function currentLeaderboardWindow() {
+        return (document.getElementById('leaderboardWindow')?.value || '10d').trim() || '10d';
+      }
+
+      function renderLeaderboardAdmin(data) {
+        const box = document.getElementById('leaderboardAdminView');
+        if (!box) return;
+        const layout = data?.layout || {};
+        const domainOrder = Array.isArray(layout.domain_order) ? layout.domain_order : ['action', 'scene'];
+        const actionPos = domainOrder.indexOf('action') + 1 || 1;
+        const scenePos = domainOrder.indexOf('scene') + 1 || 2;
+        const boards = Array.isArray(data?.boards) ? data.boards : [];
+        box.innerHTML = `
+          <div class="muted">当前展示的是动作后台对应的“动作榜”配置。排行榜前台按真实下载统计生成；如某条展示不适合直接上前台，可在下方对显示名、显示数量、前台排序做手动覆盖。</div>
+          <div class="leader-admin-box">
+            <h4 style="margin:0 0 8px; font-size:13px;">用户端位置与标题</h4>
+            <div class="row">
+              <div class="cell">
+                <label class="muted">动作榜标题</label>
+                <input id="lbActionTitle" value="${escHtml(layout?.domain_titles?.action || '动作音效热度榜')}" />
+              </div>
+              <div class="cell">
+                <label class="muted">场景榜标题</label>
+                <input id="lbSceneTitle" value="${escHtml(layout?.domain_titles?.scene || '场景搭建热度榜')}" />
+              </div>
+              <div class="cell">
+                <label class="muted">动作榜位置</label>
+                <select id="lbActionPos">
+                  <option value="1" ${actionPos === 1 ? 'selected' : ''}>第 1 区</option>
+                  <option value="2" ${actionPos === 2 ? 'selected' : ''}>第 2 区</option>
+                </select>
+              </div>
+              <div class="cell">
+                <label class="muted">场景榜位置</label>
+                <select id="lbScenePos">
+                  <option value="1" ${scenePos === 1 ? 'selected' : ''}>第 1 区</option>
+                  <option value="2" ${scenePos === 2 ? 'selected' : ''}>第 2 区</option>
+                </select>
+              </div>
+              <div class="cell" style="align-self:flex-end;"><button onclick="saveLeaderboardLayout()">保存前台位置与标题</button></div>
+            </div>
+          </div>
+          ${boards.map((board) => `
+            <div class="leader-admin-board">
+              <h4>${escHtml(board.title || '')}</h4>
+              <div class="muted">当前时间范围：${escHtml(data.window_key || '10d')}，当前榜单下载量 ${escHtml(board.download_count || 0)}。</div>
+              ${Array.isArray(board.items) && board.items.length ? board.items.map((item, idx) => `
+                <div class="leader-admin-item">
+                  <div class="leader-admin-item-head">
+                    <div><span class="leader-admin-rank">${idx + 1}</span> <strong>${escHtml(item.display_name || item.item_key || '-')}</strong></div>
+                    <div>真实下载 ${escHtml(item.raw_count || item.count || 0)} 次${item.has_override ? ' ｜ 已有手动覆盖' : ''}</div>
+                  </div>
+                  <div class="row">
+                    <div class="cell">
+                      <label class="muted">前台展示名</label>
+                      <input id="lb_name_${escAttr(board.board_key)}_${escAttr(item.item_key)}" value="${escHtml(item.display_name || '')}" />
+                    </div>
+                    <div class="cell">
+                      <label class="muted">前台副标题</label>
+                      <input id="lb_sub_${escAttr(board.board_key)}_${escAttr(item.item_key)}" value="${escHtml(item.subtitle || '')}" />
+                    </div>
+                    <div class="cell">
+                      <label class="muted">前台显示数量</label>
+                      <input id="lb_count_${escAttr(board.board_key)}_${escAttr(item.item_key)}" value="${escHtml(item.count || 0)}" />
+                    </div>
+                    <div class="cell">
+                      <label class="muted">前台排序位</label>
+                      <input id="lb_rank_${escAttr(board.board_key)}_${escAttr(item.item_key)}" value="${escHtml(item.manual_rank || '')}" placeholder="留空=按真实排序" />
+                    </div>
+                    <div class="cell">
+                      <label class="muted">是否展示</label>
+                      <select id="lb_enabled_${escAttr(board.board_key)}_${escAttr(item.item_key)}">
+                        <option value="1" ${item.enabled === false ? '' : 'selected'}>展示</option>
+                        <option value="0" ${item.enabled === false ? 'selected' : ''}>隐藏</option>
+                      </select>
+                    </div>
+                    <div class="cell" style="align-self:flex-end;">
+                      <button onclick="saveLeaderboardOverride('${escAttr(data.domain || 'action')}','${escAttr(board.board_key || '')}','${escAttr(item.item_key || '')}','${escAttr(item.scope_label || '')}','${escAttr(item.genre || '')}','${escAttr(item.file_name || '')}')">保存这一条</button>
+                    </div>
+                  </div>
+                </div>
+              `).join('') : '<div class="muted" style="margin-top:8px;">当前时间范围内暂无真实下载数据。</div>'}
+            </div>
+          `).join('')}
+        `;
+      }
+
+      async function saveLeaderboardLayout() {
+        const actionTitle = (document.getElementById('lbActionTitle')?.value || '').trim();
+        const sceneTitle = (document.getElementById('lbSceneTitle')?.value || '').trim();
+        const actionPos = Number(document.getElementById('lbActionPos')?.value || 1);
+        const scenePos = Number(document.getElementById('lbScenePos')?.value || 2);
+        const domainOrder = actionPos <= scenePos ? ['action', 'scene'] : ['scene', 'action'];
+        const res = await fetch(`${base()}/admin/leaderboards/layout`, {
+          method: 'POST',
+          headers: h({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({
+            domain_order: domainOrder,
+            domain_titles: {
+              action: actionTitle,
+              scene: sceneTitle,
+            },
+          }),
+        });
+        const data = await read(res);
+        show('assetFeedbackOut', data);
+        await loadAssetFeedback();
+      }
+
+      async function saveLeaderboardOverride(domain, boardKey, itemKey, scopeLabel, genre, fileName) {
+        const name = (document.getElementById(`lb_name_${boardKey}_${itemKey}`)?.value || '').trim();
+        const subtitle = (document.getElementById(`lb_sub_${boardKey}_${itemKey}`)?.value || '').trim();
+        const overrideCount = (document.getElementById(`lb_count_${boardKey}_${itemKey}`)?.value || '').trim();
+        const manualRank = (document.getElementById(`lb_rank_${boardKey}_${itemKey}`)?.value || '').trim();
+        const enabled = (document.getElementById(`lb_enabled_${boardKey}_${itemKey}`)?.value || '1') === '1';
+        const res = await fetch(`${base()}/admin/leaderboards/override`, {
+          method: 'POST',
+          headers: h({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({
+            domain,
+            board_key: boardKey,
+            window_key: currentLeaderboardWindow(),
+            item_key: itemKey,
+            display_name: name,
+            subtitle,
+            override_count: overrideCount,
+            manual_rank: manualRank,
+            enabled,
+            meta: {
+              scope_label: scopeLabel,
+              genre,
+              file_name: fileName,
+            },
+          }),
+        });
+        const data = await read(res);
+        show('assetFeedbackOut', data);
+        await loadAssetFeedback();
+      }
+
       async function loadAssetFeedback() {
-        const days = (document.getElementById('assetDays').value || '7').trim();
-        const res = await fetch(`${base()}/ops/action-sfx-feedback?days=${encodeURIComponent(days)}`, { headers: h() });
-        show('assetFeedbackOut', await read(res));
+        const windowKey = currentLeaderboardWindow();
+        leaderboardAdminState.windowKey = windowKey;
+        const res = await fetch(`${base()}/admin/leaderboards/config?domain=action&window=${encodeURIComponent(windowKey)}`, { headers: h() });
+        const data = await read(res);
+        leaderboardAdminState.data = data;
+        renderLeaderboardAdmin(data);
+        show('assetFeedbackOut', data);
       }
 
       async function previewTokenize() {
@@ -3648,6 +3904,10 @@
       setState();
       renderDocAnchors('actionDocsOut', ACTION_DOC_ANCHORS);
       updateSupplementStatusHint();
+      if (token) {
+        loadFrontendSecurity().catch(err => show('frontendSecurityOut', String(err?.message || err)));
+        loadAssetFeedback().catch(err => show('assetFeedbackOut', String(err?.message || err)));
+      }
       loadInheritanceDashboard();
       loadGraphMaintenanceCatalog('玄幻::躲闪').then(() => loadGraphMaintenance('玄幻::躲闪'));
     </script>

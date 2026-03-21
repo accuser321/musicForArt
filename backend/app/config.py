@@ -45,6 +45,10 @@ class Settings:
     auth_code_ttl_sec: int = int(os.getenv('AUTH_CODE_TTL_SEC', '300'))
     auth_session_ttl_sec: int = int(os.getenv('AUTH_SESSION_TTL_SEC', str(7 * 24 * 3600)))
     bootstrap_admin_phones: str = os.getenv('BOOTSTRAP_ADMIN_PHONES', '15914141177')
+    frontend_debug_expose_default: bool = os.getenv('FRONTEND_DEBUG_EXPOSE_DEFAULT', '1' if os.getenv('APP_ENV', 'dev') != 'prod' else '0').strip().lower() in {'1', 'true', 'yes', 'on'}
+    require_signed_downloads: bool = os.getenv('REQUIRE_SIGNED_DOWNLOADS', '0').strip().lower() in {'1', 'true', 'yes', 'on'}
+    download_token_ttl_sec: int = int(os.getenv('DOWNLOAD_TOKEN_TTL_SEC', '300'))
+    download_signing_key: str = os.getenv('DOWNLOAD_SIGNING_KEY', '')
 
 
 settings = Settings()

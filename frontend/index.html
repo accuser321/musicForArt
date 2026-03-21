@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>有声书创作台 - MVP</title>
+    <title>有声书声音设计台 - MVP</title>
     <style>
       :root {
         --bg: #f4efe6;
@@ -21,7 +21,66 @@
         background: radial-gradient(circle at top, #fffaf3 0%, var(--bg) 65%);
       }
       .wrap { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
-      h1 { margin: 0 0 16px; font-size: 28px; }
+      .hero-top {
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 12px;
+        padding: 14px 16px;
+        border: 1px solid #d9c09a;
+        border-radius: 18px;
+        background:
+          radial-gradient(420px 180px at 92% 12%, rgba(182, 78, 66, 0.14) 0%, transparent 70%),
+          radial-gradient(380px 160px at 8% 100%, rgba(141, 43, 32, 0.12) 0%, transparent 72%),
+          linear-gradient(135deg, #fff9f1, #fff1df 44%, #fff8ef 100%);
+        box-shadow: 0 16px 36px rgba(123, 87, 47, 0.1);
+      }
+      .hero-top::after {
+        content: "";
+        position: absolute;
+        right: -32px;
+        top: -34px;
+        width: 180px;
+        height: 180px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(182, 78, 66, 0.18) 0%, rgba(182, 78, 66, 0.04) 55%, transparent 72%);
+        pointer-events: none;
+      }
+      h1 {
+        margin: 0;
+        font-size: 28px;
+        letter-spacing: 0.5px;
+        line-height: 1.02;
+        color: #65241d;
+        text-shadow: 0 1px 0 rgba(255,255,255,.55);
+      }
+      .hero-subtitle {
+        margin-top: 6px;
+        max-width: 920px;
+        font-size: 13px;
+        line-height: 1.55;
+        color: #7a5a41;
+      }
+      .hero-inline {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        align-items: center;
+        vertical-align: baseline;
+      }
+      .hero-inline-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid #d7bea0;
+        background: rgba(255,255,255,.82);
+        color: #744b32;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.2;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px rgba(123, 87, 47, 0.05);
+      }
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
       .card {
         background: var(--panel);
@@ -616,17 +675,245 @@
         background: #fff;
         font-size: 13px;
       }
+      .leaderboard-shell {
+        margin-bottom: 12px;
+      }
+      .leaderboard-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 6px;
+      }
+      .leaderboard-tabs {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .leaderboard-tab {
+        width: auto;
+        padding: 5px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: #fffdfa;
+        color: #6b4c30;
+        font-size: 11px;
+        line-height: 1.1;
+        min-height: 0;
+      }
+      .leaderboard-tab.active {
+        background: linear-gradient(90deg, #8d2b20, #b64e42);
+        color: #fff;
+      }
+      .leaderboard-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .leaderboard-section {
+        background: linear-gradient(180deg, #fff9f0, #fffdf8);
+        border: 1px solid #d9c8ad;
+        border-radius: 14px;
+        padding: 8px;
+      }
+      .leaderboard-section h3 {
+        margin: 0 0 3px;
+        font-size: 15px;
+      }
+      .leaderboard-board {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 7px;
+      }
+      .leaderboard-board-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px;
+      }
+      .leaderboard-board + .leaderboard-board {
+        margin-top: 8px;
+      }
+      .leaderboard-board.theme-action {
+        background: linear-gradient(135deg, #fff4ea, #ffd8bf 42%, #fffaf5 100%);
+        border-color: #cd7a2c;
+        box-shadow: 0 12px 28px rgba(158, 79, 24, 0.16);
+      }
+      .leaderboard-board.theme-common {
+        background: linear-gradient(135deg, #faf5ec, #e6d7c5 42%, #fffdfa 100%);
+        border-color: #aa8f6f;
+        box-shadow: 0 12px 28px rgba(123, 104, 80, 0.15);
+      }
+      .leaderboard-board.theme-xuanhuan {
+        background: linear-gradient(135deg, #fff6d9, #ffe7a8 42%, #fff9ef 100%);
+        border-color: #e0b54f;
+        box-shadow: 0 12px 26px rgba(224, 181, 79, 0.15);
+      }
+      .leaderboard-board.theme-yanqing {
+        background: linear-gradient(135deg, #fff0f1, #ffd7da 42%, #fff7f7 100%);
+        border-color: #e07a84;
+        box-shadow: 0 12px 26px rgba(224, 122, 132, 0.15);
+      }
+      .leaderboard-board.theme-xuanyi {
+        background: linear-gradient(135deg, #353535, #161616 56%, #505050 100%);
+        border-color: #5d5d5d;
+        box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
+      }
+      .leaderboard-board.theme-kehuan {
+        background: linear-gradient(135deg, #e8f5ff, #cce8ff 42%, #f4fbff 100%);
+        border-color: #6ca8de;
+        box-shadow: 0 12px 26px rgba(76, 137, 196, 0.16);
+      }
+      .leaderboard-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+      .leaderboard-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 700;
+        border: 1px solid transparent;
+        flex: 0 0 auto;
+      }
+      .leaderboard-badge.theme-action {
+        background: linear-gradient(90deg, #9e4f18, #cd7a2c);
+        color: #fff7f0;
+      }
+      .leaderboard-badge.theme-common {
+        background: linear-gradient(90deg, #7b6850, #aa8f6f);
+        color: #fff9f1;
+      }
+      .leaderboard-badge.theme-xuanhuan {
+        background: linear-gradient(90deg, #d9a724, #f0cf74);
+        color: #5e4200;
+      }
+      .leaderboard-badge.theme-yanqing {
+        background: linear-gradient(90deg, #cf4e61, #f1979f);
+        color: #fff5f7;
+      }
+      .leaderboard-badge.theme-xuanyi {
+        background: linear-gradient(90deg, #131313, #474747);
+        color: #f7f7f7;
+      }
+      .leaderboard-badge.theme-kehuan {
+        background: linear-gradient(90deg, #3b79b4, #8fd0ff);
+        color: #eff8ff;
+      }
+      .leaderboard-board.theme-action .leaderboard-item {
+        background: rgba(255, 250, 245, 0.86);
+        border-color: rgba(205, 122, 44, 0.24);
+      }
+      .leaderboard-board.theme-common .leaderboard-item {
+        background: rgba(255, 252, 248, 0.88);
+        border-color: rgba(170, 143, 111, 0.26);
+      }
+      .leaderboard-board.theme-xuanyi .leaderboard-name,
+      .leaderboard-board.theme-xuanyi .leaderboard-count,
+      .leaderboard-board.theme-xuanyi h4 {
+        color: #f3f3f3;
+      }
+      .leaderboard-title-wrap h4 {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.15;
+      }
+      .leaderboard-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .leaderboard-item {
+        display: grid;
+        grid-template-columns: 22px minmax(0, 1fr) 34px;
+        gap: 6px;
+        align-items: center;
+        padding: 4px 6px;
+        border: 1px dashed #d8c6ad;
+        border-radius: 8px;
+        background: #fffdfa;
+      }
+      .leaderboard-rank {
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        background: #f3e3cd;
+        color: #8d2b20;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 10px;
+      }
+      .leaderboard-name {
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1.15;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .leaderboard-count {
+        text-align: right;
+        font-size: 11px;
+        font-weight: 700;
+        color: #8d2b20;
+        white-space: nowrap;
+      }
+      .leaderboard-empty {
+        padding: 8px;
+        border: 1px dashed #d8c6ad;
+        border-radius: 10px;
+        color: #7e6440;
+        font-size: 11px;
+        background: #fffdfa;
+      }
       @media (max-width: 900px) {
         .music-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .section-cards { grid-template-columns: 1fr; }
         .graph-lane-row { grid-template-columns: 1fr; }
+        .leaderboard-grid { grid-template-columns: 1fr; }
+        .leaderboard-board-grid { grid-template-columns: 1fr; }
       }
       @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
     </style>
   </head>
   <body>
     <div class="wrap">
-      <h1>有声书创作台</h1>
+      <section class="hero-top">
+        <h1>有声书声音设计台</h1>
+        <div class="hero-subtitle">
+          围绕
+          <span class="hero-inline">
+            <span class="hero-inline-chip">文本</span>
+            <span class="hero-inline-chip">动作音效</span>
+            <span class="hero-inline-chip">场景搭建</span>
+            <span class="hero-inline-chip">音乐分析</span>
+            <span class="hero-inline-chip">后期执行单</span>
+          </span>
+          ，帮助有声书后期快速完成声音拆解、音效命中、素材下载与制作决策。
+        </div>
+      </section>
+      <section class="leaderboard-shell">
+        <div class="leaderboard-toolbar">
+          <div><strong>热门排行榜</strong></div>
+          <div class="leaderboard-tabs">
+            <button class="leaderboard-tab active" id="lbTab_10d" onclick="setLeaderboardWindow('10d')">过去10天</button>
+            <button class="leaderboard-tab" id="lbTab_1d" onclick="setLeaderboardWindow('1d')">过去1天</button>
+            <button class="leaderboard-tab" id="lbTab_30d" onclick="setLeaderboardWindow('30d')">过去30天</button>
+            <button class="leaderboard-tab" id="lbTab_90d" onclick="setLeaderboardWindow('90d')">过去3个月</button>
+          </div>
+        </div>
+        <div id="leaderboardSections" class="leaderboard-grid">
+          <div class="leaderboard-section">排行榜加载中...</div>
+        </div>
+      </section>
       <div class="grid">
         <section class="card">
           <div class="hint" style="margin-bottom:10px;">
@@ -681,7 +968,7 @@
           </div>
           <p class="hint">当前项目ID: <span id="projectId">-</span> ｜ 当前赛道: <span id="projectGenreState">-</span></p>
 
-          <div class="hint">当前版本：LLM 调用已强制使用核心 Prompt 对（text_with_music + fusion_production），并默认返回 Prompt I/O 调试追踪。</div>
+          <div class="hint">当前版本：LLM 调用已强制使用核心 Prompt 对（text_with_music + fusion_production）；调试 JSON 仅在测试期开关开启或结果异常时显示。</div>
 
           <label>输入文本</label>
           <textarea id="textInput" rows="8" placeholder="输入章节片段，系统会识别动作和音效建议"></textarea>
@@ -735,6 +1022,10 @@
           <h3>结果展示（中文）</h3>
           <div id="usagePanel" class="usage-panel" style="display:none;"></div>
           <div id="prettyOutput" class="pretty">等待操作...</div>
+          <details id="debugJsonWrap" style="display:none; margin-bottom:10px;">
+            <summary style="cursor:pointer; color:#7a5a41;">查看调试 JSON</summary>
+            <pre id="debugOutput" style="margin-top:8px; min-height:120px;">等待调试输出...</pre>
+          </details>
           <div id="busyTip" class="busy" style="display:none;">处理中，请稍候...</div>
         </section>
       </div>
@@ -755,6 +1046,7 @@
       let authPhone = localStorage.getItem('mfa_auth_phone') || '';
       let authUser = null;
       let authSettings = { invite_only_enabled: true, invite_code_required: true, referral_code_supported: true, uid_supported: true };
+      let leaderboardWindowKey = '10d';
       const ACTION_PROMPT_BY_GENRE = {
         '玄幻': 'V3-action_verbs_xuanhuan_task.txt',
         '言情': 'V3-action_verbs_yanqing_task.txt',
@@ -1019,13 +1311,31 @@
 
       function show(data) {
         const normalized = normalizePayload(data);
-        const outputBox = document.getElementById('output');
-        if (outputBox) {
-          outputBox.textContent = typeof normalized === 'string' ? normalized : JSON.stringify(normalized, null, 2);
-        }
         syncAuthUsage(normalized);
         renderUsagePanel(normalized);
+        renderDebugPayload(normalized);
         renderPretty(normalized);
+      }
+
+      function renderDebugPayload(data) {
+        const wrap = document.getElementById('debugJsonWrap');
+        const box = document.getElementById('debugOutput');
+        if (!wrap || !box) return;
+        const enabled = Boolean(authSettings && authSettings.frontend_debug_expose_enabled);
+        const hasIssue = typeof data === 'string'
+          || (data && typeof data === 'object' && (
+            data.detail
+            || data.error
+            || data.ok === false
+            || data.frontend_debug_expose_enabled
+          ));
+        if (!enabled && !hasIssue) {
+          wrap.style.display = 'none';
+          box.textContent = '';
+          return;
+        }
+        wrap.style.display = 'block';
+        box.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
       }
 
       function syncAuthUsage(data) {
@@ -1098,6 +1408,116 @@
             ${isAuthorized ? '当前账号为授权用户：默认不扣减每日额度。' : '当前账号按每日额度计数。'}
           </div>
         `;
+      }
+
+      function leaderboardWindowLabel(key) {
+        return ({
+          '1d': '过去1天',
+          '10d': '过去10天',
+          '30d': '过去30天',
+          '90d': '过去3个月',
+        })[String(key || '').trim()] || '过去10天';
+      }
+
+      function truncateLeaderboardName(value, maxChars = 8) {
+        const chars = Array.from(String(value || '').trim());
+        if (!chars.length) return '-';
+        if (chars.length <= maxChars) return chars.join('');
+        return `${chars.slice(0, maxChars).join('')}...`;
+      }
+
+      function leaderboardBoardTheme(boardKey) {
+        const key = String(boardKey || '').trim();
+        if (key === 'overall') {
+          return { cls: 'theme-action', badge: '动作', note: '动作总热度' };
+        }
+        if (key === 'common') {
+          return { cls: 'theme-common', badge: '通用', note: '通用素材热度' };
+        }
+        if (key === 'genre_玄幻') {
+          return { cls: 'theme-xuanhuan', badge: '玄幻', note: '渐变黄' };
+        }
+        if (key === 'genre_言情') {
+          return { cls: 'theme-yanqing', badge: '言情', note: '渐变红' };
+        }
+        if (key === 'genre_悬疑') {
+          return { cls: 'theme-xuanyi', badge: '悬疑', note: '渐变黑' };
+        }
+        if (key === 'genre_科幻') {
+          return { cls: 'theme-kehuan', badge: '科幻', note: '渐变蓝' };
+        }
+        return { cls: 'theme-common', badge: '榜单', note: '下载热度' };
+      }
+
+      function updateLeaderboardTabs() {
+        ['1d', '10d', '30d', '90d'].forEach((key) => {
+          const node = document.getElementById(`lbTab_${key}`);
+          if (!node) return;
+          node.classList.toggle('active', key === leaderboardWindowKey);
+        });
+      }
+
+      function renderHomeLeaderboards(data) {
+        const box = document.getElementById('leaderboardSections');
+        if (!box) return;
+        const sections = Array.isArray(data && data.sections) ? data.sections : [];
+        if (!sections.length) {
+          box.innerHTML = '<div class="leaderboard-section"><div class="leaderboard-empty">当前时间范围内还没有可展示的下载排行。</div></div>';
+          return;
+        }
+        box.innerHTML = sections.map((section) => `
+          <div class="leaderboard-section">
+            <h3>${escHtml(section.title || '')}</h3>
+            <div class="leaderboard-board-grid">
+              ${(section.boards || []).map((board) => {
+                const theme = leaderboardBoardTheme(board.board_key);
+                return `
+                  <div class="leaderboard-board ${theme.cls}">
+                    <div class="leaderboard-head">
+                      <div class="leaderboard-title-wrap">
+                        <h4>${escHtml(board.title || '')}</h4>
+                      </div>
+                      <span class="leaderboard-badge ${theme.cls}">${escHtml(theme.badge)}</span>
+                    </div>
+                    ${Array.isArray(board.items) && board.items.length ? `
+                      <div class="leaderboard-list">
+                        ${board.items.map((item, idx) => `
+                          <div class="leaderboard-item">
+                            <div class="leaderboard-rank">${idx + 1}</div>
+                            <div class="leaderboard-name" title="${escHtml(item.display_name || item.item_key || '-')}">${escHtml(truncateLeaderboardName(item.display_name || item.item_key || '-', 8))}</div>
+                            <div class="leaderboard-count">${escHtml(item.count || 0)}</div>
+                          </div>
+                        `).join('')}
+                      </div>
+                    ` : '<div class="leaderboard-empty">当前时间范围内暂无下载数据。</div>'}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `).join('');
+      }
+
+      async function loadHomeLeaderboards() {
+        const box = document.getElementById('leaderboardSections');
+        if (box) {
+          box.innerHTML = '<div class="leaderboard-section">排行榜加载中...</div>';
+        }
+        try {
+          const res = await window.fetch(`${apiBase()}/home/leaderboards?window=${encodeURIComponent(leaderboardWindowKey)}`);
+          const data = await readApiResponse(res);
+          renderHomeLeaderboards(data);
+        } catch (err) {
+          if (box) {
+            box.innerHTML = `<div class="leaderboard-section"><div class="leaderboard-empty">排行榜加载失败：${escHtml(err && err.message ? err.message : String(err || 'unknown error'))}</div></div>`;
+          }
+        }
+      }
+
+      function setLeaderboardWindow(key) {
+        leaderboardWindowKey = key || '10d';
+        updateLeaderboardTabs();
+        loadHomeLeaderboards();
       }
 
       function renderLlmDebug(data) {
@@ -1675,7 +2095,7 @@
                     <td>${extraIdx + 1}</td>
                     <td>${escHtml(a.file_name || '')}</td>
                     <td>${a.score ?? '-'}</td>
-                    <td><button onclick="downloadActionSfxAsset('${escAttr(item.verb || '')}','${escAttr(a.label || '')}','${escAttr(a.file_name || 'sfx.bin')}','${escAttr(a.download_api || '')}')">下载</button></td>
+                    <td><button onclick="downloadActionSfxAsset('${escAttr(item.verb || '')}','${escAttr(a.label || '')}','${escAttr(a.file_name || 'sfx.bin')}','${escAttr(a.download_api || '')}','action','${escAttr(data.genre || '')}','${escAttr(a.scope_label || '')}','${escAttr(a.display_name || a.label || '')}')">下载</button></td>
                   </tr>
                 `).join('');
                 return `
@@ -1684,7 +2104,7 @@
                     <td>${escHtml(primary.display_name || group.display_name || group.label || '')}</td>
                     <td>${escHtml(primary.file_name || '')}</td>
                     <td>${primary.score ?? '-'}</td>
-                    <td><button onclick="downloadActionSfxAsset('${escAttr(item.verb || '')}','${escAttr(primary.label || '')}','${escAttr(primary.file_name || 'sfx.bin')}','${escAttr(primary.download_api || '')}')">下载</button></td>
+                    <td><button onclick="downloadActionSfxAsset('${escAttr(item.verb || '')}','${escAttr(primary.label || '')}','${escAttr(primary.file_name || 'sfx.bin')}','${escAttr(primary.download_api || '')}','action','${escAttr(data.genre || '')}','${escAttr(primary.scope_label || '')}','${escAttr(primary.display_name || primary.label || '')}')">下载</button></td>
                   </tr>
                   ${extraAssets.length ? `
                     <tr>
@@ -1962,9 +2382,6 @@
         if (Array.isArray(data.risks) && data.risks.length) {
           blocks.push(panel('复核提醒', `<ul>${data.risks.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`));
         }
-        if (data.report_markdown || data.markdown) {
-          blocks.push(panel('补充说明', `<div class="md">${mdToHtml(data.report_markdown || data.markdown || '')}</div>`));
-        }
         return blocks;
       }
 
@@ -2013,20 +2430,6 @@
           <div class="kv"><div>赛道层命中</div><div>${genreHitCount}</div></div>
           <div class="hint" style="margin-top:10px;">这一步回答“这些场景已经命中了哪些可下载音效、还缺哪些场景音效词”；如果缺口仍多，再进入 4.6 步生成场景补充单。</div>
         `));
-        if (gapItems.length) {
-          const gapScenes = items
-            .filter(item => Array.isArray(item.missing_scene_sfx_terms) && item.missing_scene_sfx_terms.length)
-            .map(item => `${String(item.scene_name || '').trim()}（缺${Number(item.missing_scene_sfx_terms.length || 0)}）`)
-            .filter(Boolean)
-            .slice(0, 8);
-          blocks.push(panel('缺口提醒', `
-            <div class="hint">
-              当前仍有 <strong>${gapItems.length}</strong> 个场景音效词缺口。
-              ${gapScenes.length ? `优先涉及：${escHtml(gapScenes.join('、'))}。` : ''}
-              如果这些缺口本身不合理，应先回到 scene 图谱维护；如果合理，再进入 4.6 步写入场景补充单。
-            </div>
-          `));
-        }
         const getSceneSfxNextStep = (item) => {
           const missingCount = Array.isArray(item?.missing_scene_sfx_terms) ? item.missing_scene_sfx_terms.length : 0;
           const assetCount = Array.isArray(item?.assets) ? item.assets.length : 0;
@@ -2061,7 +2464,7 @@
                 <td>${escHtml(a.display_name || a.file_name || a.label || '')}</td>
                 <td>${escHtml(a.scope_label || '未标注')}</td>
                 <td>${a.score ?? '-'}</td>
-                <td>${a.download_api ? `<button onclick="downloadActionSfxAsset('${escAttr(item.scene_name || '')}','${escAttr(a.label || '')}','${escAttr(a.file_name || 'scene_sfx.bin')}','${escAttr(a.download_api || '')}')">下载</button>` : '暂无'}</td>
+                <td>${a.download_api ? `<button onclick="downloadActionSfxAsset('${escAttr(item.scene_name || '')}','${escAttr(a.label || '')}','${escAttr(a.file_name || 'scene_sfx.bin')}','${escAttr(a.download_api || '')}','scene','${escAttr(data.genre || '')}','${escAttr(a.scope_label || '')}','${escAttr(a.display_name || a.label || '')}')">下载</button>` : '暂无'}</td>
               </tr>
             `).join('')
             : '<tr><td colspan="5" class="hint">当前没有命中素材</td></tr>';
@@ -2243,7 +2646,7 @@
         if (isMusicResult) {
           blocks.push(...renderMusicAnalysisPanels(data, userView || fallbackMusicReport, panel));
         }
-        if (isActionVerbResult && !isFusionResult && !isTextNarrationResult) {
+        if (isActionVerbResult && !isFusionResult && !isTextNarrationResult && !isSceneBuildingResult) {
           blocks.push(...renderActionVerbPanels(actionVerbReport, panel, actionVerbSelection));
         }
         if (isActionGraphResult) {
@@ -2528,7 +2931,6 @@
       function authHeaders(extra = {}) {
         const h = { ...(extra || {}) };
         if (authToken) h.Authorization = `Bearer ${authToken}`;
-        if (authPhone) h['X-User-Phone'] = authPhone;
         return h;
       }
 
@@ -2930,10 +3332,23 @@
         URL.revokeObjectURL(href);
       }
 
-      async function downloadActionSfxAsset(verb, label, fileName, downloadApi) {
+      async function downloadActionSfxAsset(sourceName, label, fileName, downloadApi, sourceDomain = 'action', genre = '', scopeLabel = '', displayName = '') {
         if (!downloadApi) return show('缺少素材下载地址');
         const sep = downloadApi.includes('?') ? '&' : '?';
-        const url = `${apiBase().replace(/\/api$/, '')}${downloadApi}${sep}project_id=${encodeURIComponent(projectId || '')}&verb=${encodeURIComponent(verb || '')}&label=${encodeURIComponent(label || '')}`;
+        const params = [
+          `project_id=${encodeURIComponent(projectId || '')}`,
+          `label=${encodeURIComponent(label || '')}`,
+          `source_domain=${encodeURIComponent(sourceDomain || 'action')}`,
+          `genre=${encodeURIComponent(genre || '')}`,
+          `scope_label=${encodeURIComponent(scopeLabel || '')}`,
+          `display_name=${encodeURIComponent(displayName || label || fileName || '')}`,
+        ];
+        if (sourceDomain === 'scene') {
+          params.push(`scene_name=${encodeURIComponent(sourceName || '')}`);
+        } else {
+          params.push(`verb=${encodeURIComponent(sourceName || '')}`);
+        }
+        const url = `${apiBase().replace(/\/api$/, '')}${downloadApi}${sep}${params.join('&')}`;
         await _download(url, fileName || 'sfx.bin');
       }
 
@@ -3116,6 +3531,8 @@
       }
 
       updateFeatureGateUI();
+      updateLeaderboardTabs();
+      loadHomeLeaderboards();
       syncAuthBootstrap();
       refreshSceneActionButtons();
     </script>

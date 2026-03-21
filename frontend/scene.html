@@ -200,6 +200,39 @@
         line-height: 1.7;
       }
       .callout strong { color: #fff3d3; }
+      .leader-admin-box {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #0d172b;
+        padding: 10px;
+        margin-top: 10px;
+      }
+      .leader-admin-board {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #0b1730;
+        padding: 10px;
+        margin-top: 10px;
+      }
+      .leader-admin-item {
+        border: 1px solid #21385d;
+        border-radius: 10px;
+        padding: 10px;
+        margin-top: 8px;
+        background: #0d1a31;
+      }
+      .leader-admin-rank {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        background: rgba(242,169,59,.18);
+        color: #fff3d3;
+        font-size: 12px;
+        font-weight: 700;
+      }
       .login-state {
         display: inline-flex;
         align-items: center;
@@ -805,6 +838,27 @@
           <pre id="sceneNeo4jOut" style="margin-top:12px;">等待操作...</pre>
         </div>
 
+        <div class="card wide" id="sceneLeaderboardSection">
+          <h3>前台场景排行榜管理</h3>
+          <div class="callout">这里维护用户端展示的场景排行榜。规则上优先读取真实下载数据；如果某条展示不适合直接上前台，可以对显示名、显示数量和排序位做手动覆盖。</div>
+          <div class="row" style="margin-top:10px;">
+            <div class="cell">
+              <select id="sceneLeaderboardWindow">
+                <option value="1d">过去1天</option>
+                <option value="10d" selected>过去10天</option>
+                <option value="30d">过去30天</option>
+                <option value="90d">过去3个月</option>
+              </select>
+            </div>
+            <div class="cell" style="flex:0 0 220px;"><button onclick="loadSceneLeaderboardAdmin()">加载场景榜配置</button></div>
+          </div>
+          <div id="sceneLeaderboardAdminView" class="leader-admin-box">等待加载场景排行榜管理数据...</div>
+          <details style="margin-top:10px;">
+            <summary style="cursor:pointer; color: var(--muted);">查看场景排行榜原始 JSON</summary>
+            <pre id="sceneLeaderboardOut">等待加载...</pre>
+          </details>
+        </div>
+
         <div class="card wide" id="sceneDebugSection">
           <h3>请求回显</h3>
           <details>
@@ -828,6 +882,7 @@
       let sceneCollectionCatalog = { items: [] };
       let sceneTermSuggestionCatalog = { suggestions: {} };
       let latestSceneNeo4jStatus = null;
+      let sceneLeaderboardState = { windowKey: '10d', data: null };
       let sceneSupplementsLoading = false;
       const SCENE_DOC_ANCHORS = [
         {
@@ -869,7 +924,6 @@
       function h(extra = {}) {
         const headers = { ...(extra || {}) };
         if (token) headers.Authorization = `Bearer ${token}`;
-        if (loginPhone) headers['X-User-Phone'] = loginPhone;
         return headers;
       }
 
@@ -888,6 +942,152 @@
         const node = document.getElementById(id);
         if (!node) return;
         node.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      }
+
+      function currentSceneLeaderboardWindow() {
+        return (document.getElementById('sceneLeaderboardWindow')?.value || '10d').trim() || '10d';
+      }
+
+      function renderSceneLeaderboardAdmin(data) {
+        const box = document.getElementById('sceneLeaderboardAdminView');
+        if (!box) return;
+        const layout = data?.layout || {};
+        const domainOrder = Array.isArray(layout.domain_order) ? layout.domain_order : ['action', 'scene'];
+        const actionPos = domainOrder.indexOf('action') + 1 || 1;
+        const scenePos = domainOrder.indexOf('scene') + 1 || 2;
+        const boards = Array.isArray(data?.boards) ? data.boards : [];
+        box.innerHTML = `
+          <div class="leader-admin-box">
+            <div class="muted">除了当前场景榜的条目覆盖，这里也可以顺手调整用户端“动作榜 / 场景榜”的左右位置和标题。</div>
+            <div class="row" style="margin-top:8px;">
+              <div class="cell">
+                <label class="muted">动作榜标题</label>
+                <input id="sceneLbActionTitle" value="${escHtml(layout?.domain_titles?.action || '动作音效热度榜')}" />
+              </div>
+              <div class="cell">
+                <label class="muted">场景榜标题</label>
+                <input id="sceneLbSceneTitle" value="${escHtml(layout?.domain_titles?.scene || '场景搭建热度榜')}" />
+              </div>
+              <div class="cell">
+                <label class="muted">动作榜位置</label>
+                <select id="sceneLbActionPos">
+                  <option value="1" ${actionPos === 1 ? 'selected' : ''}>第 1 区</option>
+                  <option value="2" ${actionPos === 2 ? 'selected' : ''}>第 2 区</option>
+                </select>
+              </div>
+              <div class="cell">
+                <label class="muted">场景榜位置</label>
+                <select id="sceneLbScenePos">
+                  <option value="1" ${scenePos === 1 ? 'selected' : ''}>第 1 区</option>
+                  <option value="2" ${scenePos === 2 ? 'selected' : ''}>第 2 区</option>
+                </select>
+              </div>
+              <div class="cell" style="align-self:flex-end;"><button onclick="saveSceneLeaderboardLayout()">保存前台位置与标题</button></div>
+            </div>
+          </div>
+          ${boards.map((board) => `
+            <div class="leader-admin-board">
+              <h4>${escHtml(board.title || '')}</h4>
+              <div class="muted">当前榜单下载量 ${escHtml(board.download_count || 0)}，时间范围 ${escHtml(data.window_key || '10d')}。</div>
+              ${Array.isArray(board.items) && board.items.length ? board.items.map((item, idx) => `
+                <div class="leader-admin-item">
+                  <div class="muted"><span class="leader-admin-rank">${idx + 1}</span> 真实下载 ${escHtml(item.raw_count || item.count || 0)} 次${item.has_override ? ' ｜ 已有手动覆盖' : ''}</div>
+                  <div class="row" style="margin-top:8px;">
+                    <div class="cell">
+                      <label class="muted">前台展示名</label>
+                      <input id="scene_lb_name_${escAttr(board.board_key)}_${escAttr(item.item_key)}" value="${escHtml(item.display_name || '')}" />
+                    </div>
+                    <div class="cell">
+                      <label class="muted">前台副标题</label>
+                      <input id="scene_lb_sub_${escAttr(board.board_key)}_${escAttr(item.item_key)}" value="${escHtml(item.subtitle || '')}" />
+                    </div>
+                    <div class="cell">
+                      <label class="muted">前台显示数量</label>
+                      <input id="scene_lb_count_${escAttr(board.board_key)}_${escAttr(item.item_key)}" value="${escHtml(item.count || 0)}" />
+                    </div>
+                    <div class="cell">
+                      <label class="muted">前台排序位</label>
+                      <input id="scene_lb_rank_${escAttr(board.board_key)}_${escAttr(item.item_key)}" value="${escHtml(item.manual_rank || '')}" placeholder="留空=按真实排序" />
+                    </div>
+                    <div class="cell">
+                      <label class="muted">是否展示</label>
+                      <select id="scene_lb_enabled_${escAttr(board.board_key)}_${escAttr(item.item_key)}">
+                        <option value="1" ${item.enabled === false ? '' : 'selected'}>展示</option>
+                        <option value="0" ${item.enabled === false ? 'selected' : ''}>隐藏</option>
+                      </select>
+                    </div>
+                    <div class="cell" style="align-self:flex-end;">
+                      <button onclick="saveSceneLeaderboardOverride('${escAttr(board.board_key || '')}','${escAttr(item.item_key || '')}','${escAttr(item.scope_label || '')}','${escAttr(item.genre || '')}','${escAttr(item.file_name || '')}')">保存这一条</button>
+                    </div>
+                  </div>
+                </div>
+              `).join('') : '<div class="muted" style="margin-top:8px;">当前时间范围内暂无场景下载数据。</div>'}
+            </div>
+          `).join('')}
+        `;
+      }
+
+      async function saveSceneLeaderboardLayout() {
+        const actionTitle = (document.getElementById('sceneLbActionTitle')?.value || '').trim();
+        const sceneTitle = (document.getElementById('sceneLbSceneTitle')?.value || '').trim();
+        const actionPos = Number(document.getElementById('sceneLbActionPos')?.value || 1);
+        const scenePos = Number(document.getElementById('sceneLbScenePos')?.value || 2);
+        const domainOrder = actionPos <= scenePos ? ['action', 'scene'] : ['scene', 'action'];
+        const res = await fetch(`${base()}/admin/leaderboards/layout`, {
+          method: 'POST',
+          headers: h({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({
+            domain_order: domainOrder,
+            domain_titles: {
+              action: actionTitle,
+              scene: sceneTitle,
+            },
+          }),
+        });
+        const data = await read(res);
+        show('sceneLeaderboardOut', data);
+        await loadSceneLeaderboardAdmin();
+      }
+
+      async function saveSceneLeaderboardOverride(boardKey, itemKey, scopeLabel, genre, fileName) {
+        const name = (document.getElementById(`scene_lb_name_${boardKey}_${itemKey}`)?.value || '').trim();
+        const subtitle = (document.getElementById(`scene_lb_sub_${boardKey}_${itemKey}`)?.value || '').trim();
+        const overrideCount = (document.getElementById(`scene_lb_count_${boardKey}_${itemKey}`)?.value || '').trim();
+        const manualRank = (document.getElementById(`scene_lb_rank_${boardKey}_${itemKey}`)?.value || '').trim();
+        const enabled = (document.getElementById(`scene_lb_enabled_${boardKey}_${itemKey}`)?.value || '1') === '1';
+        const res = await fetch(`${base()}/admin/leaderboards/override`, {
+          method: 'POST',
+          headers: h({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({
+            domain: 'scene',
+            board_key: boardKey,
+            window_key: currentSceneLeaderboardWindow(),
+            item_key: itemKey,
+            display_name: name,
+            subtitle,
+            override_count: overrideCount,
+            manual_rank: manualRank,
+            enabled,
+            meta: {
+              scope_label: scopeLabel,
+              genre,
+              file_name: fileName,
+            },
+          }),
+        });
+        const data = await read(res);
+        show('sceneLeaderboardOut', data);
+        await loadSceneLeaderboardAdmin();
+      }
+
+      async function loadSceneLeaderboardAdmin() {
+        const windowKey = currentSceneLeaderboardWindow();
+        sceneLeaderboardState.windowKey = windowKey;
+        const res = await fetch(`${base()}/admin/leaderboards/config?domain=scene&window=${encodeURIComponent(windowKey)}`, { headers: h() });
+        const data = await read(res);
+        sceneLeaderboardState.data = data;
+        renderSceneLeaderboardAdmin(data);
+        show('sceneLeaderboardOut', data);
       }
 
       function escHtml(s) {
@@ -1085,6 +1285,7 @@
             await loadSceneGraphCatalog();
             await loadSceneCollections();
             await loadSceneTemplates();
+            await loadSceneLeaderboardAdmin();
           }
           show('sceneDebugOut', data);
         } finally {
@@ -3052,6 +3253,7 @@
         loadSceneGraphCatalog().catch(err => show('sceneDebugOut', String(err?.message || err)));
         loadSceneCollections().catch(err => show('sceneDebugOut', String(err?.message || err)));
         loadSceneTemplates().catch(err => show('sceneDebugOut', String(err?.message || err)));
+        loadSceneLeaderboardAdmin().catch(err => show('sceneLeaderboardOut', String(err?.message || err)));
       }
     </script>
   </body>

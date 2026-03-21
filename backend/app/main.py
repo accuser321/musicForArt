@@ -1,10 +1,12 @@
 import json
 import hashlib
+import base64
+import hmac
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from time import perf_counter
 import re
-from urllib.parse import quote
+from urllib.parse import quote, urlparse, parse_qs, unquote
 import random
 import secrets
 from functools import wraps
@@ -27,6 +29,7 @@ from app.models import (
     DraftReview,
     FusionPlan,
     InviteCode,
+    LeaderboardOverride,
     NarrationAnalysis,
     Project,
     SceneAnalysis,
@@ -116,6 +119,15 @@ CORS(app)
 SUPPORTED_GENRES = {'玄幻', '言情', '悬疑', '科幻'}
 BETA_INVITE_ONLY_KEY = 'beta_invite_only_enabled'
 INVITE_SEED_TARGET = 200
+LEADERBOARD_LAYOUT_KEY = 'homepage_leaderboard_layout'
+FRONTEND_DEBUG_EXPOSE_KEY = 'frontend_debug_expose_enabled'
+LEADERBOARD_WINDOWS = {
+    '1d': 1,
+    '10d': 10,
+    '30d': 30,
+    '90d': 90,
+}
+LEADERBOARD_GENRES = ['玄幻', '言情', '科幻', '悬疑']
 
 
 def _is_composite_sfx_term(term: str, children: dict | None = None) -> bool:
@@ -217,6 +229,18 @@ def _set_invite_only_enabled(db, enabled: bool) -> bool:
     return enabled
 
 
+def _frontend_debug_expose_enabled(db) -> bool:
+    row = _ensure_system_setting(db, FRONTEND_DEBUG_EXPOSE_KEY, 'true' if settings.frontend_debug_expose_default else 'false')
+    return str(row.setting_value or '').strip().lower() not in {'0', 'false', 'off', 'no'}
+
+
+def _set_frontend_debug_expose_enabled(db, enabled: bool) -> bool:
+    row = _ensure_system_setting(db, FRONTEND_DEBUG_EXPOSE_KEY, 'true' if settings.frontend_debug_expose_default else 'false')
+    row.setting_value = 'true' if enabled else 'false'
+    db.commit()
+    return enabled
+
+
 def _ensure_invite_seed_codes(db, target: int = INVITE_SEED_TARGET) -> None:
     total = int(db.execute(select(func.count()).select_from(InviteCode)).scalar_one() or 0)
     if total >= target:
@@ -236,6 +260,399 @@ def _ensure_invite_seed_codes(db, target: int = INVITE_SEED_TARGET) -> None:
     _ensure_system_setting(db, BETA_INVITE_ONLY_KEY, 'true')
     db.commit()
 
+
+def _default_leaderboard_layout() -> dict:
+    action_order = ['overall', 'common'] + [f'genre_{genre}' for genre in LEADERBOARD_GENRES]
+    scene_order = ['overall', 'common'] + [f'genre_{genre}' for genre in LEADERBOARD_GENRES]
+    return {
+        'domain_order': ['action', 'scene'],
+        'domain_titles': {
+            'action': '动作音效热度榜',
+            'scene': '场景搭建热度榜',
+        },
+        'board_orders': {
+            'action': action_order,
+            'scene': scene_order,
+        },
+    }
+
+
+def _load_leaderboard_layout(db) -> dict:
+    row = _ensure_system_setting(db, LEADERBOARD_LAYOUT_KEY, json.dumps(_default_leaderboard_layout(), ensure_ascii=False))
+    try:
+        data = json.loads(row.setting_value or '{}')
+    except json.JSONDecodeError:
+        data = {}
+    default = _default_leaderboard_layout()
+    merged = {
+        'domain_order': data.get('domain_order') if isinstance(data.get('domain_order'), list) else default['domain_order'],
+        'domain_titles': {
+            **default['domain_titles'],
+            **(data.get('domain_titles') if isinstance(data.get('domain_titles'), dict) else {}),
+        },
+        'board_orders': {
+            'action': (
+                data.get('board_orders', {}).get('action')
+                if isinstance(data.get('board_orders'), dict) and isinstance(data.get('board_orders', {}).get('action'), list)
+                else default['board_orders']['action']
+            ),
+            'scene': (
+                data.get('board_orders', {}).get('scene')
+                if isinstance(data.get('board_orders'), dict) and isinstance(data.get('board_orders', {}).get('scene'), list)
+                else default['board_orders']['scene']
+            ),
+        },
+    }
+    return merged
+
+
+def _save_leaderboard_layout(db, payload: dict | None) -> dict:
+    payload = payload or {}
+    current = _load_leaderboard_layout(db)
+    domain_order = [x for x in (payload.get('domain_order') or current['domain_order']) if x in {'action', 'scene'}]
+    if set(domain_order) != {'action', 'scene'}:
+        domain_order = current['domain_order']
+    domain_titles = {
+        'action': str((payload.get('domain_titles') or {}).get('action') or current['domain_titles']['action']).strip() or current['domain_titles']['action'],
+        'scene': str((payload.get('domain_titles') or {}).get('scene') or current['domain_titles']['scene']).strip() or current['domain_titles']['scene'],
+    }
+    board_orders = {}
+    for domain in ('action', 'scene'):
+        default_keys = [item['board_key'] for item in _leaderboard_board_defs(domain)]
+        incoming = []
+        raw_orders = payload.get('board_orders') if isinstance(payload.get('board_orders'), dict) else {}
+        if isinstance(raw_orders.get(domain), list):
+            incoming = [str(x).strip() for x in raw_orders.get(domain) if str(x).strip()]
+        seen = set()
+        order = []
+        for key in incoming + current['board_orders'].get(domain, []) + default_keys:
+            value = str(key).strip()
+            if value and value in default_keys and value not in seen:
+                seen.add(value)
+                order.append(value)
+        board_orders[domain] = order
+    row = _ensure_system_setting(db, LEADERBOARD_LAYOUT_KEY, '')
+    row.setting_value = json.dumps(
+        {
+            'domain_order': domain_order,
+            'domain_titles': domain_titles,
+            'board_orders': board_orders,
+        },
+        ensure_ascii=False,
+    )
+    db.commit()
+    return _load_leaderboard_layout(db)
+
+
+def _download_token_secret() -> bytes:
+    raw = str(settings.download_signing_key or '').strip() or str(settings.llm_api_key or '').strip() or 'music-for-art-download-token'
+    return raw.encode('utf-8')
+
+
+def _make_download_token(path: str, *, phone: str = '', ttl_sec: int | None = None) -> str:
+    ttl = int(ttl_sec or settings.download_token_ttl_sec or 300)
+    exp = int(datetime.now(timezone.utc).timestamp()) + max(30, ttl)
+    payload = {
+        'path': str(path or '').strip(),
+        'phone': str(phone or '').strip(),
+    }
+    body = base64.urlsafe_b64encode(json.dumps(payload, ensure_ascii=False, separators=(',', ':')).encode('utf-8')).decode('ascii').rstrip('=')
+    message = f'{body}.{exp}'
+    sig = hmac.new(_download_token_secret(), message.encode('utf-8'), hashlib.sha256).hexdigest()
+    return f'{body}.{exp}.{sig}'
+
+
+def _parse_download_token(token: str) -> dict | None:
+    raw = str(token or '').strip()
+    if not raw or raw.count('.') < 2:
+        return None
+    body, exp_raw, sig = raw.rsplit('.', 2)
+    try:
+        exp = int(exp_raw)
+    except ValueError:
+        return None
+    expected = hmac.new(_download_token_secret(), f'{body}.{exp}'.encode('utf-8'), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, sig):
+        return None
+    if exp < int(datetime.now(timezone.utc).timestamp()):
+        return None
+    padded = body + '=' * (-len(body) % 4)
+    try:
+        payload = json.loads(base64.urlsafe_b64decode(padded.encode('ascii')).decode('utf-8'))
+    except Exception:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return payload
+
+
+def _tokenized_download_api_if_needed(download_api: str, *, phone: str = '') -> str:
+    url = str(download_api or '').strip()
+    if not url or not settings.require_signed_downloads:
+        return url
+    parsed = urlparse(url)
+    qs = parse_qs(parsed.query)
+    raw_path = qs.get('path', [''])[0]
+    path = unquote(str(raw_path or '').strip())
+    if not path:
+        return url
+    token = _make_download_token(path, phone=phone)
+    return f"{settings.api_prefix}/sfx/file?token={quote(token, safe='')}"
+
+
+def _sanitize_user_payload(value, *, debug_enabled: bool, phone: str = ''):
+    if isinstance(value, list):
+        return [_sanitize_user_payload(item, debug_enabled=debug_enabled, phone=phone) for item in value]
+    if not isinstance(value, dict):
+        return value
+    out = {}
+    for key, item in value.items():
+        if key in {'file_path', 'asset_file_path', '_source_path'}:
+            continue
+        if not debug_enabled and key in {'llm_trace', 'debug', 'raw_response'}:
+            continue
+        if not debug_enabled and key in {'prompt_file', 'effective_prompt_file'}:
+            continue
+        if key == 'download_api' and isinstance(item, str):
+            out[key] = _tokenized_download_api_if_needed(item, phone=phone)
+            continue
+        out[key] = _sanitize_user_payload(item, debug_enabled=debug_enabled, phone=phone)
+    return out
+
+
+def _user_json_response(payload: dict):
+    with SessionLocal() as db:
+        debug_enabled = _frontend_debug_expose_enabled(db)
+    phone = getattr(g, 'current_user_phone', '') or ''
+    sanitized = _sanitize_user_payload(payload, debug_enabled=debug_enabled, phone=phone)
+    if isinstance(sanitized, dict):
+        sanitized['frontend_debug_expose_enabled'] = bool(debug_enabled)
+    return jsonify(sanitized)
+
+
+def _leaderboard_window(days_raw: str | None = None, window_key_raw: str | None = None) -> tuple[str, int]:
+    key = str(window_key_raw or '').strip()
+    if key in LEADERBOARD_WINDOWS:
+        return key, LEADERBOARD_WINDOWS[key]
+    try:
+        days = int(str(days_raw or '').strip() or '10')
+    except ValueError:
+        days = 10
+    for window_key, window_days in LEADERBOARD_WINDOWS.items():
+        if days == window_days:
+            return window_key, window_days
+    if days <= 1:
+        return '1d', 1
+    if days <= 10:
+        return '10d', 10
+    if days <= 30:
+        return '30d', 30
+    return '90d', 90
+
+
+def _leaderboard_board_defs(domain: str) -> list[dict]:
+    scope_name = '动作音效' if domain == 'action' else '场景音效'
+    board_defs = [
+        {'board_key': 'overall', 'title': f'下载最多的{scope_name} Top5', 'scope_label': ''},
+        {'board_key': 'common', 'title': '下载最多的通用音效 Top5', 'scope_label': '通用'},
+    ]
+    board_defs.extend(
+        {'board_key': f'genre_{genre}', 'title': f'下载最多的{genre}赛道音效 Top5', 'scope_label': genre}
+        for genre in LEADERBOARD_GENRES
+    )
+    return board_defs
+
+
+def _leaderboard_source_action(domain: str) -> str:
+    return 'scene_sfx_asset_download' if domain == 'scene' else 'action_sfx_asset_download'
+
+
+def _load_leaderboard_overrides(db, domain: str, window_key: str) -> list[LeaderboardOverride]:
+    return db.execute(
+        select(LeaderboardOverride)
+        .where(
+            LeaderboardOverride.domain == domain,
+            LeaderboardOverride.window_key == window_key,
+        )
+    ).scalars().all()
+
+
+def _build_leaderboard_rows(db, domain: str, days: int) -> list[dict]:
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    rows = db.execute(
+        select(
+            UserOperationLog.project_id,
+            UserOperationLog.user_phone,
+            UserOperationLog.action,
+            UserOperationLog.input_json,
+            UserOperationLog.file_refs_json,
+            UserOperationLog.created_at,
+        )
+        .where(
+            UserOperationLog.created_at >= cutoff,
+            UserOperationLog.action.in_(['action_sfx_asset_download', 'scene_sfx_asset_download']),
+        )
+        .order_by(UserOperationLog.created_at.desc())
+        .limit(3000)
+    ).all()
+    out = []
+    for project_id, user_phone, action, input_json, file_refs_json, created_at in rows:
+        try:
+            payload = json.loads(input_json or '{}')
+        except json.JSONDecodeError:
+            payload = {}
+        try:
+            file_refs = json.loads(file_refs_json or '[]')
+        except json.JSONDecodeError:
+            file_refs = []
+        source_domain = str(payload.get('source_domain') or '').strip()
+        if not source_domain:
+            source_domain = 'scene' if str(action or '').strip() == 'scene_sfx_asset_download' else 'action'
+        if source_domain != domain:
+            continue
+        file_name = str(payload.get('file_name') or '').strip()
+        if not file_name and isinstance(file_refs, list) and file_refs:
+            file_name = Path(str(file_refs[0])).name
+        display_name = str(payload.get('display_name') or payload.get('label') or file_name).strip()
+        if not display_name:
+            continue
+        source_name = str(payload.get('scene_name') or payload.get('verb') or '').strip()
+        scope_label = str(payload.get('scope_label') or '').strip()
+        genre = str(payload.get('genre') or '').strip()
+        item_key = str(payload.get('item_key') or display_name or file_name).strip()
+        out.append(
+            {
+                'project_id': project_id,
+                'user_phone': user_phone,
+                'created_at': created_at.isoformat() if created_at else '',
+                'item_key': item_key,
+                'display_name': display_name,
+                'subtitle': source_name,
+                'scope_label': scope_label,
+                'genre': genre,
+                'file_name': file_name,
+                'action': action,
+            }
+        )
+    return out
+
+
+def _board_matches(board_key: str, row: dict) -> bool:
+    if board_key == 'overall':
+        return True
+    scope_label = str(row.get('scope_label') or '').strip()
+    if board_key == 'common':
+        return scope_label == '通用'
+    if board_key.startswith('genre_'):
+        return scope_label == board_key.replace('genre_', '', 1)
+    return False
+
+
+def _apply_leaderboard_overrides(items: list[dict], overrides: list[LeaderboardOverride], board_key: str) -> list[dict]:
+    mapped = {str(item.get('item_key') or ''): {**item} for item in items}
+    hidden = set()
+    for row in overrides:
+        if str(row.board_key or '') != board_key:
+            continue
+        key = str(row.item_key or '').strip()
+        if not key:
+            continue
+        if not int(row.enabled or 0):
+            hidden.add(key)
+            continue
+        current = mapped.get(
+            key,
+            {
+                'item_key': key,
+                'display_name': key,
+                'subtitle': '',
+                'raw_count': 0,
+                'count': 0,
+                'scope_label': '',
+                'genre': '',
+                'has_override': True,
+            },
+        )
+        current['has_override'] = True
+        current['display_name'] = str(row.display_name or current.get('display_name') or key).strip() or key
+        current['subtitle'] = str(row.subtitle or current.get('subtitle') or '').strip()
+        current['count'] = int(row.override_count) if row.override_count is not None else int(current.get('count') or 0)
+        current['manual_rank'] = int(row.manual_rank) if row.manual_rank is not None else None
+        try:
+            meta = json.loads(row.meta_json or '{}')
+        except json.JSONDecodeError:
+            meta = {}
+        if isinstance(meta, dict):
+            for key_name in ('scope_label', 'genre', 'file_name'):
+                if meta.get(key_name):
+                    current[key_name] = meta.get(key_name)
+        mapped[key] = current
+    result = [item for key, item in mapped.items() if key not in hidden]
+    manual_items = [item for item in result if item.get('manual_rank') is not None]
+    auto_items = [item for item in result if item.get('manual_rank') is None]
+    manual_items.sort(key=lambda item: (int(item.get('manual_rank') or 0), -int(item.get('count') or 0), str(item.get('display_name') or '')))
+    auto_items.sort(key=lambda item: (-int(item.get('count') or 0), str(item.get('display_name') or '')))
+    return manual_items + auto_items
+
+
+def _build_leaderboard_domain_payload(db, domain: str, days: int, window_key: str) -> dict:
+    rows = _build_leaderboard_rows(db, domain, days)
+    board_defs = _leaderboard_board_defs(domain)
+    overrides = _load_leaderboard_overrides(db, domain, window_key)
+    boards = []
+    for board in board_defs:
+        counter: dict[str, dict] = {}
+        for row in rows:
+            if not _board_matches(board['board_key'], row):
+                continue
+            key = str(row.get('item_key') or '').strip()
+            if not key:
+                continue
+            bucket = counter.setdefault(
+                key,
+                {
+                    'item_key': key,
+                    'display_name': row.get('display_name') or key,
+                    'subtitle': row.get('subtitle') or '',
+                    'scope_label': row.get('scope_label') or '',
+                    'genre': row.get('genre') or '',
+                    'file_name': row.get('file_name') or '',
+                    'count': 0,
+                    'raw_count': 0,
+                    'source_counter': {},
+                    'has_override': False,
+                },
+            )
+            bucket['count'] += 1
+            bucket['raw_count'] += 1
+            subtitle = str(row.get('subtitle') or '').strip()
+            if subtitle:
+                bucket['source_counter'][subtitle] = bucket['source_counter'].get(subtitle, 0) + 1
+        items = []
+        for item in counter.values():
+            if item.get('source_counter'):
+                top_source = sorted(item['source_counter'].items(), key=lambda x: (-x[1], x[0]))[0][0]
+                item['subtitle'] = top_source
+            item.pop('source_counter', None)
+            items.append(item)
+        items.sort(key=lambda item: (-int(item.get('count') or 0), str(item.get('display_name') or '')))
+        items = _apply_leaderboard_overrides(items, overrides, board['board_key'])[:5]
+        boards.append(
+            {
+                **board,
+                'items': items,
+                'download_count': sum(int(item.get('raw_count') or 0) for item in items),
+            }
+        )
+    layout = _load_leaderboard_layout(db)
+    board_order = layout.get('board_orders', {}).get(domain, [])
+    boards.sort(key=lambda item: board_order.index(item['board_key']) if item['board_key'] in board_order else 999)
+    return {
+        'domain': domain,
+        'title': layout.get('domain_titles', {}).get(domain) or ('动作音效热度榜' if domain == 'action' else '场景搭建热度榜'),
+        'boards': boards,
+        'download_count': len(rows),
+    }
 
 def _normalize_uid(raw: str) -> str:
     value = re.sub(r'[^0-9A-Za-z_-]', '', str(raw or '').strip())
@@ -576,7 +993,9 @@ def _get_user_phone_from_context() -> str:
     u = getattr(g, 'current_user', None)
     if isinstance(u, str) and u:
         return u
-    return _normalize_phone(_extract_user_phone())
+    if hasattr(u, 'phone') and getattr(u, 'phone', None):
+        return str(u.phone)
+    return ''
 
 
 def _require_login(fn):
@@ -643,6 +1062,8 @@ def _enforce_feature_access(action: str):
 
 
 def _extract_user_phone() -> str:
+    if getattr(g, 'current_user_phone', None):
+        return str(g.current_user_phone)
     phone = (request.headers.get('X-User-Phone') or '').strip()
     if phone:
         return phone
@@ -990,12 +1411,46 @@ def auth_settings():
     with SessionLocal() as db:
         _ensure_invite_seed_codes(db)
         invite_only_enabled = _invite_only_enabled(db)
+        debug_enabled = _frontend_debug_expose_enabled(db)
     return jsonify(
         {
             'invite_only_enabled': invite_only_enabled,
             'invite_code_required': invite_only_enabled,
             'referral_code_supported': True,
             'uid_supported': True,
+            'frontend_debug_expose_enabled': bool(debug_enabled),
+            'signed_downloads_required': bool(settings.require_signed_downloads),
+        }
+    )
+
+
+@app.get(f'{settings.api_prefix}/admin/frontend-security')
+@_require_admin
+def admin_frontend_security_get():
+    with SessionLocal() as db:
+        return jsonify(
+            {
+                'frontend_debug_expose_enabled': bool(_frontend_debug_expose_enabled(db)),
+                'signed_downloads_required': bool(settings.require_signed_downloads),
+                'download_token_ttl_sec': int(settings.download_token_ttl_sec or 300),
+            }
+        )
+
+
+@app.post(f'{settings.api_prefix}/admin/frontend-security')
+@_require_admin
+def admin_frontend_security_save():
+    payload = request.get_json(force=True) or {}
+    enabled = bool(payload.get('frontend_debug_expose_enabled', False))
+    with SessionLocal() as db:
+        _set_frontend_debug_expose_enabled(db, enabled)
+        current = bool(_frontend_debug_expose_enabled(db))
+    return jsonify(
+        {
+            'ok': True,
+            'frontend_debug_expose_enabled': current,
+            'signed_downloads_required': bool(settings.require_signed_downloads),
+            'download_token_ttl_sec': int(settings.download_token_ttl_sec or 300),
         }
     )
 
@@ -1712,7 +2167,7 @@ def semantic_graph_upsert_edge():
     try:
         result = upsert_relation(head=head, relation=relation, tail=tail, bidirectional=bidirectional)
         result['usage'] = getattr(g, 'usage_info', None)
-        return jsonify(result)
+        return _user_json_response(result)
     except ValueError as e:
         return jsonify({'detail': str(e)}), 400
     except RuntimeError as e:
@@ -1983,7 +2438,7 @@ def upload_audio(project_id: int):
             file_refs=[str(save_path)],
         )
         result['usage'] = getattr(g, 'usage_info', None)
-        return jsonify(result)
+        return _user_json_response(result)
 
 
 @app.post(f'{settings.api_prefix}/analysis/<int:project_id>/text')
@@ -2060,7 +2515,7 @@ def analyze_text(project_id: int):
             'user_tier_code': _user_tier_code(db_user),
             'quota': _user_quota_snapshot(db, db_user),
         }
-        return jsonify(result)
+        return _user_json_response(result)
 
 
 @app.post(f'{settings.api_prefix}/analysis/<int:project_id>/action-verbs')
@@ -2123,7 +2578,7 @@ def analyze_action_verbs_api(project_id: int):
             'user_tier_code': _user_tier_code(db_user),
             'quota': _user_quota_snapshot(db, db_user),
         }
-        return jsonify(result)
+        return _user_json_response(result)
 
 
 @app.post(f'{settings.api_prefix}/analysis/<int:project_id>/action-sfx')
@@ -2161,7 +2616,7 @@ def analyze_action_sfx_api(project_id: int):
             file_refs=[],
         )
         result['usage'] = getattr(g, 'usage_info', None)
-        return jsonify(result)
+        return _user_json_response(result)
 
 
 @app.post(f'{settings.api_prefix}/analysis/<int:project_id>/scene-building')
@@ -2237,7 +2692,7 @@ def analyze_scene_building_api(project_id: int):
             'user_tier_code': _user_tier_code(db_user),
             'quota': _user_quota_snapshot(db, db_user),
         }
-        return jsonify(result)
+        return _user_json_response(result)
 
 
 @app.post(f'{settings.api_prefix}/analysis/<int:project_id>/scene-sfx')
@@ -2274,7 +2729,7 @@ def analyze_scene_sfx_api(project_id: int):
             file_refs=[],
         )
         result['usage'] = getattr(g, 'usage_info', None)
-        return jsonify(result)
+        return _user_json_response(result)
 
 
 @app.post(f'{settings.api_prefix}/analysis/<int:project_id>/scene-supplements')
@@ -2626,7 +3081,7 @@ def analyze_action_graph_draft_api(project_id: int):
             file_refs=[],
         )
         result['usage'] = getattr(g, 'usage_info', None)
-        return jsonify(result)
+        return _user_json_response(result)
 
 
 @app.post(f'{settings.api_prefix}/analysis/<int:project_id>/action-graph-draft/apply')
@@ -2665,7 +3120,7 @@ def apply_action_graph_draft_api(project_id: int):
         )
         result['neo4j_sync'] = neo4j_sync
         result['usage'] = getattr(g, 'usage_info', None)
-        return jsonify(result)
+        return _user_json_response(result)
 
 
 @app.get(f'{settings.api_prefix}/ops/action-supplements')
@@ -3433,7 +3888,7 @@ def ops_scene_supplements_merge():
                 'asset_labels': [asset_label],
                 'message': '您之前提交的场景音效补充需求已完成补充，欢迎回到系统继续使用。',
             }
-        return jsonify(response_payload)
+        return _user_json_response(response_payload)
 
 
 @app.post(f'{settings.api_prefix}/ops/scene-supplements/notify')
@@ -3534,7 +3989,7 @@ def analyze_narration(project_id: int):
             file_refs=[str(save_path)],
         )
         result['usage'] = getattr(g, 'usage_info', None)
-        return jsonify(result)
+        return _user_json_response(result)
 
 
 @app.post(f'{settings.api_prefix}/analysis/<int:project_id>/text-narration')
@@ -3826,7 +4281,7 @@ def build_fusion(project_id: int):
             file_refs=[],
         )
         result['usage'] = getattr(g, 'usage_info', None)
-        return jsonify(result)
+        return _user_json_response(result)
 
 
 @app.post(f'{settings.api_prefix}/analysis/<int:project_id>/director')
@@ -3902,7 +4357,7 @@ def get_report(project_id: int):
             except json.JSONDecodeError:
                 narration_json = None
 
-        return jsonify(
+        return _user_json_response(
             {
                 'project': {'id': project.id, 'title': project.title, 'created_at': project.created_at.isoformat()},
                 'audio': None
@@ -4097,88 +4552,136 @@ def ops_recommendations():
 @app.get(f'{settings.api_prefix}/ops/action-sfx-feedback')
 @_require_admin
 def ops_action_sfx_feedback():
-    days = int((request.args.get('days') or '7').strip())
-    days = max(1, min(90, days))
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-
-    by_verb: dict[str, int] = {}
-    by_label: dict[str, int] = {}
-    by_file: dict[str, int] = {}
-    by_project: dict[str, int] = {}
-    rows_out = []
-
+    window_key, days = _leaderboard_window(request.args.get('days'), request.args.get('window'))
     with SessionLocal() as db:
-        rows = db.execute(
-            select(
-                UserOperationLog.project_id,
-                UserOperationLog.user_phone,
-                UserOperationLog.action,
-                UserOperationLog.input_json,
-                UserOperationLog.file_refs_json,
-                UserOperationLog.created_at,
-            )
-            .where(
-                UserOperationLog.created_at >= cutoff,
-                UserOperationLog.action == 'action_sfx_asset_download',
-            )
-            .order_by(UserOperationLog.created_at.desc())
-            .limit(300)
-        ).all()
+        payload = _build_leaderboard_domain_payload(db, 'action', days, window_key)
+    return jsonify({'ok': True, 'window_key': window_key, 'days': days, **payload})
 
-    for project_id, user_phone, action, input_json, file_refs_json, created_at in rows:
-        try:
-            payload = json.loads(input_json or '{}')
-        except json.JSONDecodeError:
-            payload = {}
-        try:
-            file_refs = json.loads(file_refs_json or '[]')
-        except json.JSONDecodeError:
-            file_refs = []
 
-        verb = str(payload.get('verb') or '').strip()
-        label = str(payload.get('label') or '').strip()
-        file_name = str(payload.get('file_name') or '').strip()
-        if not file_name and isinstance(file_refs, list) and file_refs:
-            file_name = Path(str(file_refs[0])).name
+@app.get(f'{settings.api_prefix}/ops/leaderboards')
+@_require_admin
+def ops_leaderboards():
+    domain = str((request.args.get('domain') or 'action').strip() or 'action')
+    if domain not in {'action', 'scene'}:
+        return jsonify({'detail': 'domain must be action or scene'}), 400
+    window_key, days = _leaderboard_window(request.args.get('days'), request.args.get('window'))
+    with SessionLocal() as db:
+        payload = _build_leaderboard_domain_payload(db, domain, days, window_key)
+        layout = _load_leaderboard_layout(db)
+    return jsonify({'ok': True, 'window_key': window_key, 'days': days, 'layout': layout, **payload})
 
-        if verb:
-            by_verb[verb] = by_verb.get(verb, 0) + 1
-        if label:
-            by_label[label] = by_label.get(label, 0) + 1
-        if file_name:
-            by_file[file_name] = by_file.get(file_name, 0) + 1
-        if project_id is not None:
-            key = str(project_id)
-            by_project[key] = by_project.get(key, 0) + 1
 
-        rows_out.append(
-            {
-                'project_id': project_id,
-                'user_phone': user_phone,
-                'action': action,
-                'verb': verb,
-                'label': label,
-                'file_name': file_name,
-                'created_at': created_at.isoformat() if created_at else '',
-            }
-        )
-
-    top_verbs = [{'verb': k, 'count': v} for k, v in sorted(by_verb.items(), key=lambda x: x[1], reverse=True)[:20]]
-    top_labels = [{'label': k, 'count': v} for k, v in sorted(by_label.items(), key=lambda x: x[1], reverse=True)[:20]]
-    top_files = [{'file_name': k, 'count': v} for k, v in sorted(by_file.items(), key=lambda x: x[1], reverse=True)[:20]]
-    top_projects = [{'project_id': k, 'count': v} for k, v in sorted(by_project.items(), key=lambda x: x[1], reverse=True)[:20]]
-
+@app.get(f'{settings.api_prefix}/home/leaderboards')
+def home_leaderboards():
+    window_key, days = _leaderboard_window(request.args.get('days'), request.args.get('window'))
+    with SessionLocal() as db:
+        layout = _load_leaderboard_layout(db)
+        sections_map = {
+            'action': _build_leaderboard_domain_payload(db, 'action', days, window_key),
+            'scene': _build_leaderboard_domain_payload(db, 'scene', days, window_key),
+        }
+    ordered_sections = [sections_map[key] for key in layout.get('domain_order', ['action', 'scene']) if key in sections_map]
     return jsonify(
         {
+            'ok': True,
+            'window_key': window_key,
             'days': days,
-            'download_count': len(rows_out),
-            'top_verbs': top_verbs,
-            'top_labels': top_labels,
-            'top_files': top_files,
-            'top_projects': top_projects,
-            'recent_downloads': rows_out,
+            'layout': layout,
+            'sections': ordered_sections,
         }
     )
+
+
+@app.get(f'{settings.api_prefix}/admin/leaderboards/config')
+@_require_admin
+def admin_leaderboards_config():
+    domain = str((request.args.get('domain') or 'action').strip() or 'action')
+    if domain not in {'action', 'scene'}:
+        return jsonify({'detail': 'domain must be action or scene'}), 400
+    window_key, days = _leaderboard_window(request.args.get('days'), request.args.get('window'))
+    with SessionLocal() as db:
+        payload = _build_leaderboard_domain_payload(db, domain, days, window_key)
+        layout = _load_leaderboard_layout(db)
+        overrides = _load_leaderboard_overrides(db, domain, window_key)
+    overrides_out = [
+        {
+            'id': row.id,
+            'domain': row.domain,
+            'board_key': row.board_key,
+            'window_key': row.window_key,
+            'item_key': row.item_key,
+            'display_name': row.display_name,
+            'subtitle': row.subtitle,
+            'override_count': row.override_count,
+            'manual_rank': row.manual_rank,
+            'enabled': bool(int(row.enabled or 0)),
+            'meta_json': row.meta_json,
+        }
+        for row in overrides
+    ]
+    return jsonify({'ok': True, 'window_key': window_key, 'days': days, 'layout': layout, 'overrides': overrides_out, **payload})
+
+
+@app.post(f'{settings.api_prefix}/admin/leaderboards/layout')
+@_require_admin
+def admin_leaderboards_layout_save():
+    payload = request.get_json(force=True) or {}
+    with SessionLocal() as db:
+        layout = _save_leaderboard_layout(db, payload)
+    return jsonify({'ok': True, 'layout': layout})
+
+
+@app.post(f'{settings.api_prefix}/admin/leaderboards/override')
+@_require_admin
+def admin_leaderboards_override_save():
+    payload = request.get_json(force=True) or {}
+    domain = str((payload.get('domain') or '').strip())
+    board_key = str((payload.get('board_key') or '').strip())
+    window_key, _ = _leaderboard_window(payload.get('days'), payload.get('window_key'))
+    item_key = str((payload.get('item_key') or '').strip())
+    if domain not in {'action', 'scene'}:
+        return jsonify({'detail': 'domain must be action or scene'}), 400
+    if not board_key:
+        return jsonify({'detail': 'board_key is required'}), 400
+    if not item_key:
+        return jsonify({'detail': 'item_key is required'}), 400
+    override_count = payload.get('override_count')
+    manual_rank = payload.get('manual_rank')
+    try:
+        override_count_value = int(override_count) if override_count not in (None, '') else None
+    except (TypeError, ValueError):
+        return jsonify({'detail': 'override_count must be integer'}), 400
+    try:
+        manual_rank_value = int(manual_rank) if manual_rank not in (None, '') else None
+    except (TypeError, ValueError):
+        return jsonify({'detail': 'manual_rank must be integer'}), 400
+    meta = payload.get('meta') if isinstance(payload.get('meta'), dict) else {}
+    with SessionLocal() as db:
+        row = db.execute(
+            select(LeaderboardOverride).where(
+                LeaderboardOverride.domain == domain,
+                LeaderboardOverride.board_key == board_key,
+                LeaderboardOverride.window_key == window_key,
+                LeaderboardOverride.item_key == item_key,
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            row = LeaderboardOverride(
+                domain=domain,
+                board_key=board_key,
+                window_key=window_key,
+                item_key=item_key,
+            )
+            db.add(row)
+        row.display_name = str((payload.get('display_name') or '').strip())
+        row.subtitle = str((payload.get('subtitle') or '').strip())
+        row.override_count = override_count_value
+        row.manual_rank = manual_rank_value
+        row.enabled = 1 if bool(payload.get('enabled', True)) else 0
+        row.meta_json = json.dumps(meta, ensure_ascii=False)
+        db.commit()
+        db.refresh(row)
+    return jsonify({'ok': True, 'id': row.id, 'window_key': window_key})
 
 
 @app.get(f'{settings.api_prefix}/ops/lexicon-draft')
@@ -4411,6 +4914,13 @@ def ops_user_events():
             except ValueError:
                 return jsonify({'detail': 'date_to must be ISO format'}), 400
         rows = db.execute(stmt.order_by(UserOperationLog.id.desc()).limit(limit)).scalars().all()
+        phones = {str(r.user_phone or '').strip() for r in rows if str(r.user_phone or '').strip()}
+        uid_rows = []
+        if phones:
+            uid_rows = db.execute(
+                select(UserAccount.phone, UserAccount.uid).where(UserAccount.phone.in_(sorted(phones)))
+            ).all()
+        uid_by_phone = {str(row[0] or '').strip(): str(row[1] or '').strip() for row in uid_rows}
 
     items = []
     for r in rows:
@@ -4431,6 +4941,7 @@ def ops_user_events():
                 'id': r.id,
                 'project_id': r.project_id,
                 'user_phone': r.user_phone,
+                'user_uid': uid_by_phone.get(str(r.user_phone or '').strip(), ''),
                 'action': r.action,
                 'created_at': r.created_at.isoformat() if r.created_at else None,
                 'input': input_json,
@@ -4532,10 +5043,23 @@ def ops_download_local_file():
 @app.get(f'{settings.api_prefix}/sfx/file')
 @_require_login
 def download_sfx_file():
-    raw_path = (request.args.get('path') or '').strip()
+    raw_token = (request.args.get('token') or '').strip()
+    token_payload = _parse_download_token(raw_token) if raw_token else None
+    raw_path = str((token_payload or {}).get('path') or request.args.get('path') or '').strip()
     project_id_raw = (request.args.get('project_id') or '').strip()
     verb = (request.args.get('verb') or '').strip()
+    scene_name = (request.args.get('scene_name') or '').strip()
     label = (request.args.get('label') or '').strip()
+    display_name = (request.args.get('display_name') or '').strip()
+    scope_label = (request.args.get('scope_label') or '').strip()
+    genre = (request.args.get('genre') or '').strip()
+    source_domain = (request.args.get('source_domain') or '').strip().lower() or 'action'
+    if settings.require_signed_downloads:
+        if not token_payload:
+            return jsonify({'detail': 'download token is required'}), 403
+        token_phone = str((token_payload or {}).get('phone') or '').strip()
+        if token_phone and token_phone != str(getattr(g.current_user, 'phone', '') or ''):
+            return jsonify({'detail': 'download token does not belong to current user'}), 403
     if not raw_path:
         return jsonify({'detail': 'path is required'}), 400
     p = Path(raw_path).expanduser()
@@ -4558,13 +5082,20 @@ def download_sfx_file():
         quota_err = _consume_sfx_download_or_error(db, db_user, 1)
         if quota_err is not None:
             return quota_err
+        action_name = 'scene_sfx_asset_download' if source_domain == 'scene' else 'action_sfx_asset_download'
         _log_user_operation(
             db=db,
-            action='action_sfx_asset_download',
+            action=action_name,
             project_id=project_id,
             req={
                 'verb': verb,
+                'scene_name': scene_name,
                 'label': label,
+                'display_name': display_name,
+                'scope_label': scope_label,
+                'genre': genre,
+                'source_domain': source_domain,
+                'item_key': display_name or label or abs_p.name,
                 'file_name': abs_p.name,
                 'path': str(abs_p),
             },

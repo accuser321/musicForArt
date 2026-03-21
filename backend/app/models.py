@@ -200,6 +200,25 @@ class SystemSetting(Base):
     )
 
 
+class LeaderboardOverride(Base):
+    __tablename__ = 'leaderboard_override'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    domain: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='action')
+    board_key: Mapped[str] = mapped_column(String(64), index=True, nullable=False, default='')
+    window_key: Mapped[str] = mapped_column(String(16), index=True, nullable=False, default='10d')
+    item_key: Mapped[str] = mapped_column(String(255), index=True, nullable=False, default='')
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    subtitle: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    override_count: Mapped[int] = mapped_column(Integer, nullable=True)
+    manual_rank: Mapped[int] = mapped_column(Integer, nullable=True)
+    enabled: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    meta_json: Mapped[str] = mapped_column(Text, nullable=False, default='{}')
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
 class DailyUsage(Base):
     __tablename__ = 'daily_usage'
 
