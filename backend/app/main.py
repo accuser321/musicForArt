@@ -2,6 +2,7 @@ import json
 import hashlib
 import base64
 import hmac
+import threading
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from time import perf_counter
@@ -14,11 +15,12 @@ from zoneinfo import ZoneInfo
 
 from flask import Flask, jsonify, request, send_file, g
 from flask_cors import CORS
-from sqlalchemy import func, inspect, select, text as sql_text
+from sqlalchemy import func, inspect, or_, select, text as sql_text
 
 from app.config import settings
 from app.db import SessionLocal, engine
 from app.models import (
+    ActionVerbAnalysis,
     ActionFallbackRiskTerm,
     ActionSupplementAsset,
     ActionGraphInheritanceReview,
@@ -27,22 +29,29 @@ from app.models import (
     AuthCode,
     AuthSession,
     Base,
+    CopyrightBookAd,
+    CreatorShowcase,
     DailyUsage,
     DraftReview,
     FusionPlan,
     InviteCode,
     LeaderboardOverride,
+    MusicMatchResult,
     NarrationAnalysis,
     Project,
+    RechargeOrder,
+    RecruitmentNeed,
     SceneAnalysis,
     SceneSupplementAsset,
     SceneSupplementTask,
     SystemSetting,
     TextAnalysis,
+    UserSfxSubmission,
     UserAccount,
     UserOperationLog,
 )
 from app.services.audio_analysis import analyze_audio_for_audiobook
+from app.services.music_match import build_music_match_result
 from app.services.narration import analyze_narration_for_audiobook
 from app.services.semantic_graph import expand_term, graph_status, reason_term, upsert_relation
 from app.services.semantic_store import get_lexicon, merge_lexicon, save_lexicon
@@ -89,16 +98,17 @@ from app.services.action_graph_neo4j import (
     sync_action_graph_to_neo4j,
 )
 from app.services.action_graph_manage import (
-    apply_action_fallback_resolution,
+    _load_action_graph,
+    apply_action_fallback_replacements,
     delete_action_graph_node,
     demote_action_graph_terms_to_genre,
     get_action_graph_node_layers,
     has_action_formal_head,
-    list_action_fallback_alias_rules,
+    list_action_fallback_replacement_rules,
     list_action_graph_inheritance_blocks,
     list_action_graph_maintenance_catalog,
     promote_action_graph_terms_to_common,
-    remove_action_fallback_alias_rule,
+    remove_action_fallback_replacement_rule,
     remove_action_graph_overlap_terms,
     set_action_graph_inheritance_block,
     update_action_graph_node_layer,
@@ -128,6 +138,7 @@ BETA_INVITE_ONLY_KEY = 'beta_invite_only_enabled'
 INVITE_SEED_TARGET = 200
 LEADERBOARD_LAYOUT_KEY = 'homepage_leaderboard_layout'
 FRONTEND_DEBUG_EXPOSE_KEY = 'frontend_debug_expose_enabled'
+HOME_LEADERBOARDS_VISIBLE_KEY = 'home_leaderboards_enabled'
 ACTION_FALLBACK_RISK_SEEDED_KEY = 'action_fallback_risk_seeded'
 LEADERBOARD_WINDOWS = {
     '1d': 1,
@@ -167,6 +178,7 @@ DEFAULT_ACTION_FALLBACK_RISK_TERMS = [
     ('抬手', 'warn', '常见动作起手式，建议结合正式词判断。'),
     ('伸手', 'warn', '常见动作起手式，建议结合正式词判断。'),
 ]
+AUTO_STANDARD_TERM_SUFFIXES = ('道',)
 
 
 def _is_composite_sfx_term(term: str, children: dict | None = None) -> bool:
@@ -188,7 +200,7 @@ def _is_composite_sfx_term(term: str, children: dict | None = None) -> bool:
 
 
 def _sfx_mode_label(term: str, children: dict | None = None) -> str:
-    return '组合' if _is_composite_sfx_term(term, children) else '直达'
+    return '整体' if _is_composite_sfx_term(term, children) else '直达'
 
 
 def _build_sfx_display_name(term: str, genre: str, children: dict | None = None) -> str:
@@ -216,6 +228,12 @@ def _ensure_schema_columns() -> None:
         if 'asset_scope_genre' not in asset_cols:
             conn.execute(sql_text("ALTER TABLE action_supplement_asset ADD COLUMN asset_scope_genre VARCHAR(32) NOT NULL DEFAULT ''"))
 
+        action_task_cols = {col['name'] for col in inspect(engine).get_columns('action_supplement_task')}
+        if 'task_scope' not in action_task_cols:
+            conn.execute(sql_text("ALTER TABLE action_supplement_task ADD COLUMN task_scope VARCHAR(32) NOT NULL DEFAULT 'genre'"))
+        if 'task_scope_genre' not in action_task_cols:
+            conn.execute(sql_text("ALTER TABLE action_supplement_task ADD COLUMN task_scope_genre VARCHAR(32) NOT NULL DEFAULT ''"))
+
         user_cols = {col['name'] for col in inspect(engine).get_columns('user_account')}
         if 'uid' not in user_cols:
             conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN uid VARCHAR(64) NOT NULL DEFAULT ''"))
@@ -227,6 +245,12 @@ def _ensure_schema_columns() -> None:
             conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN daily_text_char_limit INTEGER NOT NULL DEFAULT 5000"))
         if 'daily_sfx_download_limit' not in user_cols:
             conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN daily_sfx_download_limit INTEGER NOT NULL DEFAULT 100"))
+        if 'text_char_pack_balance' not in user_cols:
+            conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN text_char_pack_balance INTEGER NOT NULL DEFAULT 0"))
+        if 'sfx_download_pack_balance' not in user_cols:
+            conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN sfx_download_pack_balance INTEGER NOT NULL DEFAULT 0"))
+        if 'deposit_balance' not in user_cols:
+            conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN deposit_balance FLOAT NOT NULL DEFAULT 0"))
         if 'invite_activated' not in user_cols:
             conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN invite_activated INTEGER NOT NULL DEFAULT 0"))
         if 'invite_code_used' not in user_cols:
@@ -239,6 +263,9 @@ def _ensure_schema_columns() -> None:
             conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN referred_by_uid VARCHAR(64) NOT NULL DEFAULT ''"))
         if 'referral_input' not in user_cols:
             conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN referral_input VARCHAR(64) NOT NULL DEFAULT ''"))
+        copyright_cols = {row[1] for row in conn.execute(sql_text("PRAGMA table_info(copyright_book_ad)")).fetchall()}
+        if copyright_cols and 'user_phone' not in copyright_cols:
+            conn.execute(sql_text("ALTER TABLE copyright_book_ad ADD COLUMN user_phone VARCHAR(32) NOT NULL DEFAULT ''"))
 
 
 def _generate_invite_code() -> str:
@@ -275,6 +302,18 @@ def _frontend_debug_expose_enabled(db) -> bool:
 
 def _set_frontend_debug_expose_enabled(db, enabled: bool) -> bool:
     row = _ensure_system_setting(db, FRONTEND_DEBUG_EXPOSE_KEY, 'true' if settings.frontend_debug_expose_default else 'false')
+    row.setting_value = 'true' if enabled else 'false'
+    db.commit()
+    return enabled
+
+
+def _home_leaderboards_enabled(db) -> bool:
+    row = _ensure_system_setting(db, HOME_LEADERBOARDS_VISIBLE_KEY, 'false')
+    return str(row.setting_value or '').strip().lower() not in {'0', 'false', 'off', 'no'}
+
+
+def _set_home_leaderboards_enabled(db, enabled: bool) -> bool:
+    row = _ensure_system_setting(db, HOME_LEADERBOARDS_VISIBLE_KEY, 'false')
     row.setting_value = 'true' if enabled else 'false'
     db.commit()
     return enabled
@@ -320,6 +359,128 @@ def _list_action_fallback_risk_terms(db) -> list[dict]:
         }
         for row in rows
     ]
+
+
+def _merge_unique_terms(items: list[str] | None) -> list[str]:
+    seen = set()
+    out = []
+    for item in items or []:
+        value = str(item or '').strip()
+        if value and value not in seen:
+            seen.add(value)
+            out.append(value)
+    return out
+
+
+def _fallback_risk_lookup(risk_terms: list[dict] | None = None) -> dict[str, str]:
+    lookup = {
+        str(term or '').strip(): str(level or 'warn').strip() or 'warn'
+        for term, level, _note in DEFAULT_ACTION_FALLBACK_RISK_TERMS
+        if str(term or '').strip()
+    }
+    for item in risk_terms or []:
+        term = str((item or {}).get('term') or '').strip()
+        if not term or not bool((item or {}).get('enabled', True)):
+            continue
+        lookup[term] = str((item or {}).get('risk_level') or 'warn').strip() or 'warn'
+    return lookup
+
+
+def _is_high_risk_fallback_term(term: str, risk_lookup: dict[str, str] | None = None) -> bool:
+    value = str(term or '').strip()
+    if not value:
+        return False
+    lookup = risk_lookup or {}
+    level = str(lookup.get(value) or '').strip()
+    if level in {'danger', 'warn'}:
+        return True
+    return len(value) == 1
+
+
+def _normalized_fallback_term_candidates(term: str) -> list[str]:
+    value = str(term or '').strip()
+    if not value:
+        return []
+    out = [value]
+    for suffix in AUTO_STANDARD_TERM_SUFFIXES:
+        if value.endswith(suffix):
+            candidate = value[: -len(suffix)].strip()
+            if len(candidate) >= 2 and candidate not in out:
+                out.append(candidate)
+    return out
+
+
+def _suggest_action_fallback_source_term(
+    fallback_terms: list[str] | None,
+    raw_verbs: list[str] | None = None,
+    risk_terms: list[dict] | None = None,
+) -> str:
+    source_terms = _merge_unique_terms([*(fallback_terms or []), *(raw_verbs or [])])
+    if not source_terms:
+        return ''
+    risk_lookup = _fallback_risk_lookup(risk_terms)
+    candidates = _merge_unique_terms(
+        candidate
+        for term in source_terms
+        for candidate in _normalized_fallback_term_candidates(term)
+    )
+
+    def score(candidate: str) -> tuple[int, int, str]:
+        value = str(candidate or '').strip()
+        score_value = 0
+        if value in (fallback_terms or []):
+            score_value += 120
+        if value in (raw_verbs or []):
+            score_value += 160
+        if len(value) >= 2:
+            score_value += 260
+        else:
+            score_value -= 180
+        if _is_high_risk_fallback_term(value, risk_lookup):
+            score_value -= 120
+        else:
+            score_value += 90
+        for source in source_terms:
+            if source == value:
+                continue
+            if value in _normalized_fallback_term_candidates(source):
+                score_value += 180
+            elif source.endswith(value) and len(source) > len(value):
+                score_value += 60
+        score_value += min(len(value), 8) * 8
+        return score_value, len(value), value
+
+    ranked = sorted(candidates, key=score, reverse=True)
+    return str(ranked[0] or '').strip() or max(source_terms, key=lambda x: (len(x), x))
+
+
+def _suggest_action_fallback_replacement_terms(
+    fallback_terms: list[str] | None,
+    raw_verbs: list[str] | None,
+    source_term: str,
+    risk_terms: list[dict] | None = None,
+) -> tuple[list[str], list[str]]:
+    source = str(source_term or '').strip()
+    risk_lookup = _fallback_risk_lookup(risk_terms)
+    source_terms = _merge_unique_terms([*(fallback_terms or []), *(raw_verbs or [])])
+    replacements = []
+    filtered_out = []
+    for term in source_terms:
+        value = str(term or '').strip()
+        if not value or value == source:
+            continue
+        if _is_high_risk_fallback_term(value, risk_lookup):
+            filtered_out.append(value)
+            continue
+        replacements.append(value)
+    for candidate in _normalized_fallback_term_candidates(source):
+        if candidate and candidate != source and candidate not in replacements:
+            if _is_high_risk_fallback_term(candidate, risk_lookup):
+                if candidate not in filtered_out:
+                    filtered_out.append(candidate)
+            else:
+                replacements.append(candidate)
+    return _merge_unique_terms(replacements), _merge_unique_terms(filtered_out)
 
 
 def _ensure_invite_seed_codes(db, target: int = INVITE_SEED_TARGET) -> None:
@@ -768,12 +929,13 @@ def _record_inheritance_review_hits(db, project_id: int, hits: list[dict]) -> No
         verb_head = str(item.get('verb_head') or '').strip()
         if not genre or not verb_head:
             continue
-        row = db.execute(
+        rows = db.execute(
             select(ActionGraphInheritanceReview).where(
                 ActionGraphInheritanceReview.genre == genre,
                 ActionGraphInheritanceReview.verb_head == verb_head,
             )
-        ).scalar_one_or_none()
+        ).scalars().all()
+        row = rows[0] if rows else None
         excerpt = str(item.get('sentence_excerpt') or '').strip()
         if row is None:
             row = ActionGraphInheritanceReview(
@@ -791,6 +953,11 @@ def _record_inheritance_review_hits(db, project_id: int, hits: list[dict]) -> No
             if excerpt:
                 row.sample_excerpt = excerpt
             row.status = 'active'
+            for duplicate in rows[1:]:
+                row.hit_count = int(row.hit_count or 0) + int(duplicate.hit_count or 0)
+                if not row.sample_excerpt and duplicate.sample_excerpt:
+                    row.sample_excerpt = duplicate.sample_excerpt
+                db.delete(duplicate)
 
 
 def _normalize_phone(raw: str) -> str:
@@ -891,15 +1058,33 @@ def _user_quota_snapshot(db, u: UserAccount) -> dict:
     sfx_used = int((_daily_usage_row(db, u.phone, 'sfx_download', today, create=False) or DailyUsage(used_count=0)).used_count or 0)
     text_limit = int(getattr(u, 'daily_text_char_limit', 0) or 0)
     sfx_limit = int(getattr(u, 'daily_sfx_download_limit', 0) or 0)
+    text_pack_balance = int(getattr(u, 'text_char_pack_balance', 0) or 0)
+    sfx_pack_balance = int(getattr(u, 'sfx_download_pack_balance', 0) or 0)
+    deposit_balance = round(float(getattr(u, 'deposit_balance', 0) or 0), 2)
     return {
         'ymd': today,
         'text_chars_used': text_used,
         'text_chars_limit': text_limit,
         'text_chars_remaining': max(0, text_limit - text_used) if text_limit > 0 else None,
+        'text_char_pack_balance': text_pack_balance,
         'sfx_download_used': sfx_used,
         'sfx_download_limit': sfx_limit,
         'sfx_download_remaining': max(0, sfx_limit - sfx_used) if sfx_limit > 0 else None,
+        'sfx_download_pack_balance': sfx_pack_balance,
+        'deposit_balance': deposit_balance,
     }
+
+
+def _additional_text_pack_needed(limit: int, used: int, text_len: int) -> int:
+    before_over = max(0, used - limit)
+    after_over = max(0, used + text_len - limit)
+    return max(0, after_over - before_over)
+
+
+def _additional_sfx_pack_needed(limit: int, used: int, count: int) -> int:
+    before_over = max(0, used - limit)
+    after_over = max(0, used + count - limit)
+    return max(0, after_over - before_over)
 
 
 def _consume_text_chars_or_error(db, u: UserAccount, text_len: int):
@@ -911,9 +1096,14 @@ def _consume_text_chars_or_error(db, u: UserAccount, text_len: int):
     today = _local_today_ymd()
     row = _daily_usage_row(db, u.phone, 'text_chars', today, create=True)
     used = int(row.used_count or 0)
-    if not _can_consume_text_chars_with_grace(limit, used, text_len):
+    pack_balance = int(getattr(u, 'text_char_pack_balance', 0) or 0)
+    grace_ok = _can_consume_text_chars_with_grace(limit, used, text_len)
+    extra_pack_needed = _additional_text_pack_needed(limit, used, text_len)
+    if not grace_ok and extra_pack_needed > pack_balance:
         return _text_quota_error_response(db, u)
     row.used_count = used + int(text_len)
+    if extra_pack_needed > 0:
+        u.text_char_pack_balance = max(0, pack_balance - extra_pack_needed)
     db.commit()
     return None
 
@@ -980,7 +1170,7 @@ def _text_quota_error_response(db, u: UserAccount):
     return (
         jsonify(
             {
-                'detail': f'今日文本分析字符量已达上限，用量超额，请联系管理员调整额度。系统支持单次最多超额 {TEXT_QUOTA_GRACE_CHARS} 字的缓冲，超出后将暂停使用。',
+                'detail': f'今日文本分析字符量已达上限，且已购文字包余额不足。请联系管理员或继续充值。系统支持单次最多超额 {TEXT_QUOTA_GRACE_CHARS} 字的缓冲，超出后将暂停使用。',
                 'quota': _user_quota_snapshot(db, u),
             }
         ),
@@ -1005,7 +1195,10 @@ def _ensure_text_chars_available_or_error(db, u: UserAccount, text_len: int):
     today = _local_today_ymd()
     row = _daily_usage_row(db, u.phone, 'text_chars', today, create=True)
     used = int(row.used_count or 0)
-    if not _can_consume_text_chars_with_grace(limit, used, text_len):
+    pack_balance = int(getattr(u, 'text_char_pack_balance', 0) or 0)
+    grace_ok = _can_consume_text_chars_with_grace(limit, used, text_len)
+    extra_pack_needed = _additional_text_pack_needed(limit, used, text_len)
+    if not grace_ok and extra_pack_needed > pack_balance:
         return _text_quota_error_response(db, u)
     return None
 
@@ -1019,17 +1212,21 @@ def _consume_sfx_download_or_error(db, u: UserAccount, count: int = 1):
     today = _local_today_ymd()
     row = _daily_usage_row(db, u.phone, 'sfx_download', today, create=True)
     used = int(row.used_count or 0)
-    if used + count > limit:
+    pack_balance = int(getattr(u, 'sfx_download_pack_balance', 0) or 0)
+    extra_pack_needed = _additional_sfx_pack_needed(limit, used, count)
+    if extra_pack_needed > pack_balance:
         return (
             jsonify(
                 {
-                    'detail': '今日音效下载数已达上限，请联系管理员调整额度',
+                    'detail': '今日音效下载数已达上限，且已购下载包余额不足，请联系管理员或继续充值',
                     'quota': _user_quota_snapshot(db, u),
                 }
             ),
             403,
         )
     row.used_count = used + int(count)
+    if extra_pack_needed > 0:
+        u.sfx_download_pack_balance = max(0, pack_balance - extra_pack_needed)
     db.commit()
     return None
 
@@ -1085,6 +1282,17 @@ def _ensure_bootstrap_admins(db) -> None:
             changed = True
         if changed:
             db.commit()
+
+
+def _trigger_action_graph_sync_async() -> dict:
+    def _runner():
+        try:
+            sync_action_graph_to_neo4j()
+        except Exception:
+            return
+
+    threading.Thread(target=_runner, daemon=True).start()
+    return {'ok': True, 'detail': 'neo4j sync queued'}
 
 
 def _get_user_phone_from_context() -> str:
@@ -1234,67 +1442,86 @@ def _extract_action_fallback_clusters(result: dict | None) -> list[dict]:
                 fallback_terms.append(term)
         if not fallback_terms:
             continue
-        suggested = max(fallback_terms, key=lambda x: (len(str(x or '').strip()), str(x or '').strip()))
+        raw_verbs = [str(x).strip() for x in (item.get('raw_verbs') or []) if str(x).strip()]
+        source_term = _suggest_action_fallback_source_term(fallback_terms, raw_verbs)
+        candidate_replacement_terms, auto_filtered_terms = _suggest_action_fallback_replacement_terms(
+            fallback_terms,
+            raw_verbs,
+            source_term,
+        )
         parent = item.get('parent_node') or {}
         out.append(
             {
                 'genre': genre,
                 'parent_head': str(parent.get('verb_head') or item.get('verb') or '').strip(),
                 'fallback_terms': fallback_terms,
-                'suggested_formal_term': str(suggested or '').strip(),
+                'source_term': str(source_term or '').strip(),
                 'sentence_excerpt': str(item.get('sentence_excerpt') or '').strip(),
-                'raw_verbs': [str(x).strip() for x in (item.get('raw_verbs') or []) if str(x).strip()],
+                'raw_verbs': raw_verbs,
+                'candidate_replacement_terms': candidate_replacement_terms,
+                'auto_filtered_terms': auto_filtered_terms,
             }
         )
     return out
 
 
 def _action_fallback_rule_maps() -> dict:
-    rules = list_action_fallback_alias_rules().get('items', [])
+    rules = list_action_fallback_replacement_rules().get('items', [])
     out = {'common': {}, 'genres': {}}
     for item in rules:
         if not isinstance(item, dict):
             continue
-        alias = str(item.get('alias_term') or '').strip()
-        target = str(item.get('formal_head') or '').strip()
+        source = str(item.get('source_term') or '').strip()
+        replacements = [str(x).strip() for x in (item.get('replacement_terms') or []) if str(x).strip()]
         scope = str(item.get('scope') or 'common').strip()
         genre = str(item.get('genre') or '').strip()
-        if not alias or not target:
+        if not source or not replacements:
             continue
         if scope == 'genre' and genre:
-            out['genres'].setdefault(genre, {})[alias] = target
+            out['genres'].setdefault(genre, {})[source] = replacements
         else:
-            out['common'][alias] = target
+            out['common'][source] = replacements
+    return out
+
+
+def _action_fallback_ignored_maps() -> dict:
+    graph = _load_action_graph()
+    meta = graph.get('_meta') or {}
+    raw = meta.get('fallback_ignored_terms') or {}
+    out = {'common': set(), 'genres': {}}
+    if not isinstance(raw, dict):
+        return out
+    out['common'] = {str(x).strip() for x in (raw.get('common') or []) if str(x).strip()}
+    genres = raw.get('genres') or {}
+    if isinstance(genres, dict):
+        for genre, items in genres.items():
+            genre_key = str(genre or '').strip()
+            if not genre_key:
+                continue
+            out['genres'][genre_key] = {str(x).strip() for x in (items or []) if str(x).strip()}
     return out
 
 
 def _is_action_fallback_cluster_resolved(cluster: dict | None, rule_maps: dict | None = None) -> bool:
     data = cluster if isinstance(cluster, dict) else {}
+    if bool(data.get('reopened_from_rule')):
+        return False
     terms = [str(x).strip() for x in (data.get('fallback_terms') or []) if str(x).strip()]
     if not terms:
         return True
-    formal_head = str(data.get('suggested_formal_term') or '').strip() or max(terms, key=lambda x: (len(x), x))
+    source_term = str(data.get('source_term') or '').strip() or max(terms, key=lambda x: (len(x), x))
     genre = str(data.get('genre') or '').strip()
-    preferred_scope = 'genre' if genre else 'common'
-    if has_action_formal_head(formal_head, scope=preferred_scope, genre=genre) or has_action_formal_head(formal_head, scope='common', genre=''):
-        return True
-    resolved_terms = []
-    for term in terms:
-        resolved = str(resolve_action_fallback_head(genre, term) or '').strip()
-        if resolved and resolved not in resolved_terms:
-            resolved_terms.append(resolved)
-    if len(resolved_terms) == 1:
-        target = str(resolved_terms[0] or '').strip()
-        if target and target != formal_head:
-            if has_action_formal_head(target, scope=preferred_scope, genre=genre) or has_action_formal_head(target, scope='common', genre=''):
-                return True
-    aliases = [term for term in terms if term != formal_head]
-    if not aliases:
-        return False
     maps = rule_maps if isinstance(rule_maps, dict) else _action_fallback_rule_maps()
+    ignored_maps = _action_fallback_ignored_maps()
     genre_map = (maps.get('genres') or {}).get(genre, {}) if genre else {}
     common_map = maps.get('common') or {}
-    return all(str(genre_map.get(alias) or common_map.get(alias) or '').strip() == formal_head for alias in aliases)
+    ignored_terms = set(ignored_maps.get('common') or set())
+    if genre:
+        ignored_terms.update((ignored_maps.get('genres') or {}).get(genre, set()))
+    replacements = list(genre_map.get(source_term) or common_map.get(source_term) or [])
+    if replacements:
+        return True
+    return all(term in ignored_terms for term in terms if term != source_term)
 
 
 def _collect_action_fallback_monitor(days: int = 30, limit: int = 2000) -> dict:
@@ -1326,7 +1553,14 @@ def _collect_action_fallback_monitor(days: int = 30, limit: int = 2000) -> dict:
             if not terms:
                 continue
             genre = str(cluster.get('genre') or '').strip()
-            suggested = str(cluster.get('suggested_formal_term') or '').strip() or max(terms, key=lambda x: (len(x), x))
+            raw_verbs = [str(x).strip() for x in (cluster.get('raw_verbs') or []) if str(x).strip()]
+            source_term = str(cluster.get('source_term') or '').strip() or _suggest_action_fallback_source_term(terms, raw_verbs, risk_terms)
+            candidate_replacement_terms, auto_filtered_terms = _suggest_action_fallback_replacement_terms(
+                terms,
+                raw_verbs,
+                source_term,
+                risk_terms,
+            )
             key = f"{genre}||{'/'.join(sorted(terms))}"
             bucket = grouped.setdefault(
                 key,
@@ -1334,13 +1568,15 @@ def _collect_action_fallback_monitor(days: int = 30, limit: int = 2000) -> dict:
                     'cluster_key': key,
                     'genre': genre,
                     'fallback_terms': sorted(terms),
-                    'suggested_formal_term': suggested,
+                    'source_term': source_term,
                     'hit_count': 0,
                     'project_ids': [],
                     'user_phones': [],
                     'parent_heads': [],
                     'raw_verbs': [],
                     'examples': [],
+                    'candidate_replacement_terms': [],
+                    'auto_filtered_terms': [],
                     'latest_at': '',
                 },
             )
@@ -1357,12 +1593,51 @@ def _collect_action_fallback_monitor(days: int = 30, limit: int = 2000) -> dict:
                 value = str(cluster.get(field) or '').strip()
                 if value and value not in bucket[target]:
                     bucket[target].append(value)
-            for raw_verb in [str(x).strip() for x in (cluster.get('raw_verbs') or []) if str(x).strip()]:
+            for raw_verb in raw_verbs:
                 if raw_verb not in bucket['raw_verbs']:
                     bucket['raw_verbs'].append(raw_verb)
+            for replacement_term in candidate_replacement_terms:
+                if replacement_term not in bucket['candidate_replacement_terms']:
+                    bucket['candidate_replacement_terms'].append(replacement_term)
+            for filtered_term in auto_filtered_terms:
+                if filtered_term not in bucket['auto_filtered_terms']:
+                    bucket['auto_filtered_terms'].append(filtered_term)
             created_at = row.created_at.isoformat() if row.created_at else ''
             if created_at and created_at > str(bucket.get('latest_at') or ''):
                 bucket['latest_at'] = created_at
+
+    graph = _load_action_graph()
+    reopen_queue = ((graph.get('_meta') or {}).get('fallback_reopen_queue') or [])
+    if isinstance(reopen_queue, list):
+        for queued in reopen_queue:
+            if not isinstance(queued, dict):
+                continue
+            source_term = str(queued.get('source_term') or '').strip()
+            if not source_term:
+                continue
+            genre = str(queued.get('genre') or '').strip()
+            fallback_terms = [source_term]
+            key = f"{genre}||reopen||{source_term}"
+            bucket = grouped.setdefault(
+                key,
+                {
+                    'cluster_key': key,
+                    'genre': genre,
+                    'fallback_terms': fallback_terms,
+                    'source_term': source_term,
+                    'hit_count': 0,
+                    'project_ids': [],
+                    'user_phones': [],
+                    'parent_heads': [],
+                    'raw_verbs': [source_term],
+                    'examples': [],
+                    'candidate_replacement_terms': [str(x).strip() for x in (queued.get('replacement_terms') or []) if str(x).strip()],
+                    'auto_filtered_terms': [],
+                    'latest_at': str(queued.get('released_at') or ''),
+                    'reopened_from_rule': True,
+                },
+            )
+            bucket['reopened_from_rule'] = True
 
     rule_maps = _action_fallback_rule_maps()
     items = []
@@ -1370,8 +1645,15 @@ def _collect_action_fallback_monitor(days: int = 30, limit: int = 2000) -> dict:
         enriched = dict(bucket)
         enriched['resolved'] = _is_action_fallback_cluster_resolved(enriched, rule_maps)
         items.append(enriched)
-    items.sort(key=lambda item: (-int(item.get('hit_count') or 0), str(item.get('latest_at') or ''), str(item.get('cluster_key') or '')))
-    rules = list_action_fallback_alias_rules().get('items', [])
+    items.sort(
+        key=lambda item: (
+            str(item.get('latest_at') or ''),
+            int(item.get('hit_count') or 0),
+            str(item.get('cluster_key') or ''),
+        ),
+        reverse=True,
+    )
+    rules = list_action_fallback_replacement_rules().get('items', [])
     pending_items = [item for item in items if not item.get('resolved')]
     return {
         'days': window_days,
@@ -1396,6 +1678,101 @@ def _attach_quota_headers(resp, quota: dict | None):
     return resp
 
 
+def _creator_showcase_out(row: CreatorShowcase) -> dict:
+    try:
+        skills = json.loads(row.skills_json or '[]')
+    except json.JSONDecodeError:
+        skills = []
+    return {
+        'id': row.id,
+        'user_phone': row.user_phone,
+        'title': row.title,
+        'genre': row.genre,
+        'role_label': row.role_label,
+        'summary': row.summary,
+        'skills': skills if isinstance(skills, list) else [],
+        'sample_link': row.sample_link,
+        'sample_file_name': row.sample_file_name,
+        'status': row.status,
+        'note': row.note,
+        'created_at': row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+def _copyright_ad_out(row: CopyrightBookAd) -> dict:
+    return {
+        'id': row.id,
+        'user_phone': getattr(row, 'user_phone', '') or '',
+        'title': row.title,
+        'genre': row.genre,
+        'description': row.description,
+        'budget_text': row.budget_text,
+        'deposit_amount': float(row.deposit_amount or 0),
+        'contact_note': row.contact_note,
+        'status': row.status,
+        'created_at': row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+def _recruitment_need_out(row: RecruitmentNeed) -> dict:
+    return {
+        'id': row.id,
+        'title': row.title,
+        'genre': row.genre,
+        'description': row.description,
+        'budget_text': row.budget_text,
+        'deadline_text': row.deadline_text,
+        'contact_note': row.contact_note,
+        'status': row.status,
+        'created_at': row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+def _recharge_order_out(row: RechargeOrder) -> dict:
+    return {
+        'id': row.id,
+        'user_phone': row.user_phone,
+        'order_type': row.order_type,
+        'package_name': row.package_name,
+        'units': int(row.units or 0),
+        'payable_amount': float(row.payable_amount or 0),
+        'deposit_offset': float(row.deposit_offset or 0),
+        'note': row.note,
+        'status': row.status,
+        'reviewed_by': row.reviewed_by,
+        'reviewed_at': row.reviewed_at.isoformat() if row.reviewed_at else None,
+        'created_at': row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+def _user_sfx_submission_out(row: UserSfxSubmission) -> dict:
+    return {
+        'id': row.id,
+        'user_phone': row.user_phone,
+        'project_id': row.project_id,
+        'genre': row.genre,
+        'verb': row.verb,
+        'display_term': row.display_term,
+        'sentence_excerpt': row.sentence_excerpt,
+        'project_text_excerpt': row.project_text_excerpt,
+        'note': row.note,
+        'file_name': row.file_name,
+        'file_path': row.file_path,
+        'download_api': (
+            f"{settings.api_prefix}/ops/file?path={quote(str(row.file_path or ''), safe='')}"
+            if str(row.file_path or '').strip()
+            else ''
+        ),
+        'status': row.status,
+        'review_note': row.review_note,
+        'reviewed_by': row.reviewed_by,
+        'reviewed_at': row.reviewed_at.isoformat() if row.reviewed_at else None,
+        'reward_download_delta': int(row.reward_download_delta or 0),
+        'reward_applied': bool(int(row.reward_applied or 0)),
+        'created_at': row.created_at.isoformat() if row.created_at else None,
+    }
+
+
 def _normalize_phone_for_path(phone: str) -> str:
     p = re.sub(r'[^0-9+]', '', phone or '')
     return p or 'anonymous'
@@ -1407,6 +1784,7 @@ def _build_local_storage_path(
     original_name: str,
     *,
     suffix_fallback: str = '.bin',
+    unique_name: bool = False,
 ) -> Path:
     root = Path(settings.upload_dir).resolve()
     phone = _normalize_phone_for_path(_extract_user_phone())
@@ -1416,7 +1794,8 @@ def _build_local_storage_path(
     safe_ext = re.sub(r'[^a-zA-Z0-9.]', '', ext) or suffix_fallback
     out_dir = root / phone / f'{now.year:04d}' / f'{now.month:02d}' / f'{now.day:02d}' / safe_action
     out_dir.mkdir(parents=True, exist_ok=True)
-    return out_dir / f'project_{project_id}{safe_ext}'
+    unique_part = f'_{secrets.token_hex(4)}' if unique_name else ''
+    return out_dir / f'project_{project_id}{unique_part}{safe_ext}'
 
 
 def _is_under_upload_root(abs_path: Path) -> bool:
@@ -1685,6 +2064,7 @@ def auth_settings():
         _ensure_invite_seed_codes(db)
         invite_only_enabled = _invite_only_enabled(db)
         debug_enabled = _frontend_debug_expose_enabled(db)
+        home_leaderboards_enabled = _home_leaderboards_enabled(db)
     return jsonify(
         {
             'invite_only_enabled': invite_only_enabled,
@@ -1692,6 +2072,7 @@ def auth_settings():
             'referral_code_supported': True,
             'uid_supported': True,
             'frontend_debug_expose_enabled': bool(debug_enabled),
+            'home_leaderboards_enabled': bool(home_leaderboards_enabled),
             'signed_downloads_required': bool(settings.require_signed_downloads),
         }
     )
@@ -1704,6 +2085,7 @@ def admin_frontend_security_get():
         return jsonify(
             {
                 'frontend_debug_expose_enabled': bool(_frontend_debug_expose_enabled(db)),
+                'home_leaderboards_enabled': bool(_home_leaderboards_enabled(db)),
                 'signed_downloads_required': bool(settings.require_signed_downloads),
                 'download_token_ttl_sec': int(settings.download_token_ttl_sec or 300),
             }
@@ -1715,13 +2097,17 @@ def admin_frontend_security_get():
 def admin_frontend_security_save():
     payload = request.get_json(force=True) or {}
     enabled = bool(payload.get('frontend_debug_expose_enabled', False))
+    home_leaderboards_enabled = bool(payload.get('home_leaderboards_enabled', False))
     with SessionLocal() as db:
         _set_frontend_debug_expose_enabled(db, enabled)
+        _set_home_leaderboards_enabled(db, home_leaderboards_enabled)
         current = bool(_frontend_debug_expose_enabled(db))
+        current_home = bool(_home_leaderboards_enabled(db))
     return jsonify(
         {
             'ok': True,
             'frontend_debug_expose_enabled': current,
+            'home_leaderboards_enabled': current_home,
             'signed_downloads_required': bool(settings.require_signed_downloads),
             'download_token_ttl_sec': int(settings.download_token_ttl_sec or 300),
         }
@@ -2103,20 +2489,19 @@ def api_action_graph_node():
             status_counter: dict[str, int] = {}
             latest_created_at = ''
             target_terms = _merge_unique_list([str(x).strip() for x in (out.get('sfx_terms') or []) if str(x).strip()])
-            global_asset_labels = set()
-            for asset in asset_rows:
-                label = str(asset.asset_label or '').strip()
-                if label:
-                    global_asset_labels.add(label)
             covered_terms_set = set()
             supplement_items = []
             for row in rows:
-                status_counter[row.status] = status_counter.get(row.status, 0) + 1
+                row_task_scope = str(row.task_scope or ('genre' if (row.target_genre or row.genre) else 'common')).strip().lower() or ('genre' if (row.target_genre or row.genre) else 'common')
+                row_task_scope_genre = str(row.task_scope_genre or (row.target_genre or row.genre or '') if row_task_scope == 'genre' else '').strip()
                 if row.created_at:
                     ts = row.created_at.isoformat()
                     if ts > latest_created_at:
                         latest_created_at = ts
-                assets = assets_by_supp.get(int(row.id), [])
+                assets = [
+                    asset for asset in assets_by_supp.get(int(row.id), [])
+                    if _action_asset_matches_task_scope(asset, row_task_scope, row_task_scope_genre or genre)
+                ]
                 try:
                     row_missing_terms = [str(x).strip() for x in json.loads(row.missing_sfx_terms_json or '[]') if str(x).strip()]
                 except json.JSONDecodeError:
@@ -2126,19 +2511,36 @@ def api_action_graph_node():
                 except json.JSONDecodeError:
                     row_sfx_terms = []
                 row_target_terms = _merge_unique_list(row_sfx_terms or row_missing_terms or target_terms)
-                row_covered_terms = [term for term in row_target_terms if term in global_asset_labels]
-                row_pending_terms = [term for term in row_target_terms if term not in global_asset_labels]
+                row_covered_labels = {
+                    str(asset.asset_label or '').strip()
+                    for asset in assets
+                    if str(asset.asset_label or '').strip()
+                }
+                row_covered_terms = [term for term in row_target_terms if term in row_covered_labels]
+                row_pending_terms = [term for term in row_target_terms if term not in row_covered_labels]
                 row_completion_ratio = round((len(row_covered_terms) / len(row_target_terms)), 4) if row_target_terms else 1.0
-                ready_to_notify = (row.status == 'ready_to_notify' or not row_pending_terms) and not row.notified_at
+                effective_status = str(row.status or '').strip()
+                if effective_status != 'merged_duplicate':
+                    if not row_pending_terms:
+                        effective_status = 'ready_to_notify'
+                    elif row_covered_terms:
+                        effective_status = 'partial'
+                    else:
+                        effective_status = 'pending'
+                status_counter[effective_status] = status_counter.get(effective_status, 0) + 1
+                ready_to_notify = effective_status == 'ready_to_notify' and not row.notified_at
                 supplement_items.append(
                     {
                         'id': row.id,
-                        'status': row.status,
+                        'status': effective_status,
                         'notification_status': '已通知' if row.notified_at else '未通知',
                         'notified_at': row.notified_at.isoformat() if row.notified_at else '',
                         'user_phone': row.user_phone,
                         'sentence_excerpt': row.sentence_excerpt,
                         'created_at': row.created_at.isoformat() if row.created_at else '',
+                        'task_scope': row_task_scope,
+                        'task_scope_genre': row_task_scope_genre,
+                        'task_scope_label': _action_task_scope_label(row_task_scope, row_task_scope_genre or genre),
                         'assets': assets,
                         'target_terms': row_target_terms,
                         'covered_terms': row_covered_terms,
@@ -2155,9 +2557,12 @@ def api_action_graph_node():
                     covered_terms_set.add(label)
             covered_terms = [term for term in target_terms if term in covered_terms_set]
             pending_terms = [term for term in target_terms if term not in covered_terms_set]
-            ready_to_notify_count = sum(1 for item in supplement_items if item.get('ready_to_notify'))
+            ready_to_notify_count = sum(
+                1 for item in supplement_items
+                if item.get('status') == 'ready_to_notify' and item.get('notification_status') != '已通知'
+            )
             notified_count = sum(1 for row in rows if row.notified_at)
-            incomplete_count = sum(1 for item in supplement_items if not item.get('ready_to_notify'))
+            incomplete_count = sum(1 for item in supplement_items if item.get('status') != 'ready_to_notify')
         out['supplement_summary'] = {
             'item_count': len(rows),
             'status_counter': status_counter,
@@ -2177,8 +2582,8 @@ def api_action_graph_node():
             'display_name_rule': '下载版本：{音效词}（通用） 或 {音效词}（赛道）',
             'semantic_edge_meaning': '语义扩展词用于扩展理解与召回，不等于必须上传素材。',
             'direct_edge_meaning': '直达音效边表示可直接命中的素材标签，适合用户直接下载或运营直接补库。',
-            'composite_edge_meaning': '组合音效边表示整体动作音效，适合直接交付给用户作为成品动作音效使用。',
-            'operator_hint': '运营补库时，需要先选择上传的是通用版素材还是当前赛道版素材；如果节点含有（组合）标签，则说明该词可作为整体动作音效单独上传。',
+            'composite_edge_meaning': '整体音效边表示可直接交付使用的完整动作音效，适合用户直接下载或运营直接补库。',
+            'operator_hint': '运营补库时，需要先选择上传的是通用版素材还是当前赛道版素材；如果节点含有（整体）标签，则说明该词可作为完整动作音效单独上传。',
         }
     code = 200 if not out.get('detail') else 404
     return jsonify(out), code
@@ -2199,6 +2604,48 @@ def api_action_graph_node_layers():
 def api_action_graph_maintenance_catalog():
     out = list_action_graph_maintenance_catalog()
     return jsonify(out), 200
+
+
+@app.get(f'{settings.api_prefix}/action-graph/replacement-candidates')
+@_require_admin
+def api_action_graph_replacement_candidates():
+    target_genre = str((request.args.get('genre') or '').strip())
+    rules = list_action_fallback_replacement_rules().get('items', [])
+    grouped: dict[str, dict] = {}
+    for rule in rules:
+        source_term = str(rule.get('source_term') or '').strip()
+        for term in [str(x).strip() for x in (rule.get('replacement_terms') or []) if str(x).strip()]:
+            bucket = grouped.setdefault(
+                term,
+                {
+                    'term': term,
+                    'source_terms': [],
+                    'source_count': 0,
+                    'common_exists': False,
+                    'genre_exists': False,
+                    'target_genre': target_genre,
+                },
+            )
+            if source_term and source_term not in bucket['source_terms']:
+                bucket['source_terms'].append(source_term)
+    items = []
+    for term, bucket in grouped.items():
+        bucket['source_terms'] = sorted(bucket['source_terms'])
+        bucket['source_count'] = len(bucket['source_terms'])
+        bucket['common_exists'] = has_action_formal_head(term, scope='common')
+        bucket['genre_exists'] = bool(target_genre) and has_action_formal_head(term, scope='genre', genre=target_genre)
+        if bucket['common_exists'] and (not target_genre or bucket['genre_exists']):
+            continue
+        items.append(bucket)
+    items.sort(key=lambda item: (int(item.get('source_count') or 0), str(item.get('term') or '')), reverse=True)
+    return jsonify(
+        {
+            'ok': True,
+            'target_genre': target_genre,
+            'count': len(items),
+            'items': items,
+        }
+    )
 
 
 @app.get(f'{settings.api_prefix}/action-graph/fallback-monitor')
@@ -2297,21 +2744,17 @@ def api_action_graph_fallback_monitor_alerts():
 @_require_admin
 def api_action_graph_fallback_monitor_resolve():
     payload = request.get_json(force=True) or {}
-    formal_head = str(payload.get('formal_head') or '').strip()
-    fallback_terms = [str(x).strip() for x in (payload.get('fallback_terms') or []) if str(x).strip()]
-    alias_terms = [str(x).strip() for x in (payload.get('alias_terms') or []) if str(x).strip()]
-    if fallback_terms:
-        for term in fallback_terms:
-            if term != formal_head and term not in alias_terms:
-                alias_terms.append(term)
-    out = apply_action_fallback_resolution(
-        formal_head=formal_head,
-        alias_terms=alias_terms,
-        scope=str(payload.get('scope') or 'common').strip(),
+    source_term = str(payload.get('source_term') or '').strip()
+    replacement_terms = [str(x).strip() for x in (payload.get('replacement_terms') or []) if str(x).strip()]
+    ignored_terms = [str(x).strip() for x in (payload.get('ignored_terms') or []) if str(x).strip()]
+    out = apply_action_fallback_replacements(
+        source_term=source_term,
+        replacement_terms=replacement_terms,
         genre=str(payload.get('genre') or '').strip(),
+        ignored_terms=ignored_terms,
     )
     if out.get('ok'):
-        neo4j_sync = sync_action_graph_to_neo4j()
+        neo4j_sync = _trigger_action_graph_sync_async()
         out['neo4j_sync'] = neo4j_sync
     code = 200 if out.get('ok') else 400
     return jsonify(out), code
@@ -2321,13 +2764,12 @@ def api_action_graph_fallback_monitor_resolve():
 @_require_admin
 def api_action_graph_fallback_monitor_release():
     payload = request.get_json(force=True) or {}
-    out = remove_action_fallback_alias_rule(
-        alias_term=str(payload.get('alias_term') or '').strip(),
-        scope=str(payload.get('scope') or 'common').strip(),
+    out = remove_action_fallback_replacement_rule(
+        source_term=str(payload.get('source_term') or '').strip(),
         genre=str(payload.get('genre') or '').strip(),
     )
     if out.get('ok'):
-        neo4j_sync = sync_action_graph_to_neo4j()
+        neo4j_sync = _trigger_action_graph_sync_async()
         out['neo4j_sync'] = neo4j_sync
     code = 200 if out.get('ok') else 400
     return jsonify(out), code
@@ -2344,7 +2786,7 @@ def api_action_graph_node_layer_update():
         sfx_terms=[str(x).strip() for x in (payload.get('sfx_terms') or []) if str(x).strip()],
     )
     if out.get('ok'):
-        neo4j_sync = sync_action_graph_to_neo4j()
+        neo4j_sync = _trigger_action_graph_sync_async()
         out['neo4j_sync'] = neo4j_sync
     code = 200 if out.get('ok') else 400
     return jsonify(out), code
@@ -2361,7 +2803,7 @@ def api_action_graph_promote_to_common():
         remove_from_genre=bool(payload.get('remove_from_genre')),
     )
     if out.get('ok'):
-        neo4j_sync = sync_action_graph_to_neo4j()
+        neo4j_sync = _trigger_action_graph_sync_async()
         out['neo4j_sync'] = neo4j_sync
     code = 200 if out.get('ok') else 400
     return jsonify(out), code
@@ -2379,7 +2821,7 @@ def api_action_graph_demote_to_genre():
         remove_from_common=bool(payload.get('remove_from_common')),
     )
     if out.get('ok'):
-        neo4j_sync = sync_action_graph_to_neo4j()
+        neo4j_sync = _trigger_action_graph_sync_async()
         out['neo4j_sync'] = neo4j_sync
     code = 200 if out.get('ok') else 400
     return jsonify(out), code
@@ -2397,7 +2839,7 @@ def api_action_graph_remove_overlap():
         target_genre=str(payload.get('target_genre') or '').strip(),
     )
     if out.get('ok'):
-        neo4j_sync = sync_action_graph_to_neo4j()
+        neo4j_sync = _trigger_action_graph_sync_async()
         out['neo4j_sync'] = neo4j_sync
     code = 200 if out.get('ok') else 400
     return jsonify(out), code
@@ -2413,7 +2855,7 @@ def api_action_graph_node_delete():
         target_genre=str(payload.get('target_genre') or '').strip(),
     )
     if out.get('ok'):
-        neo4j_sync = sync_action_graph_to_neo4j()
+        neo4j_sync = _trigger_action_graph_sync_async()
         out['neo4j_sync'] = neo4j_sync
     code = 200 if out.get('ok') else 400
     return jsonify(out), code
@@ -2517,9 +2959,9 @@ def api_action_graph_explanation():
             'display_name_rule': '下载版本：{音效词}（通用） 或 {音效词}（赛道）',
             'semantic_edge_meaning': '语义扩展词用于扩展理解与召回，不等于必须上传素材。',
             'direct_edge_meaning': '直达音效边表示可直接命中的素材标签，适合用户直接下载或运营直接补库。',
-            'composite_edge_meaning': '组合音效边表示整体动作音效，适合直接交付给用户作为成品动作音效使用。',
-            'user_hint': '如果你想快速出结果，可优先选择组合音效；如果你想自己叠加设计层次，可优先选择直达音效。',
-            'operator_hint': '运营补库时，需要先选择上传的是通用版素材还是当前赛道版素材；如果节点含有（组合）标签，则说明该词可作为整体动作音效单独上传。',
+            'composite_edge_meaning': '整体音效边表示可直接交付使用的完整动作音效，适合用户直接下载或运营直接补库。',
+            'user_hint': '如果你想快速出结果，可优先选择整体音效；如果你想自己叠加设计层次，可优先选择直达音效。',
+            'operator_hint': '运营补库时，需要先选择上传的是通用版素材还是当前赛道版素材；如果节点含有（整体）标签，则说明该词可作为完整动作音效单独上传。',
         }
     )
 
@@ -2846,6 +3288,101 @@ def upload_audio(project_id: int):
         return _user_json_response(result)
 
 
+@app.post(f'{settings.api_prefix}/analysis/<int:project_id>/music-match')
+@_enforce_feature_access('audio_analysis')
+def analyze_music_match(project_id: int):
+    with SessionLocal() as db:
+        project = db.get(Project, project_id)
+        if not project:
+            return jsonify({'detail': 'Project not found'}), 404
+
+        audio = db.execute(select(AudioAnalysis).where(AudioAnalysis.project_id == project_id)).scalar_one_or_none()
+        if audio is None:
+            return jsonify({'detail': '生成匹配结果前，需要先完成音乐分析', 'hint': '请先执行第2步：音乐分析'}), 400
+
+        text = db.execute(select(TextAnalysis).where(TextAnalysis.project_id == project_id)).scalar_one_or_none()
+        if text is None:
+            return jsonify({'detail': '生成匹配结果前，需要先完成文本分析', 'hint': '请先执行第3步：文本分析'}), 400
+
+        narration = db.execute(select(NarrationAnalysis).where(NarrationAnalysis.project_id == project_id)).scalar_one_or_none()
+
+        try:
+            narration_timeline = json.loads(narration.timeline_json) if narration and narration.timeline_json else None
+        except json.JSONDecodeError:
+            narration_timeline = None
+
+        audio_context = {
+            'duration_sec': audio.duration_sec,
+            'bpm': audio.bpm,
+            'tags': json.loads(audio.tags_json),
+            'markers': json.loads(audio.markers_json),
+            'report_markdown': audio.report_markdown,
+        }
+        text_context = {
+            'raw_text': text.raw_text,
+            'scenes': json.loads(text.scenes_json),
+            'report_markdown': text.report_markdown,
+        }
+
+        result = build_music_match_result(
+            project_genre=project.genre or '玄幻',
+            audio_context=audio_context,
+            text_context=text_context,
+            narration_timeline=narration_timeline if isinstance(narration_timeline, dict) else None,
+        )
+
+        row = db.execute(select(MusicMatchResult).where(MusicMatchResult.project_id == project_id)).scalar_one_or_none()
+        if row is None:
+            row = MusicMatchResult(
+                project_id=project_id,
+                audio_analysis_id=audio.id,
+                text_analysis_id=text.id,
+                narration_analysis_id=narration.id if narration else None,
+                score=float(result.get('score') or 0),
+                verdict=str(result.get('verdict') or ''),
+                summary=str(result.get('summary') or ''),
+                genre_match_json=json.dumps(result.get('genre_match') or {}, ensure_ascii=False),
+                text_match_json=json.dumps(result.get('text_match') or {}, ensure_ascii=False),
+                narration_match_json=json.dumps(result.get('narration_match') or {}, ensure_ascii=False),
+                editing_advice_json=json.dumps(result.get('editing_advice') or {}, ensure_ascii=False),
+                replace_advice_json=json.dumps(result.get('replace_advice') or {}, ensure_ascii=False),
+                report_json=json.dumps(result.get('report_json') or {}, ensure_ascii=False),
+            )
+            db.add(row)
+        else:
+            row.audio_analysis_id = audio.id
+            row.text_analysis_id = text.id
+            row.narration_analysis_id = narration.id if narration else None
+            row.score = float(result.get('score') or 0)
+            row.verdict = str(result.get('verdict') or '')
+            row.summary = str(result.get('summary') or '')
+            row.genre_match_json = json.dumps(result.get('genre_match') or {}, ensure_ascii=False)
+            row.text_match_json = json.dumps(result.get('text_match') or {}, ensure_ascii=False)
+            row.narration_match_json = json.dumps(result.get('narration_match') or {}, ensure_ascii=False)
+            row.editing_advice_json = json.dumps(result.get('editing_advice') or {}, ensure_ascii=False)
+            row.replace_advice_json = json.dumps(result.get('replace_advice') or {}, ensure_ascii=False)
+            row.report_json = json.dumps(result.get('report_json') or {}, ensure_ascii=False)
+
+        db.commit()
+        _log_user_operation(
+            db=db,
+            action='music_match',
+            project_id=project_id,
+            req={
+                'has_audio_analysis': True,
+                'has_text_analysis': True,
+                'has_narration_analysis': bool(narration),
+            },
+            resp={
+                'verdict': result.get('verdict'),
+                'score': result.get('score'),
+            },
+            file_refs=[],
+        )
+        result['usage'] = getattr(g, 'usage_info', None)
+        return _user_json_response(result)
+
+
 @app.post(f'{settings.api_prefix}/analysis/<int:project_id>/text')
 @_enforce_feature_access('text_analysis')
 def analyze_text(project_id: int):
@@ -2947,6 +3484,28 @@ def analyze_action_verbs_api(project_id: int):
         db_user = db.execute(select(UserAccount).where(UserAccount.phone == g.current_user.phone)).scalar_one_or_none()
         if db_user is None:
             return jsonify({'detail': '用户不存在，请重新登录'}), 401
+        cached_row = db.execute(
+            select(ActionVerbAnalysis).where(ActionVerbAnalysis.project_id == project_id)
+        ).scalar_one_or_none()
+        if (
+            cached_row is not None
+            and str(cached_row.text_fingerprint or '').strip()
+            and str(cached_row.text_fingerprint or '').strip() == text_fingerprint
+            and str(cached_row.genre or '').strip() == (genre or '玄幻')
+        ):
+            try:
+                cached_result = json.loads(cached_row.result_json or '{}')
+            except json.JSONDecodeError:
+                cached_result = {}
+            if isinstance(cached_result, dict) and cached_result:
+                cached_result['usage'] = {
+                    'authorized': bool(int(db_user.is_authorized or 0)),
+                    'ops_role_code': _ops_role_code(db_user),
+                    'user_tier_code': _user_tier_code(db_user),
+                    'quota': _user_quota_snapshot(db, db_user),
+                }
+                cached_result['cache_hit'] = True
+                return _user_json_response(cached_result)
         quota_err = _ensure_text_chars_available_once_or_error(db, db_user, text)
         if quota_err is not None:
             return quota_err
@@ -2963,6 +3522,23 @@ def analyze_action_verbs_api(project_id: int):
         quota_err = _consume_text_chars_once_or_error(db, db_user, text)
         if quota_err is not None:
             return quota_err
+        if cached_row is None:
+            cached_row = ActionVerbAnalysis(
+                project_id=project_id,
+                raw_text=text,
+                text_fingerprint=text_fingerprint,
+                genre=effective_genre,
+                report_markdown=str(result.get('report_markdown') or ''),
+                result_json=json.dumps(result, ensure_ascii=False),
+            )
+            db.add(cached_row)
+        else:
+            cached_row.raw_text = text
+            cached_row.text_fingerprint = text_fingerprint
+            cached_row.genre = effective_genre
+            cached_row.report_markdown = str(result.get('report_markdown') or '')
+            cached_row.result_json = json.dumps(result, ensure_ascii=False)
+        db.commit()
         _log_user_operation(
             db=db,
             action='action_verb_analysis',
@@ -3430,6 +4006,8 @@ def analyze_action_graph_draft_api(project_id: int):
             verb = str(item.get('verb') or '').strip()
             target_head = str(item.get('target_head') or '').strip()
             target_genre = str(item.get('target_genre') or '').strip()
+            task_scope = str(item.get('task_scope') or ('genre' if target_genre else 'common')).strip().lower() or ('genre' if target_genre else 'common')
+            task_scope_genre = str(item.get('task_scope_genre') or (target_genre if task_scope == 'genre' else '')).strip()
             if not verb:
                 continue
             node_key = build_action_node_key(target_genre or str(result.get('genre') or '').strip(), target_head or verb)
@@ -3445,6 +4023,8 @@ def analyze_action_graph_draft_api(project_id: int):
                     ActionSupplementTask.verb == verb,
                     ActionSupplementTask.target_head == target_head,
                     ActionSupplementTask.target_genre == target_genre,
+                    ActionSupplementTask.task_scope == task_scope,
+                    ActionSupplementTask.task_scope_genre == task_scope_genre,
                     ActionSupplementTask.status == 'pending',
                 )
             ).scalars().all()
@@ -3454,6 +4034,8 @@ def analyze_action_graph_draft_api(project_id: int):
                 primary.semantic_terms_json = json.dumps(item.get('semantic_terms') or [], ensure_ascii=False)
                 primary.sfx_terms_json = json.dumps(item.get('sfx_terms') or [], ensure_ascii=False)
                 primary.missing_sfx_terms_json = json.dumps(item.get('missing_sfx_terms') or [], ensure_ascii=False)
+                primary.task_scope = task_scope
+                primary.task_scope_genre = task_scope_genre
                 primary.status = effective_status
                 for extra in existing_rows[1:]:
                     extra.status = 'merged_duplicate'
@@ -3466,6 +4048,8 @@ def analyze_action_graph_draft_api(project_id: int):
                         verb=verb,
                         target_head=target_head or verb,
                         target_genre=target_genre,
+                        task_scope=task_scope,
+                        task_scope_genre=task_scope_genre,
                         sentence_excerpt=str(item.get('sentence_excerpt') or '').strip(),
                         semantic_terms_json=json.dumps(item.get('semantic_terms') or [], ensure_ascii=False),
                         sfx_terms_json=json.dumps(item.get('sfx_terms') or [], ensure_ascii=False),
@@ -3541,10 +4125,6 @@ def ops_action_supplements():
 
     with SessionLocal() as db:
         stmt = select(ActionSupplementTask).where(ActionSupplementTask.created_at >= cutoff)
-        if status in {'pending', 'partial'}:
-            stmt = stmt.where(ActionSupplementTask.status == status)
-        elif status == 'ready_to_notify':
-            stmt = stmt.where(ActionSupplementTask.status == 'ready_to_notify')
         rows = db.execute(stmt.order_by(ActionSupplementTask.created_at.desc()).limit(500)).scalars().all()
         supp_ids = [r.id for r in rows]
         asset_rows = (
@@ -3596,6 +4176,8 @@ def ops_action_supplements():
             missing_sfx_terms = json.loads(r.missing_sfx_terms_json or '[]')
         except json.JSONDecodeError:
             missing_sfx_terms = []
+        task_scope = str(r.task_scope or ('genre' if (r.target_genre or r.genre) else 'common')).strip().lower() or ('genre' if (r.target_genre or r.genre) else 'common')
+        task_scope_genre = str(r.task_scope_genre or (r.target_genre or r.genre or '') if task_scope == 'genre' else '').strip()
         node_key = build_action_node_key(str(r.target_genre or r.genre or '').strip(), str(r.target_head or r.verb or '').strip())
         coverage = coverage_by_node.get(node_key) or {}
         merged_assets = [dict(x) for x in (coverage.get('assets') or assets_by_supp.get(r.id, []))]
@@ -3614,8 +4196,15 @@ def ops_action_supplements():
                 continue
             dedup_asset_keys.add(key)
             normalized_assets.append(asset)
-        merged_assets = normalized_assets
-        merged_labels = _merge_unique_list(list(coverage.get('covered_labels') or []) + list(global_label_coverage.get('labels') or []))
+        merged_assets = [
+            asset for asset in normalized_assets
+            if _action_asset_matches_task_scope(asset, task_scope, task_scope_genre or str(r.target_genre or r.genre or '').strip())
+        ]
+        merged_labels = _merge_unique_list([
+            str(asset.get('asset_label') or asset.get('label') or '').strip()
+            for asset in merged_assets
+            if str(asset.get('asset_label') or asset.get('label') or '').strip()
+        ])
         target_terms = _merge_unique_list(sfx_terms or missing_sfx_terms)
         target_terms_classified = classify_sfx_terms(target_terms)
         pending_terms_classified = classify_sfx_terms([term for term in target_terms if term not in set(merged_labels)])
@@ -3642,11 +4231,11 @@ def ops_action_supplements():
                     'display_name': build_asset_variant_display_name(
                         label,
                         str(asset.get('asset_scope') or 'genre').strip().lower() or 'genre',
-                        str(asset.get('asset_scope_genre') or r.genre or '').strip() or r.genre,
+                        str(asset.get('asset_scope_genre') or r.target_genre or r.genre or '').strip() or (r.target_genre or r.genre),
                     ),
                     'scope_label': build_asset_scope_label(
                         str(asset.get('asset_scope') or 'genre').strip().lower() or 'genre',
-                        str(asset.get('asset_scope_genre') or r.genre or '').strip() or r.genre,
+                        str(asset.get('asset_scope_genre') or r.target_genre or r.genre or '').strip() or (r.target_genre or r.genre),
                     ),
                     'sfx_mode': _sfx_mode_label(label, {'composite_sfx_terms': target_terms_classified['composite_terms']}),
                 }
@@ -3701,6 +4290,9 @@ def ops_action_supplements():
                 },
                 'target_head': r.target_head,
                 'target_genre': r.target_genre,
+                'task_scope': task_scope,
+                'task_scope_genre': task_scope_genre,
+                'task_scope_label': _action_task_scope_label(task_scope, task_scope_genre or r.target_genre or r.genre or ''),
                 'sentence_excerpt': r.sentence_excerpt,
                 'semantic_terms': semantic_terms,
                 'sfx_terms': sfx_terms,
@@ -3751,6 +4343,8 @@ def ops_action_supplements():
 
     if status == 'merged':
         items = [item for item in items if item.get('is_merged')]
+    elif status in {'pending', 'partial'}:
+        items = [item for item in items if item.get('status') == status]
     elif status == 'ready_to_notify':
         items = [item for item in items if item.get('status') == 'ready_to_notify' and not item.get('notified_at')]
     elif status == 'notified':
@@ -3815,6 +4409,9 @@ def ops_action_supplements_merge():
         item = db.execute(select(ActionSupplementTask).where(ActionSupplementTask.id == item_id)).scalar_one_or_none()
         if not item:
             return jsonify({'detail': 'supplement item not found'}), 404
+        task_scope = str(item.task_scope or ('genre' if (item.target_genre or item.genre) else 'common')).strip().lower() or ('genre' if (item.target_genre or item.genre) else 'common')
+        if task_scope in {'common', 'genre'} and asset_scope != task_scope:
+            return jsonify({'detail': f'当前补充单要求上传{_action_task_scope_label(task_scope, item.target_genre or item.genre or "")}素材，请不要切换到其他版本。'}), 400
 
         ext = Path(file.filename).suffix or '.bin'
         safe_label = re.sub(r'[\\\\/:*?\"<>|]+', '_', asset_label).strip() or '未命名音效'
@@ -3873,11 +4470,20 @@ def ops_action_supplements_merge():
         item.asset_file_path = str(out_path)
 
         sfx_terms = [str(x).strip() for x in json.loads(item.sfx_terms_json or '[]') if str(x).strip()]
-        node_key = build_action_node_key(str(item.target_genre or item.genre or '').strip(), str(item.target_head or item.verb or '').strip())
-        node_coverage = load_action_node_coverage({node_key}).get(node_key) or {}
-        global_label_coverage = load_global_sfx_label_coverage()
-        existing_labels = set(str(x).strip() for x in (node_coverage.get('covered_labels') or []) if str(x).strip())
-        existing_labels.update(str(x).strip() for x in (global_label_coverage.get('labels') or []) if str(x).strip())
+        task_genre = str(item.task_scope_genre or item.target_genre or item.genre or '').strip()
+        sibling_assets = db.execute(
+            select(ActionSupplementAsset).where(ActionSupplementAsset.supplement_id.in_(
+                select(ActionSupplementTask.id).where(
+                    ActionSupplementTask.target_genre == (item.target_genre or item.genre or ''),
+                    ActionSupplementTask.target_head == (item.target_head or item.verb or ''),
+                )
+            ))
+        ).scalars().all()
+        relevant_assets = [
+            asset for asset in sibling_assets
+            if _action_asset_matches_task_scope(asset, task_scope, task_genre)
+        ]
+        existing_labels = {str(a.asset_label or '').strip() for a in relevant_assets if str(a.asset_label or '').strip()}
         existing_labels.add(asset_label)
         target_terms = set(sfx_terms or [asset_label])
         covered = len(target_terms & existing_labels)
@@ -3896,7 +4502,14 @@ def ops_action_supplements_merge():
                 sibling_terms = []
             if not sibling_terms:
                 continue
-            sibling_covered = len(set(sibling_terms) & existing_labels)
+            sibling_scope = str(sibling.task_scope or ('genre' if (sibling.target_genre or sibling.genre) else 'common')).strip().lower() or ('genre' if (sibling.target_genre or sibling.genre) else 'common')
+            sibling_scope_genre = str(sibling.task_scope_genre or sibling.target_genre or sibling.genre or '').strip()
+            sibling_labels = {
+                str(asset.asset_label or '').strip()
+                for asset in sibling_assets
+                if str(asset.asset_label or '').strip() and _action_asset_matches_task_scope(asset, sibling_scope, sibling_scope_genre)
+            }
+            sibling_covered = len(set(sibling_terms) & sibling_labels)
             sibling.status = 'ready_to_notify' if sibling_covered >= len(set(sibling_terms)) else ('partial' if sibling_covered else 'pending')
         db.commit()
 
@@ -3936,6 +4549,39 @@ def _merge_unique_list(items: list[str]) -> list[str]:
             seen.add(value)
             out.append(value)
     return out
+
+
+def _action_task_scope_label(task_scope: str, genre: str) -> str:
+    scope = str(task_scope or '').strip().lower()
+    genre_name = str(genre or '').strip() or '当前赛道'
+    if scope == 'common':
+        return '通用版'
+    if scope == 'genre':
+        return f'{genre_name}版'
+    return '未标注版本'
+
+
+def _action_task_display_name(term: str, task_scope: str, genre: str) -> str:
+    value = str(term or '').strip()
+    if not value:
+        return ''
+    return f'{value}（{_action_task_scope_label(task_scope, genre).replace("版", "")}）'
+
+
+def _action_task_scope_asset_scope(task_scope: str) -> str:
+    return 'common' if str(task_scope or '').strip().lower() == 'common' else 'genre'
+
+
+def _action_asset_matches_task_scope(asset: dict | ActionSupplementAsset, task_scope: str, task_genre: str) -> bool:
+    scope = str(task_scope or '').strip().lower() or 'genre'
+    genre = str(task_genre or '').strip()
+    asset_scope = str(getattr(asset, 'asset_scope', None) or (asset.get('asset_scope') if isinstance(asset, dict) else '') or 'genre').strip().lower() or 'genre'
+    asset_scope_genre = str(getattr(asset, 'asset_scope_genre', None) or (asset.get('asset_scope_genre') if isinstance(asset, dict) else '') or '').strip()
+    if scope == 'common':
+        return asset_scope == 'common'
+    if scope == 'genre':
+        return asset_scope == 'genre' and (not asset_scope_genre or not genre or asset_scope_genre == genre)
+    return False
 
 
 def _scene_source_key(common_hit: bool, genre_hit: bool) -> str:
@@ -4966,6 +5612,646 @@ def home_leaderboards():
             'sections': ordered_sections,
         }
     )
+
+
+@app.get(f'{settings.api_prefix}/home/creator-showcases')
+def home_creator_showcases():
+    genre = str((request.args.get('genre') or '').strip())
+    page_raw = request.args.get('page')
+    page_size_raw = request.args.get('page_size')
+    try:
+        page = max(1, int(page_raw or 1))
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        page_size = max(1, min(20, int(page_size_raw or 8)))
+    except (TypeError, ValueError):
+        page_size = 8
+    with SessionLocal() as db:
+        stmt = select(CreatorShowcase).where(CreatorShowcase.status == 'approved')
+        if genre:
+            stmt = stmt.where(CreatorShowcase.genre == genre)
+        total = db.execute(select(func.count()).select_from(stmt.subquery())).scalar() or 0
+        rows = db.execute(
+            stmt.order_by(CreatorShowcase.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        ).scalars().all()
+    return jsonify({'ok': True, 'items': [_creator_showcase_out(row) for row in rows], 'page': page, 'page_size': page_size, 'total': int(total)})
+
+
+@app.post(f'{settings.api_prefix}/home/creator-showcases')
+@_require_login
+def submit_creator_showcase():
+    title = str(request.form.get('title') or '').strip()
+    genre = str(request.form.get('genre') or '').strip() or '玄幻'
+    role_label = str(request.form.get('role_label') or '').strip() or '创作者'
+    summary = str(request.form.get('summary') or '').strip()
+    sample_link = str(request.form.get('sample_link') or '').strip()
+    skills_raw = str(request.form.get('skills') or '').strip()
+    if not title:
+        return jsonify({'detail': 'title is required'}), 400
+    if not summary:
+        return jsonify({'detail': 'summary is required'}), 400
+    skills = [x.strip() for x in re.split(r'[，,、\n]+', skills_raw) if x.strip()]
+    sample_file = request.files.get('sample_file')
+    sample_file_name = ''
+    sample_file_path = ''
+    if sample_file is not None and (sample_file.filename or '').strip():
+        save_path = _build_local_storage_path(
+            action='creator_showcase',
+            project_id=0,
+            original_name=sample_file.filename or 'showcase.bin',
+            suffix_fallback='.bin',
+        )
+        save_path.write_bytes(sample_file.read())
+        sample_file_name = sample_file.filename or save_path.name
+        sample_file_path = str(save_path)
+    with SessionLocal() as db:
+        row = CreatorShowcase(
+            user_phone=g.current_user.phone,
+            title=title,
+            genre=genre,
+            role_label=role_label,
+            summary=summary,
+            skills_json=json.dumps(skills, ensure_ascii=False),
+            sample_link=sample_link,
+            sample_file_name=sample_file_name,
+            sample_file_path=sample_file_path,
+            status='pending',
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    return jsonify({'ok': True, 'item': _creator_showcase_out(row), 'message': '作品展示已提交，待运营审核发布'})
+
+
+@app.get(f'{settings.api_prefix}/home/copyright-ads')
+def home_copyright_ads():
+    genre = str((request.args.get('genre') or '').strip())
+    page_raw = request.args.get('page')
+    page_size_raw = request.args.get('page_size')
+    try:
+        page = max(1, int(page_raw or 1))
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        page_size = max(1, min(20, int(page_size_raw or 8)))
+    except (TypeError, ValueError):
+        page_size = 8
+    with SessionLocal() as db:
+        stmt = select(CopyrightBookAd).where(CopyrightBookAd.status == 'active')
+        if genre:
+            stmt = stmt.where(CopyrightBookAd.genre == genre)
+        total = db.execute(select(func.count()).select_from(stmt.subquery())).scalar() or 0
+        rows = db.execute(
+            stmt.order_by(CopyrightBookAd.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        ).scalars().all()
+    return jsonify({'ok': True, 'items': [_copyright_ad_out(row) for row in rows], 'page': page, 'page_size': page_size, 'total': int(total)})
+
+
+@app.post(f'{settings.api_prefix}/home/copyright-ads')
+@_require_login
+def submit_copyright_ad():
+    payload = request.get_json(force=True) or {}
+    title = str((payload.get('title') or '').strip())
+    genre = str((payload.get('genre') or '').strip()) or '玄幻'
+    description = str((payload.get('description') or '').strip())
+    budget_text = str((payload.get('budget_text') or '').strip())
+    contact_note = str((payload.get('contact_note') or '').strip())
+    try:
+        deposit_amount = float(payload.get('deposit_amount') or 0)
+    except (TypeError, ValueError):
+        return jsonify({'detail': 'deposit_amount must be number'}), 400
+    if not title:
+        return jsonify({'detail': 'title is required'}), 400
+    if not description:
+        return jsonify({'detail': 'description is required'}), 400
+    with SessionLocal() as db:
+        row = CopyrightBookAd(
+            user_phone=g.current_user.phone,
+            title=title,
+            genre=genre,
+            description=description,
+            budget_text=budget_text,
+            deposit_amount=deposit_amount,
+            contact_note=contact_note,
+            status='pending',
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    return jsonify({'ok': True, 'item': _copyright_ad_out(row), 'message': '书单已提交，待运营审核发布'})
+
+
+@app.get(f'{settings.api_prefix}/home/recruitment-needs')
+def home_recruitment_needs():
+    with SessionLocal() as db:
+        rows = db.execute(
+            select(RecruitmentNeed)
+            .where(RecruitmentNeed.status == 'active')
+            .order_by(RecruitmentNeed.created_at.desc())
+            .limit(20)
+        ).scalars().all()
+    return jsonify({'ok': True, 'items': [_recruitment_need_out(row) for row in rows]})
+
+
+@app.get(f'{settings.api_prefix}/home/recharge-summary')
+@_require_login
+def home_recharge_summary():
+    with SessionLocal() as db:
+        user = _get_session_user(db)
+        if user is None:
+            return jsonify({'detail': '请先登录'}), 401
+        orders = db.execute(
+            select(RechargeOrder)
+            .where(RechargeOrder.user_phone == user.phone)
+            .order_by(RechargeOrder.created_at.desc())
+            .limit(12)
+        ).scalars().all()
+        return jsonify(
+            {
+                'ok': True,
+                'balances': {
+                    'text_char_pack_balance': int(getattr(user, 'text_char_pack_balance', 0) or 0),
+                    'sfx_download_pack_balance': int(getattr(user, 'sfx_download_pack_balance', 0) or 0),
+                    'deposit_balance': round(float(getattr(user, 'deposit_balance', 0) or 0), 2),
+                },
+                'orders': [_recharge_order_out(row) for row in orders],
+            }
+        )
+
+
+@app.post(f'{settings.api_prefix}/home/recharge-orders')
+@_require_login
+def home_create_recharge_order():
+    payload = request.get_json(force=True) or {}
+    order_type = str(payload.get('order_type') or '').strip()
+    package_name = str(payload.get('package_name') or '').strip()
+    note = str(payload.get('note') or '').strip()
+    try:
+        units = int(payload.get('units') or 0)
+    except (TypeError, ValueError):
+        return jsonify({'detail': 'units must be integer'}), 400
+    try:
+        payable_amount = float(payload.get('payable_amount') or 0)
+        deposit_offset = float(payload.get('deposit_offset') or 0)
+    except (TypeError, ValueError):
+        return jsonify({'detail': 'payable_amount / deposit_offset must be number'}), 400
+    if order_type not in {'text_chars', 'sfx_downloads', 'deposit'}:
+        return jsonify({'detail': 'order_type 不合法'}), 400
+    if units <= 0:
+        return jsonify({'detail': 'units must be > 0'}), 400
+    if payable_amount < 0 or deposit_offset < 0:
+        return jsonify({'detail': '金额不能小于0'}), 400
+    with SessionLocal() as db:
+        user = _get_session_user(db)
+        if user is None:
+            return jsonify({'detail': '请先登录'}), 401
+        current_deposit = float(getattr(user, 'deposit_balance', 0) or 0)
+        if deposit_offset > current_deposit:
+            return jsonify({'detail': '保证金余额不足，无法抵扣'}), 400
+        if order_type == 'deposit' and deposit_offset > 0:
+            return jsonify({'detail': '保证金充值单不支持再用保证金抵扣'}), 400
+        row = RechargeOrder(
+            user_phone=user.phone,
+            order_type=order_type,
+            package_name=package_name or {'text_chars': '文字包', 'sfx_downloads': '音效下载包', 'deposit': '保证金充值'}[order_type],
+            units=units,
+            payable_amount=payable_amount,
+            deposit_offset=deposit_offset,
+            note=note,
+            status='pending',
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    return jsonify({'ok': True, 'item': _recharge_order_out(row), 'message': '充值申请已提交，待运营审核'})
+
+
+@app.get(f'{settings.api_prefix}/home/sfx-submissions')
+@_require_login
+def home_user_sfx_submissions():
+    with SessionLocal() as db:
+        rows = db.execute(
+            select(UserSfxSubmission)
+            .where(UserSfxSubmission.user_phone == g.current_user.phone)
+            .order_by(UserSfxSubmission.created_at.desc())
+            .limit(20)
+        ).scalars().all()
+        user = _get_session_user(db)
+        quota = _user_quota_snapshot(db, user) if user is not None else {'quota': {}}
+    return jsonify(
+        {
+            'ok': True,
+            'items': [_user_sfx_submission_out(row) for row in rows],
+            'reward_summary': {
+                'sfx_download_pack_balance': int((quota.get('quota') or {}).get('sfx_download_pack_balance') or 0),
+            },
+        }
+    )
+
+
+@app.post(f'{settings.api_prefix}/home/sfx-submissions')
+@_require_login
+def home_create_sfx_submission():
+    display_term = str(request.form.get('display_term') or '').strip()
+    verb = str(request.form.get('verb') or '').strip()
+    genre = str(request.form.get('genre') or '').strip() or '玄幻'
+    sentence_excerpt = str(request.form.get('sentence_excerpt') or '').strip()
+    project_text_excerpt = str(request.form.get('project_text_excerpt') or '').strip()
+    note = str(request.form.get('note') or '').strip()
+    try:
+        project_id = int(request.form.get('project_id') or 0)
+    except (TypeError, ValueError):
+        project_id = 0
+    upload = request.files.get('sfx_file')
+    if not display_term:
+        return jsonify({'detail': 'display_term is required'}), 400
+    if not verb:
+        return jsonify({'detail': 'verb is required'}), 400
+    if upload is None or not (upload.filename or '').strip():
+        return jsonify({'detail': '请先选择要上传的音效文件'}), 400
+    ext = (Path(upload.filename or '').suffix or '').lower()
+    if ext not in {'.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg'}:
+        return jsonify({'detail': '仅支持 mp3 / wav / m4a / aac / flac / ogg 音频文件'}), 400
+    save_path = _build_local_storage_path(
+        action='user_sfx_submission',
+        project_id=project_id,
+        original_name=upload.filename or 'user-sfx.bin',
+        suffix_fallback='.bin',
+        unique_name=True,
+    )
+    save_path.write_bytes(upload.read())
+    with SessionLocal() as db:
+        row = UserSfxSubmission(
+            user_phone=g.current_user.phone,
+            project_id=project_id or None,
+            genre=genre,
+            verb=verb,
+            display_term=display_term,
+            sentence_excerpt=sentence_excerpt,
+            project_text_excerpt=project_text_excerpt[:5000],
+            note=note[:1000],
+            file_name=upload.filename or save_path.name,
+            file_path=str(save_path),
+            status='pending',
+        )
+        db.add(row)
+        db.add(
+            UserOperationLog(
+                project_id=project_id or None,
+                user_phone=g.current_user.phone,
+                action='user_sfx_submission',
+                input_json=json.dumps(
+                    {
+                        'genre': genre,
+                        'verb': verb,
+                        'display_term': display_term,
+                        'sentence_excerpt': sentence_excerpt,
+                        'file_name': upload.filename or save_path.name,
+                    },
+                    ensure_ascii=False,
+                ),
+                output_json=json.dumps({'status': 'pending'}, ensure_ascii=False),
+                file_refs_json=json.dumps([str(save_path)], ensure_ascii=False),
+            )
+        )
+        db.commit()
+        db.refresh(row)
+    return jsonify({'ok': True, 'item': _user_sfx_submission_out(row), 'message': '音效投稿已提交，待运营审核；审核通过后会为你增加 3 次永久下载次数。'})
+
+
+@app.get(f'{settings.api_prefix}/admin/creator-showcases')
+@_require_admin
+def admin_creator_showcases():
+    status = str((request.args.get('status') or '').strip())
+    q = str((request.args.get('q') or '').strip())
+    limit_raw = request.args.get('limit')
+    try:
+        limit = max(1, min(100, int(limit_raw or 30)))
+    except (TypeError, ValueError):
+        limit = 30
+    with SessionLocal() as db:
+        stmt = select(CreatorShowcase).order_by(CreatorShowcase.created_at.desc())
+        if status:
+            stmt = stmt.where(CreatorShowcase.status == status)
+        if q:
+            like = f'%{q}%'
+            stmt = stmt.where(
+                or_(
+                    CreatorShowcase.user_phone.like(like),
+                    CreatorShowcase.title.like(like),
+                    CreatorShowcase.summary.like(like),
+                )
+            )
+        rows = db.execute(stmt.limit(limit)).scalars().all()
+    return jsonify({'ok': True, 'items': [_creator_showcase_out(row) for row in rows]})
+
+
+@app.post(f'{settings.api_prefix}/admin/creator-showcases/review')
+@_require_admin
+def admin_creator_showcases_review():
+    payload = request.get_json(force=True) or {}
+    try:
+        showcase_id = int(payload.get('id') or 0)
+    except (TypeError, ValueError):
+        return jsonify({'detail': 'id is required'}), 400
+    decision = str((payload.get('decision') or '').strip())
+    note = str((payload.get('note') or '').strip())
+    if decision not in {'approved', 'rejected'}:
+        return jsonify({'detail': 'decision must be approved or rejected'}), 400
+    with SessionLocal() as db:
+        row = db.get(CreatorShowcase, showcase_id)
+        if row is None:
+            return jsonify({'detail': 'showcase not found'}), 404
+        row.status = decision
+        row.note = note
+        db.commit()
+        db.refresh(row)
+    return jsonify({'ok': True, 'item': _creator_showcase_out(row), 'message': '创作者展示审核结果已保存'})
+
+
+@app.get(f'{settings.api_prefix}/admin/sfx-submissions')
+@_require_admin
+def admin_sfx_submissions():
+    status = str((request.args.get('status') or '').strip())
+    q = str((request.args.get('q') or '').strip())
+    with SessionLocal() as db:
+        stmt = select(UserSfxSubmission).order_by(UserSfxSubmission.created_at.desc())
+        if status:
+            stmt = stmt.where(UserSfxSubmission.status == status)
+        if q:
+            like = f'%{q}%'
+            stmt = stmt.where(
+                or_(
+                    UserSfxSubmission.user_phone.like(like),
+                    UserSfxSubmission.verb.like(like),
+                    UserSfxSubmission.display_term.like(like),
+                    UserSfxSubmission.sentence_excerpt.like(like),
+                )
+            )
+        rows = db.execute(stmt.limit(80)).scalars().all()
+    return jsonify({'ok': True, 'items': [_user_sfx_submission_out(row) for row in rows]})
+
+
+@app.post(f'{settings.api_prefix}/admin/sfx-submissions/review')
+@_require_admin
+def admin_sfx_submissions_review():
+    payload = request.get_json(force=True) or {}
+    try:
+        submission_id = int(payload.get('id') or 0)
+    except (TypeError, ValueError):
+        return jsonify({'detail': 'id is required'}), 400
+    decision = str((payload.get('decision') or '').strip())
+    review_note = str((payload.get('note') or '').strip())
+    if decision not in {'approved', 'rejected'}:
+        return jsonify({'detail': 'decision must be approved or rejected'}), 400
+    with SessionLocal() as db:
+        row = db.get(UserSfxSubmission, submission_id)
+        if row is None:
+            return jsonify({'detail': 'submission not found'}), 404
+        user = db.execute(select(UserAccount).where(UserAccount.phone == row.user_phone)).scalar_one_or_none()
+        if user is None:
+            return jsonify({'detail': '投稿用户不存在'}), 404
+        already_approved = str(row.status or '').strip() == 'approved'
+        row.status = decision
+        row.review_note = review_note
+        row.reviewed_by = str(getattr(g.current_user, 'phone', '') or '')
+        row.reviewed_at = _utcnow()
+        if decision == 'approved' and not int(row.reward_applied or 0):
+            reward_delta = 3
+            user.sfx_download_pack_balance = int(getattr(user, 'sfx_download_pack_balance', 0) or 0) + reward_delta
+            row.reward_download_delta = reward_delta
+            row.reward_applied = 1
+        if decision == 'rejected':
+            path = Path(str(row.file_path or '').strip()) if str(row.file_path or '').strip() else None
+            if path and path.exists() and path.is_file():
+                try:
+                    path.unlink()
+                except OSError:
+                    pass
+        db.add(
+            UserOperationLog(
+                project_id=row.project_id,
+                user_phone=row.user_phone,
+                action='admin_review_sfx_submission',
+                input_json=json.dumps(
+                    {'id': row.id, 'decision': decision, 'note': review_note, 'already_approved': already_approved},
+                    ensure_ascii=False,
+                ),
+                output_json=json.dumps(
+                    {
+                        'status': row.status,
+                        'reward_download_delta': int(row.reward_download_delta or 0),
+                        'reward_applied': bool(int(row.reward_applied or 0)),
+                    },
+                    ensure_ascii=False,
+                ),
+                file_refs_json=json.dumps([str(row.file_path or '')] if str(row.file_path or '').strip() else [], ensure_ascii=False),
+            )
+        )
+        db.commit()
+        db.refresh(row)
+        db.refresh(user)
+        quota = _user_quota_snapshot(db, user)
+    return jsonify(
+        {
+            'ok': True,
+            'item': _user_sfx_submission_out(row),
+            'balances': quota.get('quota', {}),
+            'message': '音效投稿审核完成',
+        }
+    )
+
+
+@app.get(f'{settings.api_prefix}/admin/copyright-ads')
+@_require_admin
+def admin_copyright_ads():
+    status = str((request.args.get('status') or '').strip())
+    with SessionLocal() as db:
+        stmt = select(CopyrightBookAd).order_by(CopyrightBookAd.created_at.desc())
+        if status:
+            stmt = stmt.where(CopyrightBookAd.status == status)
+        rows = db.execute(stmt.limit(50)).scalars().all()
+    return jsonify({'ok': True, 'items': [_copyright_ad_out(row) for row in rows]})
+
+
+@app.post(f'{settings.api_prefix}/admin/copyright-ads')
+@_require_admin
+def admin_copyright_ads_save():
+    payload = request.get_json(force=True) or {}
+    try:
+        ad_id = int(payload.get('id') or 0)
+    except (TypeError, ValueError):
+        ad_id = 0
+    title = str((payload.get('title') or '').strip())
+    genre = str((payload.get('genre') or '').strip()) or '玄幻'
+    description = str((payload.get('description') or '').strip())
+    budget_text = str((payload.get('budget_text') or '').strip())
+    contact_note = str((payload.get('contact_note') or '').strip())
+    status = str((payload.get('status') or '').strip()) or 'active'
+    try:
+        deposit_amount = float(payload.get('deposit_amount') or 0)
+    except (TypeError, ValueError):
+        return jsonify({'detail': 'deposit_amount must be number'}), 400
+    if not title:
+        return jsonify({'detail': 'title is required'}), 400
+    if not description:
+        return jsonify({'detail': 'description is required'}), 400
+    with SessionLocal() as db:
+        row = db.get(CopyrightBookAd, ad_id) if ad_id > 0 else None
+        if row is None:
+            row = CopyrightBookAd()
+            db.add(row)
+        row.title = title
+        row.genre = genre
+        row.description = description
+        row.budget_text = budget_text
+        row.deposit_amount = deposit_amount
+        row.contact_note = contact_note
+        row.status = status
+        db.commit()
+        db.refresh(row)
+    return jsonify({'ok': True, 'item': _copyright_ad_out(row), 'message': '版权书发布广告已保存'})
+
+
+@app.post(f'{settings.api_prefix}/admin/copyright-ads/review')
+@_require_admin
+def admin_copyright_ads_review():
+    payload = request.get_json(force=True) or {}
+    try:
+        ad_id = int(payload.get('id') or 0)
+    except (TypeError, ValueError):
+        return jsonify({'detail': 'id is required'}), 400
+    decision = str((payload.get('decision') or '').strip())
+    if decision not in {'active', 'rejected', 'closed'}:
+        return jsonify({'detail': 'decision must be active/rejected/closed'}), 400
+    with SessionLocal() as db:
+        row = db.get(CopyrightBookAd, ad_id)
+        if row is None:
+            return jsonify({'detail': 'booklist not found'}), 404
+        row.status = decision
+        db.commit()
+        db.refresh(row)
+    return jsonify({'ok': True, 'item': _copyright_ad_out(row), 'message': '书单审核状态已更新'})
+
+
+@app.get(f'{settings.api_prefix}/admin/recruitment-needs')
+@_require_admin
+def admin_recruitment_needs():
+    status = str((request.args.get('status') or '').strip())
+    with SessionLocal() as db:
+        stmt = select(RecruitmentNeed).order_by(RecruitmentNeed.created_at.desc())
+        if status:
+            stmt = stmt.where(RecruitmentNeed.status == status)
+        rows = db.execute(stmt.limit(50)).scalars().all()
+    return jsonify({'ok': True, 'items': [_recruitment_need_out(row) for row in rows]})
+
+
+@app.post(f'{settings.api_prefix}/admin/recruitment-needs')
+@_require_admin
+def admin_recruitment_needs_save():
+    payload = request.get_json(force=True) or {}
+    try:
+        need_id = int(payload.get('id') or 0)
+    except (TypeError, ValueError):
+        need_id = 0
+    title = str((payload.get('title') or '').strip())
+    genre = str((payload.get('genre') or '').strip()) or '玄幻'
+    description = str((payload.get('description') or '').strip())
+    budget_text = str((payload.get('budget_text') or '').strip())
+    deadline_text = str((payload.get('deadline_text') or '').strip())
+    contact_note = str((payload.get('contact_note') or '').strip())
+    status = str((payload.get('status') or '').strip()) or 'active'
+    if not title:
+        return jsonify({'detail': 'title is required'}), 400
+    if not description:
+        return jsonify({'detail': 'description is required'}), 400
+    with SessionLocal() as db:
+        row = db.get(RecruitmentNeed, need_id) if need_id > 0 else None
+        if row is None:
+            row = RecruitmentNeed()
+            db.add(row)
+        row.title = title
+        row.genre = genre
+        row.description = description
+        row.budget_text = budget_text
+        row.deadline_text = deadline_text
+        row.contact_note = contact_note
+        row.status = status
+        db.commit()
+        db.refresh(row)
+    return jsonify({'ok': True, 'item': _recruitment_need_out(row), 'message': '招聘需求已保存'})
+
+
+@app.get(f'{settings.api_prefix}/admin/recharge-orders')
+@_require_admin
+def admin_recharge_orders():
+    status = str((request.args.get('status') or '').strip())
+    q = str((request.args.get('q') or '').strip())
+    with SessionLocal() as db:
+        stmt = select(RechargeOrder).order_by(RechargeOrder.created_at.desc())
+        if status:
+            stmt = stmt.where(RechargeOrder.status == status)
+        if q:
+            like = f'%{q}%'
+            stmt = stmt.where(
+                or_(
+                    RechargeOrder.user_phone.like(like),
+                    RechargeOrder.package_name.like(like),
+                    RechargeOrder.note.like(like),
+                )
+            )
+        rows = db.execute(stmt.limit(80)).scalars().all()
+    return jsonify({'ok': True, 'items': [_recharge_order_out(row) for row in rows]})
+
+
+@app.post(f'{settings.api_prefix}/admin/recharge-orders/review')
+@_require_admin
+def admin_recharge_orders_review():
+    payload = request.get_json(force=True) or {}
+    try:
+        order_id = int(payload.get('id') or 0)
+    except (TypeError, ValueError):
+        return jsonify({'detail': 'id is required'}), 400
+    decision = str((payload.get('decision') or '').strip())
+    note = str((payload.get('note') or '').strip())
+    if decision not in {'approved', 'rejected'}:
+        return jsonify({'detail': 'decision must be approved or rejected'}), 400
+    with SessionLocal() as db:
+        order = db.get(RechargeOrder, order_id)
+        if order is None:
+            return jsonify({'detail': 'order not found'}), 404
+        if order.status == 'approved':
+            return jsonify({'detail': '订单已审核通过，不能重复入账'}), 400
+        user = db.execute(select(UserAccount).where(UserAccount.phone == order.user_phone)).scalar_one_or_none()
+        if user is None:
+            return jsonify({'detail': '下单用户不存在'}), 404
+        if decision == 'approved':
+            deposit_offset = float(order.deposit_offset or 0)
+            if deposit_offset > 0:
+                current_deposit = float(getattr(user, 'deposit_balance', 0) or 0)
+                if deposit_offset > current_deposit:
+                    return jsonify({'detail': '用户保证金余额不足，无法抵扣这笔订单'}), 400
+                user.deposit_balance = round(current_deposit - deposit_offset, 2)
+            if order.order_type == 'text_chars':
+                user.text_char_pack_balance = int(getattr(user, 'text_char_pack_balance', 0) or 0) + int(order.units or 0)
+            elif order.order_type == 'sfx_downloads':
+                user.sfx_download_pack_balance = int(getattr(user, 'sfx_download_pack_balance', 0) or 0) + int(order.units or 0)
+            elif order.order_type == 'deposit':
+                user.deposit_balance = round(float(getattr(user, 'deposit_balance', 0) or 0) + float(order.payable_amount or 0), 2)
+        order.status = decision
+        order.note = note or order.note
+        order.reviewed_by = str(getattr(g.current_user, 'phone', '') or '')
+        order.reviewed_at = _utcnow()
+        db.commit()
+        db.refresh(order)
+        db.refresh(user)
+        quota = _user_quota_snapshot(db, user)
+    return jsonify({'ok': True, 'item': _recharge_order_out(order), 'balances': quota.get('quota', {}), 'message': '充值订单审核完成'})
 
 
 @app.get(f'{settings.api_prefix}/admin/leaderboards/config')

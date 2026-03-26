@@ -32,6 +32,29 @@ class AudioAnalysis(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
+class MusicMatchResult(Base):
+    __tablename__ = 'music_match_result'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey('projects.id', ondelete='CASCADE'), unique=True, index=True)
+    audio_analysis_id: Mapped[int] = mapped_column(ForeignKey('audio_analysis.id', ondelete='CASCADE'), nullable=False)
+    text_analysis_id: Mapped[int] = mapped_column(ForeignKey('text_analysis.id', ondelete='CASCADE'), nullable=False)
+    narration_analysis_id: Mapped[int] = mapped_column(ForeignKey('narration_analysis.id', ondelete='SET NULL'), nullable=True)
+    score: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    verdict: Mapped[str] = mapped_column(String(64), nullable=False, default='')
+    summary: Mapped[str] = mapped_column(Text, nullable=False, default='')
+    genre_match_json: Mapped[str] = mapped_column(Text, nullable=False, default='{}')
+    text_match_json: Mapped[str] = mapped_column(Text, nullable=False, default='{}')
+    narration_match_json: Mapped[str] = mapped_column(Text, nullable=False, default='{}')
+    editing_advice_json: Mapped[str] = mapped_column(Text, nullable=False, default='{}')
+    replace_advice_json: Mapped[str] = mapped_column(Text, nullable=False, default='{}')
+    report_json: Mapped[str] = mapped_column(Text, nullable=False, default='{}')
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
 class TextAnalysis(Base):
     __tablename__ = 'text_analysis'
 
@@ -76,6 +99,21 @@ class SceneAnalysis(Base):
     report_markdown: Mapped[str] = mapped_column(Text, nullable=False, default='')
     report_json: Mapped[str] = mapped_column(Text, nullable=False, default='{}')
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class ActionVerbAnalysis(Base):
+    __tablename__ = 'action_verb_analysis'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey('projects.id', ondelete='CASCADE'), unique=True, index=True)
+    raw_text: Mapped[str] = mapped_column(Text, nullable=False)
+    text_fingerprint: Mapped[str] = mapped_column(String(64), index=True, nullable=False, default='')
+    genre: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='')
+    report_markdown: Mapped[str] = mapped_column(Text, nullable=False, default='')
+    result_json: Mapped[str] = mapped_column(Text, nullable=False, default='{}')
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -145,6 +183,9 @@ class UserAccount(Base):
     daily_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
     daily_text_char_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=5000)
     daily_sfx_download_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    text_char_pack_balance: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    sfx_download_pack_balance: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    deposit_balance: Mapped[float] = mapped_column(Float, nullable=False, default=0)
     invite_activated: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # 0/1
     invite_code_used: Mapped[str] = mapped_column(String(64), nullable=False, default='')
     referred_by_user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=True)
@@ -176,6 +217,98 @@ class AuthSession(Base):
     token: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class CreatorShowcase(Base):
+    __tablename__ = 'creator_showcase'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_phone: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='')
+    title: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    genre: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='')
+    role_label: Mapped[str] = mapped_column(String(64), nullable=False, default='创作者')
+    summary: Mapped[str] = mapped_column(Text, nullable=False, default='')
+    skills_json: Mapped[str] = mapped_column(Text, nullable=False, default='[]')
+    sample_link: Mapped[str] = mapped_column(String(1024), nullable=False, default='')
+    sample_file_name: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    sample_file_path: Mapped[str] = mapped_column(String(1024), nullable=False, default='')
+    status: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='pending')
+    note: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class CopyrightBookAd(Base):
+    __tablename__ = 'copyright_book_ad'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_phone: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='')
+    title: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    genre: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='')
+    description: Mapped[str] = mapped_column(Text, nullable=False, default='')
+    budget_text: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    deposit_amount: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    contact_note: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    status: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='active')
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class RecruitmentNeed(Base):
+    __tablename__ = 'recruitment_need'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    genre: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='')
+    description: Mapped[str] = mapped_column(Text, nullable=False, default='')
+    budget_text: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    deadline_text: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    contact_note: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    status: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='active')
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class RechargeOrder(Base):
+    __tablename__ = 'recharge_order'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_phone: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='')
+    order_type: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='text_chars')
+    package_name: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    units: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    payable_amount: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    deposit_offset: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    note: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    status: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='pending')
+    reviewed_by: Mapped[str] = mapped_column(String(32), nullable=False, default='')
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class UserSfxSubmission(Base):
+    __tablename__ = 'user_sfx_submission'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_phone: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='')
+    project_id: Mapped[int] = mapped_column(Integer, index=True, nullable=True)
+    genre: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='')
+    verb: Mapped[str] = mapped_column(String(128), index=True, nullable=False, default='')
+    display_term: Mapped[str] = mapped_column(String(255), index=True, nullable=False, default='')
+    sentence_excerpt: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    project_text_excerpt: Mapped[str] = mapped_column(Text, nullable=False, default='')
+    note: Mapped[str] = mapped_column(Text, nullable=False, default='')
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    file_path: Mapped[str] = mapped_column(String(1024), nullable=False, default='')
+    status: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='pending')
+    review_note: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    reviewed_by: Mapped[str] = mapped_column(String(32), nullable=False, default='')
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    reward_download_delta: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    reward_applied: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
 
 class InviteCode(Base):
@@ -242,6 +375,8 @@ class ActionSupplementTask(Base):
     verb: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
     target_head: Mapped[str] = mapped_column(String(64), index=True, nullable=False, default='')
     target_genre: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='')
+    task_scope: Mapped[str] = mapped_column(String(32), index=True, nullable=False, default='genre')
+    task_scope_genre: Mapped[str] = mapped_column(String(32), nullable=False, default='')
     sentence_excerpt: Mapped[str] = mapped_column(String(255), nullable=False, default='')
     semantic_terms_json: Mapped[str] = mapped_column(Text, nullable=False, default='[]')
     sfx_terms_json: Mapped[str] = mapped_column(Text, nullable=False, default='[]')

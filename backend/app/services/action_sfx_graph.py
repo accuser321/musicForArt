@@ -115,6 +115,63 @@ def _fallback_alias_meta(graph: dict | None = None) -> dict:
     return out
 
 
+def _fallback_ignored_meta(graph: dict | None = None) -> dict:
+    data = graph if isinstance(graph, dict) else _load_action_graph()
+    meta = data.get('_meta') or {}
+    raw = meta.get('fallback_ignored_terms') or {}
+    out = {'common': set(), 'genres': {}}
+    if not isinstance(raw, dict):
+        return out
+    common = raw.get('common') or []
+    out['common'] = {str(term or '').strip() for term in common if str(term or '').strip()}
+    genres = raw.get('genres') or {}
+    if isinstance(genres, dict):
+        for genre, items in genres.items():
+            genre_key = str(genre or '').strip()
+            if not genre_key:
+                continue
+            values = {str(term or '').strip() for term in (items or []) if str(term or '').strip()}
+            if values:
+                out['genres'][genre_key] = values
+    return out
+
+
+def _fallback_replacement_meta(graph: dict | None = None) -> dict:
+    data = graph if isinstance(graph, dict) else _load_action_graph()
+    meta = data.get('_meta') or {}
+    raw = meta.get('fallback_replacement_map') or {}
+    out = {'common': {}, 'genres': {}}
+    if not isinstance(raw, dict):
+        return out
+    common = raw.get('common') or {}
+    if isinstance(common, dict):
+        out['common'] = {
+            str(source or '').strip(): _merge_unique(
+                [str(term or '').strip() for term in (targets or []) if str(term or '').strip()]
+            )
+            for source, targets in common.items()
+            if str(source or '').strip()
+        }
+        out['common'] = {k: v for k, v in out['common'].items() if v}
+    genres = raw.get('genres') or {}
+    if isinstance(genres, dict):
+        for genre, mapping in genres.items():
+            genre_key = str(genre or '').strip()
+            if not genre_key or not isinstance(mapping, dict):
+                continue
+            normalized = {
+                str(source or '').strip(): _merge_unique(
+                    [str(term or '').strip() for term in (targets or []) if str(term or '').strip()]
+                )
+                for source, targets in mapping.items()
+                if str(source or '').strip()
+            }
+            normalized = {k: v for k, v in normalized.items() if v}
+            if normalized:
+                out['genres'][genre_key] = normalized
+    return out
+
+
 def resolve_action_fallback_head(genre: str, term: str, graph: dict | None = None) -> str:
     value = str(term or '').strip()
     if not value:
@@ -134,6 +191,30 @@ def resolve_action_fallback_head(genre: str, term: str, graph: dict | None = Non
     return current or value
 
 
+def resolve_action_fallback_replacements(genre: str, term: str, graph: dict | None = None) -> list[str]:
+    value = str(term or '').strip()
+    if not value:
+        return []
+    replacement_meta = _fallback_replacement_meta(graph)
+    genre_key = str(genre or '').strip()
+    if genre_key:
+        genre_values = list(((replacement_meta.get('genres') or {}).get(genre_key, {}) or {}).get(value) or [])
+        if genre_values:
+            return _merge_unique(genre_values)
+    return _merge_unique(list((replacement_meta.get('common') or {}).get(value) or []))
+
+
+def _is_fallback_ignored(genre: str, term: str, graph: dict | None = None) -> bool:
+    value = str(term or '').strip()
+    if not value:
+        return False
+    ignored_meta = _fallback_ignored_meta(graph)
+    genre_key = str(genre or '').strip()
+    if genre_key and value in (ignored_meta.get('genres') or {}).get(genre_key, set()):
+        return True
+    return value in (ignored_meta.get('common') or set())
+
+
 def _suppress_alias_fragments(genre: str, canonical_head: str, terms: list[str], graph: dict | None = None) -> list[str]:
     out = []
     head = str(canonical_head or '').strip()
@@ -146,6 +227,25 @@ def _suppress_alias_fragments(genre: str, canonical_head: str, terms: list[str],
             continue
         out.append(value)
     return _merge_unique(out)
+
+
+def _filter_user_visible_fallback_terms(genre: str, canonical_head: str, terms: list[str], graph: dict | None = None) -> list[str]:
+    head = str(canonical_head or '').strip()
+    filtered = []
+    for term in _suppress_alias_fragments(genre, canonical_head, terms, graph):
+        value = str(term or '').strip()
+        if not value:
+            continue
+        replacements = resolve_action_fallback_replacements(genre, value, graph)
+        if replacements:
+            for replacement in replacements:
+                if replacement and replacement != value and replacement not in filtered:
+                    filtered.append(replacement)
+            continue
+        if value != head and _is_fallback_ignored(genre, value, graph):
+            continue
+        filtered.append(value)
+    return _merge_unique(filtered)
 
 
 def _inheritance_blocks(graph: dict | None = None) -> dict[str, set[str]]:
@@ -161,6 +261,31 @@ def _inheritance_blocks(graph: dict | None = None) -> dict[str, set[str]]:
             continue
         out[genre_key] = {str(head or '').strip() for head in (heads or []) if str(head or '').strip()}
     return out
+
+
+def _genre_assignments(graph: dict | None = None) -> dict[str, set[str]]:
+    data = graph if isinstance(graph, dict) else _load_action_graph()
+    meta = data.get('_meta') or {}
+    raw = meta.get('genre_assignments') or {}
+    out: dict[str, set[str]] = {}
+    if not isinstance(raw, dict):
+        return out
+    for genre, heads in raw.items():
+        genre_key = str(genre or '').strip()
+        if not genre_key:
+            continue
+        head_set = {str(head or '').strip() for head in (heads or []) if str(head or '').strip()}
+        if head_set:
+            out[genre_key] = head_set
+    return out
+
+
+def is_genre_assigned(genre: str, head: str, graph: dict | None = None) -> bool:
+    genre_key = str(genre or '').strip()
+    head_key = str(head or '').strip()
+    if not genre_key or not head_key:
+        return False
+    return head_key in _genre_assignments(graph).get(genre_key, set())
 
 
 def is_inheritance_blocked(genre: str, head: str, graph: dict | None = None) -> bool:
@@ -185,7 +310,7 @@ def classify_sfx_terms(terms: list[str]) -> dict:
     return {
         'direct_terms': direct,
         'composite_terms': composite,
-        'display_terms': [*direct, *[f'{term}（组合）' for term in composite]],
+        'display_terms': [*direct, *[f'{term}（整体）' for term in composite]],
     }
 
 
@@ -202,7 +327,7 @@ def build_sfx_display_name(term: str, genre: str, composite_terms: list[str] | N
     if not value:
         return ''
     composite_set = {str(x).strip() for x in (composite_terms or []) if str(x).strip()}
-    mode = '组合' if value in composite_set or not is_direct_sfx_term(value) else '直达'
+    mode = '整体' if value in composite_set or not is_direct_sfx_term(value) else '直达'
     genre_part = str(genre or '').strip()
     return f'{value}（{mode}{("-" + genre_part) if genre_part else ""}）'
 
@@ -222,6 +347,22 @@ def build_asset_variant_display_name(term: str, asset_scope: str, genre: str) ->
     if not value:
         return ''
     return f'{value}（{build_asset_scope_label(asset_scope, genre)}）'
+
+
+def build_action_asset_variant_display_name(term: str, asset_scope: str, genre: str, composite_terms: list[str] | None = None) -> str:
+    value = str(term or '').strip()
+    if not value:
+        return ''
+    scope_label = build_asset_scope_label(asset_scope, genre)
+    composite_set = {str(x).strip() for x in (composite_terms or []) if str(x).strip()}
+    mode = '整体' if value in composite_set or not is_direct_sfx_term(value) else '直达'
+    return f'{value}（{mode}-{scope_label}）'
+
+
+def build_action_asset_file_display_name(term: str, asset_scope: str, genre: str, original_file_name: str, composite_terms: list[str] | None = None) -> str:
+    base = build_action_asset_variant_display_name(term, asset_scope, genre, composite_terms)
+    suffix = Path(str(original_file_name or '').strip()).suffix or '.mp3'
+    return f'{base}{suffix}' if base else (str(original_file_name or '').strip() or '')
 
 
 def build_action_node_key(genre: str, head: str) -> str:
@@ -280,7 +421,7 @@ def load_action_node_coverage(node_keys: set[str] | None = None) -> dict[str, di
             asset_scope = str(asset.asset_scope or 'genre').strip().lower() or 'genre'
             asset_scope_genre = str(asset.asset_scope_genre or genre or '').strip()
             entry['covered_labels'].add(label)
-            display_name = build_asset_variant_display_name(label, asset_scope, asset_scope_genre or genre)
+            display_name = build_action_asset_variant_display_name(label, asset_scope, asset_scope_genre or genre, [label])
             key = f'{label}|{asset_scope}|{asset_scope_genre}|{asset.asset_file_path}'
             if key in {
                 f"{str(x.get('asset_label') or '').strip()}|{str(x.get('asset_scope') or '').strip()}|{str(x.get('asset_scope_genre') or '').strip()}|{str(x.get('asset_file_path') or '').strip()}"
@@ -296,6 +437,13 @@ def load_action_node_coverage(node_keys: set[str] | None = None) -> dict[str, di
                     'scope_label': build_asset_scope_label(asset_scope, asset_scope_genre or genre),
                     'variant_key': f'{label}|{asset_scope}|{asset_scope_genre}',
                     'file_name': Path(asset.asset_file_path).name if asset.asset_file_path else '',
+                    'file_display_name': build_action_asset_file_display_name(
+                        label,
+                        asset_scope,
+                        asset_scope_genre or genre,
+                        Path(asset.asset_file_path).name if asset.asset_file_path else '',
+                        [label],
+                    ),
                     'file_path': asset.asset_file_path,
                     'asset_file_path': asset.asset_file_path,
                     'download_api': f"{settings.api_prefix}/sfx/file?path={quote(asset.asset_file_path, safe='')}" if asset.asset_file_path else '',
@@ -333,7 +481,7 @@ def load_global_sfx_label_coverage() -> dict:
         genre = str((task.target_genre if task else '') or (task.genre if task else '') or '').strip()
         asset_scope = str(asset.asset_scope or 'genre').strip().lower() or 'genre'
         asset_scope_genre = str(asset.asset_scope_genre or genre or '').strip()
-        display_name = build_asset_variant_display_name(label, asset_scope, asset_scope_genre or genre)
+        display_name = build_action_asset_variant_display_name(label, asset_scope, asset_scope_genre or genre, [label])
         assets_by_label.setdefault(label, []).append(
             {
                 'label': label,
@@ -343,6 +491,13 @@ def load_global_sfx_label_coverage() -> dict:
                 'scope_label': build_asset_scope_label(asset_scope, asset_scope_genre or genre),
                 'variant_key': f'{label}|{asset_scope}|{asset_scope_genre}',
                 'file_name': Path(asset.asset_file_path).name if asset.asset_file_path else '',
+                'file_display_name': build_action_asset_file_display_name(
+                    label,
+                    asset_scope,
+                    asset_scope_genre or genre,
+                    Path(asset.asset_file_path).name if asset.asset_file_path else '',
+                    [label],
+                ),
                 'file_path': asset.asset_file_path,
                 'asset_file_path': asset.asset_file_path,
                 'download_api': f"{settings.api_prefix}/sfx/file?path={quote(asset.asset_file_path, safe='')}" if asset.asset_file_path else '',
@@ -433,7 +588,8 @@ def get_action_node_layer_term_items(genre: str, head: str) -> dict:
     graph = _load_action_graph()
     head_value = str(head or '').strip()
     genre_value = str(genre or '').strip()
-    common_entry = ((graph.get('common') or {}).get(head_value) or {})
+    raw_common_entry = ((graph.get('common') or {}).get(head_value) or {})
+    common_entry = raw_common_entry if (not genre_value or is_genre_assigned(genre_value, head_value, graph)) else {}
     if is_inheritance_blocked(genre_value, head_value, graph):
         common_entry = {}
     genre_entry = ((((graph.get('genres') or {}).get(genre_value) or {}).get(head_value)) or {})
@@ -467,40 +623,42 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
         raw_verb = str((row or {}).get('verb') or '').strip()
         if not raw_verb:
             continue
-        verb = resolve_action_fallback_head(genre, raw_verb, graph)
-        genre_entry = (((graph.get('genres') or {}).get(genre) or {}).get(verb)) or {}
-        common_entry = ((graph.get('common') or {}).get(verb)) or {}
-        if is_inheritance_blocked(genre, verb, graph) and common_entry and not genre_entry:
-            blocked_hits.append(
+        resolved_candidates = resolve_action_fallback_replacements(genre, raw_verb, graph) or [resolve_action_fallback_head(genre, raw_verb, graph)]
+        for verb in _merge_unique(resolved_candidates):
+            genre_entry = (((graph.get('genres') or {}).get(genre) or {}).get(verb)) or {}
+            common_entry = ((graph.get('common') or {}).get(verb)) or {}
+            inheritance_blocked = is_inheritance_blocked(genre, verb, graph)
+            if inheritance_blocked and common_entry and not genre_entry:
+                blocked_hits.append(
+                    {
+                        'genre': genre,
+                        'verb_head': verb,
+                        'sentence_excerpt': str((row or {}).get('sentence_excerpt') or '').strip(),
+                        'reason': '该通用层节点已对当前赛道关闭继承，但用户文本仍然命中了这个动作词。',
+                    }
+                )
+                continue
+            head = str((genre_entry.get('parent_node') or {}).get('verb_head') or verb).strip()
+            node_key = build_action_node_key(genre, head)
+            if node_key:
+                candidate_node_keys.add(node_key)
+            bucket = candidate_groups.setdefault(
+                verb,
                 {
-                    'genre': genre,
-                    'verb_head': verb,
-                    'sentence_excerpt': str((row or {}).get('sentence_excerpt') or '').strip(),
-                    'reason': '该通用层节点已对当前赛道关闭继承，但用户文本仍然命中了这个动作词。',
-                }
+                    'verb': verb,
+                    'raw_verbs': [],
+                    'sentence_excerpts': [],
+                    'reasons': [],
+                },
             )
-            continue
-        head = str((genre_entry.get('parent_node') or {}).get('verb_head') or verb).strip()
-        node_key = build_action_node_key(genre, head)
-        if node_key:
-            candidate_node_keys.add(node_key)
-        bucket = candidate_groups.setdefault(
-            verb,
-            {
-                'verb': verb,
-                'raw_verbs': [],
-                'sentence_excerpts': [],
-                'reasons': [],
-            },
-        )
-        if raw_verb not in bucket['raw_verbs']:
-            bucket['raw_verbs'].append(raw_verb)
-        excerpt = str((row or {}).get('sentence_excerpt') or '').strip()
-        if excerpt and excerpt not in bucket['sentence_excerpts']:
-            bucket['sentence_excerpts'].append(excerpt)
-        reason = str((row or {}).get('reason') or '').strip()
-        if reason and reason not in bucket['reasons']:
-            bucket['reasons'].append(reason)
+            if raw_verb not in bucket['raw_verbs']:
+                bucket['raw_verbs'].append(raw_verb)
+            excerpt = str((row or {}).get('sentence_excerpt') or '').strip()
+            if excerpt and excerpt not in bucket['sentence_excerpts']:
+                bucket['sentence_excerpts'].append(excerpt)
+            reason = str((row or {}).get('reason') or '').strip()
+            if reason and reason not in bucket['reasons']:
+                bucket['reasons'].append(reason)
     coverage_by_node = load_action_node_coverage(candidate_node_keys)
 
     items = []
@@ -510,9 +668,10 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
         excerpt = ' / '.join((group.get('sentence_excerpts') or [])[:2]).strip()
         if not verb:
             continue
-        common_entry = ((graph.get('common') or {}).get(verb) or {})
+        raw_common_entry = ((graph.get('common') or {}).get(verb) or {})
         genre_entry = ((((graph.get('genres') or {}).get(genre) or {}).get(verb)) or {})
-        if is_inheritance_blocked(genre, verb, graph) and common_entry and not genre_entry:
+        common_entry = raw_common_entry if is_genre_assigned(genre, verb, graph) else {}
+        if is_inheritance_blocked(genre, verb, graph) and raw_common_entry and not genre_entry:
             continue
         graph_entry = _merge_graph_entries(common_entry, genre_entry)
         common_semantic_terms = list(common_entry.get('semantic_terms') or ((common_entry.get('children') or {}).get('semantic_terms') or []))
@@ -523,14 +682,14 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
         coverage = coverage_by_node.get(node_key) or {}
         semantic_terms = list(graph_entry.get('semantic_terms') or [])
         expanded = expand_term(verb, backend_override=backend_override)
-        semantic_terms = _suppress_alias_fragments(
+        semantic_terms = _filter_user_visible_fallback_terms(
             genre,
             verb,
             _merge_unique([verb] + semantic_terms + sorted(expanded.terms)),
             graph,
         )
 
-        sfx_terms = _suppress_alias_fragments(
+        sfx_terms = _filter_user_visible_fallback_terms(
             genre,
             verb,
             ensure_action_sfx_terms(verb, list(graph_entry.get('sfx_terms') or [])),
@@ -583,7 +742,7 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
             seen_asset.add(key)
             dedup_assets.append(a)
 
-        all_sfx_terms = _suppress_alias_fragments(genre, verb, _merge_unique(sfx_terms + picked_labels), graph)
+        all_sfx_terms = _filter_user_visible_fallback_terms(genre, verb, _merge_unique(sfx_terms + picked_labels), graph)
         all_sfx_classified = classify_sfx_terms(all_sfx_terms)
         semantic_term_items = _layered_term_items(common_semantic_terms, genre_semantic_terms)
         sfx_term_items = _layered_term_items(common_sfx_terms, genre_sfx_terms)
@@ -604,11 +763,29 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
         missing_sfx_terms = [term for term in all_sfx_terms if term not in covered_label_set]
         missing_sfx_classified = classify_sfx_terms(missing_sfx_terms)
         for asset in dedup_assets:
-            asset['display_name'] = build_sfx_display_name(
-                str(asset.get('label') or ''),
-                genre,
-                all_sfx_classified['composite_terms'],
-            )
+            asset_scope = str(asset.get('asset_scope') or '').strip().lower()
+            asset_file_name = str(asset.get('file_name') or '').strip()
+            if asset_scope in {'common', 'genre'}:
+                asset['display_name'] = build_action_asset_variant_display_name(
+                    str(asset.get('label') or ''),
+                    asset_scope,
+                    str(asset.get('asset_scope_genre') or genre or '').strip() or genre,
+                    all_sfx_classified['composite_terms'],
+                )
+                asset['file_display_name'] = build_action_asset_file_display_name(
+                    str(asset.get('label') or ''),
+                    asset_scope,
+                    str(asset.get('asset_scope_genre') or genre or '').strip() or genre,
+                    asset_file_name,
+                    all_sfx_classified['composite_terms'],
+                )
+            else:
+                asset['display_name'] = build_sfx_display_name(
+                    str(asset.get('label') or ''),
+                    genre,
+                    all_sfx_classified['composite_terms'],
+                )
+                asset['file_display_name'] = asset_file_name
         items.append(
             {
                 'parent_node': graph_entry.get('parent_node') or {
@@ -662,7 +839,7 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
                 },
             }
         )
-        for label in _merge_unique(sfx_terms + missing_labels):
+        for label in _merge_unique(missing_sfx_terms):
             entry = gap_map.setdefault(
                 label,
                 {

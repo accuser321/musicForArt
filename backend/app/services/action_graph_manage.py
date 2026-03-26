@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from pathlib import Path
 
 from app.services.action_sfx_graph import (
@@ -58,6 +59,40 @@ def _inheritance_blocks(graph: dict | None = None) -> dict[str, set[str]]:
     return out
 
 
+def _genre_assignments(graph: dict | None = None) -> dict[str, set[str]]:
+    data = graph if isinstance(graph, dict) else _load_action_graph()
+    meta = data.get('_meta') or {}
+    raw = meta.get('genre_assignments') or {}
+    out: dict[str, set[str]] = {}
+    if not isinstance(raw, dict):
+        return out
+    for genre, heads in raw.items():
+        genre_key = str(genre or '').strip()
+        if not genre_key:
+            continue
+        head_set = {str(head or '').strip() for head in (heads or []) if str(head or '').strip()}
+        if head_set:
+            out[genre_key] = head_set
+    return out
+
+
+def is_genre_assigned(genre: str, verb_head: str, graph: dict | None = None) -> bool:
+    genre_key = str(genre or '').strip()
+    head_key = str(verb_head or '').strip()
+    if not genre_key or not head_key:
+        return False
+    return head_key in _genre_assignments(graph).get(genre_key, set())
+
+
+def _write_genre_assignments(graph: dict, assignments: dict[str, set[str]]) -> None:
+    graph.setdefault('_meta', {})
+    graph['_meta']['genre_assignments'] = {
+        genre: sorted(heads)
+        for genre, heads in sorted(assignments.items())
+        if genre and heads
+    }
+
+
 def is_inheritance_blocked(genre: str, verb_head: str, graph: dict | None = None) -> bool:
     genre_key = str(genre or '').strip()
     head_key = str(verb_head or '').strip()
@@ -73,6 +108,62 @@ def _write_inheritance_blocks(graph: dict, blocks: dict[str, set[str]]) -> None:
         for genre, heads in sorted(blocks.items())
         if genre and heads
     }
+
+
+def _deleted_genre_nodes_meta(graph: dict | None = None) -> dict[str, dict[str, dict]]:
+    data = graph if isinstance(graph, dict) else _load_action_graph()
+    meta = data.get('_meta') or {}
+    raw = meta.get('deleted_genre_nodes') or {}
+    out: dict[str, dict[str, dict]] = {}
+    if not isinstance(raw, dict):
+        return out
+    for genre, mapping in raw.items():
+        genre_key = str(genre or '').strip()
+        if not genre_key or not isinstance(mapping, dict):
+            continue
+        normalized: dict[str, dict] = {}
+        for verb_head, payload in mapping.items():
+            head_key = str(verb_head or '').strip()
+            if not head_key or not isinstance(payload, dict):
+                continue
+            semantic_terms = _merge_unique([str(x or '').strip() for x in (payload.get('semantic_terms') or []) if str(x or '').strip()])
+            sfx_terms = _merge_unique([str(x or '').strip() for x in (payload.get('sfx_terms') or []) if str(x or '').strip()])
+            if not semantic_terms and not sfx_terms:
+                continue
+            normalized[head_key] = {
+                'semantic_terms': semantic_terms,
+                'sfx_terms': sfx_terms,
+                'deleted_at': str(payload.get('deleted_at') or '').strip(),
+            }
+        if normalized:
+            out[genre_key] = normalized
+    return out
+
+
+def _write_deleted_genre_nodes_meta(graph: dict, deleted_nodes: dict[str, dict[str, dict]]) -> None:
+    graph.setdefault('_meta', {})
+    normalized: dict[str, dict[str, dict]] = {}
+    for genre, mapping in sorted((deleted_nodes or {}).items()):
+        genre_key = str(genre or '').strip()
+        if not genre_key or not isinstance(mapping, dict):
+            continue
+        genre_map: dict[str, dict] = {}
+        for verb_head, payload in sorted(mapping.items()):
+            head_key = str(verb_head or '').strip()
+            if not head_key or not isinstance(payload, dict):
+                continue
+            semantic_terms = _merge_unique([str(x or '').strip() for x in (payload.get('semantic_terms') or []) if str(x or '').strip()])
+            sfx_terms = _merge_unique([str(x or '').strip() for x in (payload.get('sfx_terms') or []) if str(x or '').strip()])
+            if not semantic_terms and not sfx_terms:
+                continue
+            genre_map[head_key] = {
+                'semantic_terms': semantic_terms,
+                'sfx_terms': sfx_terms,
+                'deleted_at': str(payload.get('deleted_at') or '').strip(),
+            }
+        if genre_map:
+            normalized[genre_key] = genre_map
+    graph['_meta']['deleted_genre_nodes'] = normalized
 
 
 def _fallback_alias_meta(graph: dict | None = None) -> dict:
@@ -127,6 +218,157 @@ def _write_fallback_alias_meta(graph: dict, alias_meta: dict) -> None:
     }
 
 
+def _fallback_replacement_meta(graph: dict | None = None) -> dict:
+    data = graph if isinstance(graph, dict) else _load_action_graph()
+    meta = data.get('_meta') or {}
+    raw = meta.get('fallback_replacement_map') or {}
+    out = {'common': {}, 'genres': {}}
+    if not isinstance(raw, dict):
+        return out
+    common = raw.get('common') or {}
+    if isinstance(common, dict):
+        out['common'] = {
+            str(source or '').strip(): _merge_unique(
+                [str(term or '').strip() for term in (targets or []) if str(term or '').strip()]
+            )
+            for source, targets in common.items()
+            if str(source or '').strip()
+        }
+        out['common'] = {k: v for k, v in out['common'].items() if v}
+    genres = raw.get('genres') or {}
+    if isinstance(genres, dict):
+        for genre, mapping in genres.items():
+            genre_key = str(genre or '').strip()
+            if not genre_key or not isinstance(mapping, dict):
+                continue
+            normalized = {
+                str(source or '').strip(): _merge_unique(
+                    [str(term or '').strip() for term in (targets or []) if str(term or '').strip()]
+                )
+                for source, targets in mapping.items()
+                if str(source or '').strip()
+            }
+            normalized = {k: v for k, v in normalized.items() if v}
+            if normalized:
+                out['genres'][genre_key] = normalized
+    return out
+
+
+def _write_fallback_replacement_meta(graph: dict, replacement_meta: dict) -> None:
+    graph.setdefault('_meta', {})
+    common = (replacement_meta or {}).get('common') or {}
+    genres = (replacement_meta or {}).get('genres') or {}
+    graph['_meta']['fallback_replacement_map'] = {
+        'common': {
+            str(source or '').strip(): _merge_unique(
+                [str(term or '').strip() for term in (targets or []) if str(term or '').strip()]
+            )
+            for source, targets in sorted(common.items())
+            if str(source or '').strip()
+            and _merge_unique([str(term or '').strip() for term in (targets or []) if str(term or '').strip()])
+        },
+        'genres': {
+            str(genre or '').strip(): {
+                str(source or '').strip(): _merge_unique(
+                    [str(term or '').strip() for term in (targets or []) if str(term or '').strip()]
+                )
+                for source, targets in sorted((mapping or {}).items())
+                if str(source or '').strip()
+                and _merge_unique([str(term or '').strip() for term in (targets or []) if str(term or '').strip()])
+            }
+            for genre, mapping in sorted((genres or {}).items())
+            if str(genre or '').strip()
+            and any(
+                str(source or '').strip()
+                and _merge_unique([str(term or '').strip() for term in (targets or []) if str(term or '').strip()])
+                for source, targets in (mapping or {}).items()
+            )
+        },
+    }
+
+
+def _fallback_reopen_queue_meta(graph: dict | None = None) -> list[dict]:
+    data = graph if isinstance(graph, dict) else _load_action_graph()
+    meta = data.get('_meta') or {}
+    raw = meta.get('fallback_reopen_queue') or []
+    out = []
+    if not isinstance(raw, list):
+        return out
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        source_term = str(item.get('source_term') or '').strip()
+        if not source_term:
+            continue
+        out.append(
+            {
+                'source_term': source_term,
+                'genre': str(item.get('genre') or '').strip(),
+                'replacement_terms': _merge_unique([str(x or '').strip() for x in (item.get('replacement_terms') or []) if str(x or '').strip()]),
+                'released_at': str(item.get('released_at') or '').strip(),
+            }
+        )
+    return out
+
+
+def _write_fallback_reopen_queue_meta(graph: dict, items: list[dict]) -> None:
+    graph.setdefault('_meta', {})
+    normalized = []
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        source_term = str(item.get('source_term') or '').strip()
+        if not source_term:
+            continue
+        normalized.append(
+            {
+                'source_term': source_term,
+                'genre': str(item.get('genre') or '').strip(),
+                'replacement_terms': _merge_unique([str(x or '').strip() for x in (item.get('replacement_terms') or []) if str(x or '').strip()]),
+                'released_at': str(item.get('released_at') or '').strip(),
+            }
+        )
+    graph['_meta']['fallback_reopen_queue'] = normalized
+
+
+def _fallback_ignored_meta(graph: dict | None = None) -> dict:
+    data = graph if isinstance(graph, dict) else _load_action_graph()
+    meta = data.get('_meta') or {}
+    raw = meta.get('fallback_ignored_terms') or {}
+    out = {'common': set(), 'genres': {}}
+    if not isinstance(raw, dict):
+        return out
+    common = raw.get('common') or []
+    out['common'] = {str(term or '').strip() for term in common if str(term or '').strip()}
+    genres = raw.get('genres') or {}
+    if isinstance(genres, dict):
+        for genre, items in genres.items():
+            genre_key = str(genre or '').strip()
+            if not genre_key:
+                continue
+            term_set = {str(term or '').strip() for term in (items or []) if str(term or '').strip()}
+            if term_set:
+                out['genres'][genre_key] = term_set
+    return out
+
+
+def _write_fallback_ignored_meta(graph: dict, ignored_meta: dict) -> None:
+    graph.setdefault('_meta', {})
+    common = sorted({str(term or '').strip() for term in ((ignored_meta or {}).get('common') or set()) if str(term or '').strip()})
+    genres = {}
+    for genre, items in sorted((((ignored_meta or {}).get('genres') or {}).items())):
+        genre_key = str(genre or '').strip()
+        if not genre_key:
+            continue
+        term_list = sorted({str(term or '').strip() for term in (items or set()) if str(term or '').strip()})
+        if term_list:
+            genres[genre_key] = term_list
+    graph['_meta']['fallback_ignored_terms'] = {
+        'common': common,
+        'genres': genres,
+    }
+
+
 def list_action_fallback_alias_rules() -> dict:
     graph = _load_action_graph()
     alias_meta = _fallback_alias_meta(graph)
@@ -149,6 +391,28 @@ def list_action_fallback_alias_rules() -> dict:
     return {'count': len(items), 'items': items}
 
 
+def list_action_fallback_replacement_rules() -> dict:
+    graph = _load_action_graph()
+    replacement_meta = _fallback_replacement_meta(graph)
+    items = []
+    for source, targets in sorted((replacement_meta.get('common') or {}).items()):
+        items.append({
+            'scope': 'common',
+            'genre': '',
+            'source_term': source,
+            'replacement_terms': targets,
+        })
+    for genre, mapping in sorted((replacement_meta.get('genres') or {}).items()):
+        for source, targets in sorted((mapping or {}).items()):
+            items.append({
+                'scope': 'genre',
+                'genre': genre,
+                'source_term': source,
+                'replacement_terms': targets,
+            })
+    return {'count': len(items), 'items': items}
+
+
 def has_action_formal_head(formal_head: str, *, scope: str = 'common', genre: str = '') -> bool:
     head = str(formal_head or '').strip()
     scope_key = str(scope or 'common').strip().lower()
@@ -167,12 +431,15 @@ def apply_action_fallback_resolution(
     *,
     scope: str = 'common',
     genre: str = '',
+    ignored_terms: list[str] | None = None,
 ) -> dict:
     head = str(formal_head or '').strip()
     scope_key = str(scope or 'common').strip().lower()
     genre_key = str(genre or '').strip()
     aliases = _merge_unique([str(x or '').strip() for x in (alias_terms or []) if str(x or '').strip()])
     aliases = [term for term in aliases if term != head]
+    ignored = _merge_unique([str(x or '').strip() for x in (ignored_terms or []) if str(x or '').strip()])
+    ignored = [term for term in ignored if term != head and term not in aliases]
     if not head:
         return {'ok': False, 'detail': 'formal_head is required'}
     if scope_key not in {'common', 'genre'}:
@@ -204,19 +471,34 @@ def apply_action_fallback_resolution(
     }
 
     alias_meta = _fallback_alias_meta(graph)
+    ignored_meta = _fallback_ignored_meta(graph)
     common_map = dict(alias_meta.get('common') or {})
     genre_maps = {str(k): dict(v or {}) for k, v in (alias_meta.get('genres') or {}).items()}
+    common_ignored = set((ignored_meta.get('common') or set()))
+    genre_ignored = {str(k): set(v or set()) for k, v in (ignored_meta.get('genres') or {}).items()}
     if scope_key == 'common':
         for alias in aliases:
             common_map[alias] = head
+            common_ignored.discard(alias)
         for mapping in genre_maps.values():
             for alias in aliases:
                 mapping.pop(alias, None)
+        for term in ignored:
+            common_ignored.add(term)
+            common_map.pop(term, None)
+            for mapping in genre_maps.values():
+                mapping.pop(term, None)
     else:
         genre_map = genre_maps.setdefault(genre_key, {})
+        genre_ignore_set = genre_ignored.setdefault(genre_key, set())
         for alias in aliases:
             genre_map[alias] = head
+            genre_ignore_set.discard(alias)
+        for term in ignored:
+            genre_ignore_set.add(term)
+            genre_map.pop(term, None)
     _write_fallback_alias_meta(graph, {'common': common_map, 'genres': genre_maps})
+    _write_fallback_ignored_meta(graph, {'common': common_ignored, 'genres': genre_ignored})
     _save_action_graph(graph)
     return {
         'ok': True,
@@ -224,6 +506,7 @@ def apply_action_fallback_resolution(
         'genre': genre_key,
         'formal_head': head,
         'alias_terms': aliases,
+        'ignored_terms': ignored,
         'node_key': build_action_node_key(row_genre, head),
         'rules': list_action_fallback_alias_rules(),
     }
@@ -264,6 +547,114 @@ def remove_action_fallback_alias_rule(alias_term: str, *, scope: str = 'common',
         'alias_term': alias,
         'formal_head': removed,
         'rules': list_action_fallback_alias_rules(),
+    }
+
+
+def apply_action_fallback_replacements(
+    source_term: str,
+    replacement_terms: list[str],
+    *,
+    genre: str = '',
+    ignored_terms: list[str] | None = None,
+) -> dict:
+    source = str(source_term or '').strip()
+    genre_key = ''
+    replacements = _merge_unique([str(x or '').strip() for x in (replacement_terms or []) if str(x or '').strip()])
+    ignored = _merge_unique([str(x or '').strip() for x in (ignored_terms or []) if str(x or '').strip()])
+    ignored = [term for term in ignored if term != source and term not in replacements]
+    if not source:
+        return {'ok': False, 'detail': 'source_term is required'}
+    if not replacements and not ignored:
+        return {'ok': False, 'detail': 'replacement_terms or ignored_terms is required'}
+
+    graph = _load_action_graph()
+    replacement_meta = _fallback_replacement_meta(graph)
+    ignored_meta = _fallback_ignored_meta(graph)
+    reopen_queue = _fallback_reopen_queue_meta(graph)
+    common_map = {str(k): list(v or []) for k, v in (replacement_meta.get('common') or {}).items()}
+    genre_maps = {str(k): {str(a): list(b or []) for a, b in (v or {}).items()} for k, v in (replacement_meta.get('genres') or {}).items()}
+    common_ignored = set((ignored_meta.get('common') or set()))
+    genre_ignored = {str(k): set(v or set()) for k, v in (ignored_meta.get('genres') or {}).items()}
+
+    if genre_key:
+        mapping = genre_maps.setdefault(genre_key, {})
+        ignore_set = genre_ignored.setdefault(genre_key, set())
+        if replacements:
+            mapping[source] = replacements
+            ignore_set.discard(source)
+        elif source in mapping:
+            mapping.pop(source, None)
+        for term in ignored:
+            ignore_set.add(term)
+            mapping.pop(term, None)
+    else:
+        if replacements:
+            common_map[source] = replacements
+            common_ignored.discard(source)
+        elif source in common_map:
+            common_map.pop(source, None)
+        for term in ignored:
+            common_ignored.add(term)
+            common_map.pop(term, None)
+            for mapping in genre_maps.values():
+                mapping.pop(term, None)
+
+    _write_fallback_replacement_meta(graph, {'common': common_map, 'genres': genre_maps})
+    _write_fallback_ignored_meta(graph, {'common': common_ignored, 'genres': genre_ignored})
+    reopen_queue = [
+        item for item in reopen_queue
+        if not (
+            str(item.get('source_term') or '').strip() == source
+            and str(item.get('genre') or '').strip() == genre_key
+        )
+    ]
+    _write_fallback_reopen_queue_meta(graph, reopen_queue)
+    _save_action_graph(graph)
+    return {
+        'ok': True,
+        'genre': genre_key,
+        'source_term': source,
+        'replacement_terms': replacements,
+        'ignored_terms': ignored,
+        'rules': list_action_fallback_replacement_rules(),
+    }
+
+
+def remove_action_fallback_replacement_rule(source_term: str, *, genre: str = '') -> dict:
+    source = str(source_term or '').strip()
+    genre_key = str(genre or '').strip()
+    if not source:
+        return {'ok': False, 'detail': 'source_term is required'}
+    graph = _load_action_graph()
+    replacement_meta = _fallback_replacement_meta(graph)
+    reopen_queue = _fallback_reopen_queue_meta(graph)
+    common_map = {str(k): list(v or []) for k, v in (replacement_meta.get('common') or {}).items()}
+    genre_maps = {str(k): {str(a): list(b or []) for a, b in (v or {}).items()} for k, v in (replacement_meta.get('genres') or {}).items()}
+    removed = []
+    if genre_key:
+        mapping = genre_maps.setdefault(genre_key, {})
+        removed = list(mapping.pop(source, []) or [])
+    else:
+        removed = list(common_map.pop(source, []) or [])
+    if not removed:
+        return {'ok': False, 'detail': 'rule not found'}
+    _write_fallback_replacement_meta(graph, {'common': common_map, 'genres': genre_maps})
+    reopen_queue.append(
+        {
+            'source_term': source,
+            'genre': genre_key,
+            'replacement_terms': removed,
+            'released_at': '',
+        }
+    )
+    _write_fallback_reopen_queue_meta(graph, reopen_queue)
+    _save_action_graph(graph)
+    return {
+        'ok': True,
+        'genre': genre_key,
+        'source_term': source,
+        'replacement_terms': removed,
+        'rules': list_action_fallback_replacement_rules(),
     }
 
 
@@ -344,7 +735,7 @@ def _layer_payload(layer: str, genre: str, verb_head: str, row: dict | None) -> 
     node_key = build_action_node_key('' if layer == 'common' else genre, verb_head)
     return {
         'layer': layer,
-        'layer_label': '通用层' if layer == 'common' else '赛道层',
+        'layer_label': '通用元数据' if layer == 'common' else '赛道特化',
         'exists': bool(row),
         'genre': '' if layer == 'common' else genre,
         'verb_head': verb_head,
@@ -467,9 +858,11 @@ def get_action_graph_node_layers(node_key: str, target_genre: str = '') -> dict:
     genre_row = None
     if compare_genre:
         genre_row = ((((graph.get('genres') or {}).get(compare_genre)) or {}).get(verb_head)) if isinstance((graph.get('genres') or {}).get(compare_genre), dict) else None
-    inheritance_blocked = is_inheritance_blocked(compare_genre, verb_head, graph) if compare_genre else False
+    genre_assigned = is_genre_assigned(compare_genre, verb_head, graph) if compare_genre else False
+    inheritance_blocked = (not genre_assigned) if compare_genre and common_row else False
 
-    common_semantic, common_sfx = _row_terms(common_row)
+    active_common_row = common_row if (not compare_genre or genre_assigned or bool(genre_row)) else None
+    common_semantic, common_sfx = _row_terms(active_common_row)
     genre_semantic, genre_sfx = _row_terms(genre_row)
     merged_semantic_items = _term_items(common_semantic, genre_semantic)
     merged_sfx_items = _term_items(common_sfx, genre_sfx)
@@ -495,6 +888,7 @@ def get_action_graph_node_layers(node_key: str, target_genre: str = '') -> dict:
         'genre': genre,
         'compare_genre': compare_genre,
         'verb_head': verb_head,
+        'genre_assigned': genre_assigned,
         'inheritance_blocked': inheritance_blocked,
         'common_layer': _layer_payload('common', compare_genre, verb_head, common_row),
         'genre_layer': _layer_payload('genre', compare_genre, verb_head, genre_row),
@@ -534,7 +928,7 @@ def list_action_graph_maintenance_catalog() -> dict:
     graph = _load_action_graph()
     common_bucket = graph.get('common') or {}
     genres_bucket = graph.get('genres') or {}
-    inheritance_blocks = _inheritance_blocks(graph)
+    assignments = _genre_assignments(graph)
     common_heads = {str(head).strip() for head in common_bucket.keys() if str(head).strip()}
     genre_names = sorted({str(name).strip() for name in genres_bucket.keys() if str(name).strip()}, key=lambda x: x)
     sections = []
@@ -558,23 +952,21 @@ def list_action_graph_maintenance_catalog() -> dict:
             'has_fallback_terms': has_fallback_terms,
         }
 
-    if common_heads:
-        common_items = [_build_node_item('', head) for head in sorted(common_heads)]
-        sections.append(
-            {
-                'genre': '',
-                'genre_key': 'common',
-                'label': '通用层',
-                'node_count': len(common_items),
-                'items': common_items,
-            }
-        )
+    common_items = [_build_node_item('', head) for head in sorted(common_heads)]
+    sections.append(
+        {
+            'genre': '',
+            'genre_key': 'common',
+            'label': '通用元数据',
+            'node_count': len(common_items),
+            'items': common_items,
+        }
+    )
 
     for genre in genre_names:
         genre_bucket = genres_bucket.get(genre) if isinstance(genres_bucket.get(genre), dict) else {}
-        blocked_heads = inheritance_blocks.get(genre, set())
-        inherited_heads = common_heads - blocked_heads
-        heads = sorted(inherited_heads | {str(head).strip() for head in genre_bucket.keys() if str(head).strip()})
+        assigned_heads = assignments.get(genre, set())
+        heads = sorted(assigned_heads | {str(head).strip() for head in genre_bucket.keys() if str(head).strip()})
         items = [_build_node_item(genre, head) for head in heads]
         sections.append(
             {
@@ -616,10 +1008,25 @@ def update_action_graph_node_layer(node_key: str, layer: str, semantic_terms: li
     graph = _load_action_graph()
     graph.setdefault('common', {})
     graph.setdefault('genres', {})
+    deleted_genre_nodes = _deleted_genre_nodes_meta(graph)
 
     target_bucket = graph['common'] if layer_key == 'common' else graph['genres'].setdefault(genre, {})
     if not semantic_terms and not sfx_terms:
+        existing_row = target_bucket.get(verb_head) or {}
+        existing_semantic_terms, existing_sfx_terms = _row_terms(existing_row)
         target_bucket.pop(verb_head, None)
+        if layer_key == 'genre':
+            genre_deleted = deleted_genre_nodes.setdefault(genre, {})
+            if existing_semantic_terms or existing_sfx_terms:
+                genre_deleted[verb_head] = {
+                    'semantic_terms': existing_semantic_terms,
+                    'sfx_terms': existing_sfx_terms,
+                    'deleted_at': datetime.now().isoformat(),
+                }
+            else:
+                genre_deleted.pop(verb_head, None)
+                if not genre_deleted:
+                    deleted_genre_nodes.pop(genre, None)
         if layer_key == 'genre' and not graph['genres'].get(genre):
             graph['genres'].pop(genre, None)
     else:
@@ -637,7 +1044,15 @@ def update_action_graph_node_layer(node_key: str, layer: str, semantic_terms: li
             'semantic_terms': semantic_terms,
             'sfx_terms': sfx_terms,
         }
+        if layer_key == 'genre':
+            genre_deleted = deleted_genre_nodes.get(genre) or {}
+            genre_deleted.pop(verb_head, None)
+            if genre_deleted:
+                deleted_genre_nodes[genre] = genre_deleted
+            else:
+                deleted_genre_nodes.pop(genre, None)
 
+    _write_deleted_genre_nodes_meta(graph, deleted_genre_nodes)
     _save_action_graph(graph)
     payload = get_action_graph_node_layers(build_action_node_key(genre, verb_head))
     payload['ok'] = True
@@ -699,6 +1114,12 @@ def promote_action_graph_terms_to_common(
         'semantic_terms': next_common_semantic,
         'sfx_terms': next_common_sfx,
     }
+    if remove_from_genre:
+        assignments = _genre_assignments(graph)
+        genre_heads = set(assignments.get(genre, set()))
+        genre_heads.add(verb_head)
+        assignments[genre] = genre_heads
+        _write_genre_assignments(graph, assignments)
 
     if remove_from_genre and genre_row:
         next_genre_semantic = [term for term in genre_semantic if term not in set(semantic_terms)]
@@ -786,6 +1207,21 @@ def demote_action_graph_terms_to_genre(
         'semantic_terms': next_genre_semantic,
         'sfx_terms': next_genre_sfx,
     }
+    if not remove_from_common:
+        assignments = _genre_assignments(graph)
+        genre_heads = set(assignments.get(genre, set()))
+        genre_heads.add(verb_head)
+        assignments[genre] = genre_heads
+        _write_genre_assignments(graph, assignments)
+    else:
+        assignments = _genre_assignments(graph)
+        genre_heads = set(assignments.get(genre, set()))
+        genre_heads.discard(verb_head)
+        if genre_heads:
+            assignments[genre] = genre_heads
+        else:
+            assignments.pop(genre, None)
+        _write_genre_assignments(graph, assignments)
 
     if remove_from_common and common_row:
         next_common_semantic = [term for term in common_semantic if term not in set(semantic_terms)]
@@ -912,6 +1348,7 @@ def delete_action_graph_node(
     graph = _load_action_graph()
     graph.setdefault('common', {})
     graph.setdefault('genres', {})
+    deleted_genre_nodes = _deleted_genre_nodes_meta(graph)
     common_bucket = graph['common']
     genres_bucket = graph['genres']
     common_row = common_bucket.get(verb_head) if isinstance(common_bucket, dict) else None
@@ -927,7 +1364,15 @@ def delete_action_graph_node(
         if genre:
             if not genre_row:
                 return {'ok': False, 'detail': '当前赛道层节点不存在，无法删除'}
+            genre_semantic_terms, genre_sfx_terms = _row_terms(genre_row)
             genre_bucket.pop(verb_head, None)
+            if genre_semantic_terms or genre_sfx_terms:
+                genre_deleted = deleted_genre_nodes.setdefault(active_genre, {})
+                genre_deleted[verb_head] = {
+                    'semantic_terms': genre_semantic_terms,
+                    'sfx_terms': genre_sfx_terms,
+                    'deleted_at': datetime.now().isoformat(),
+                }
             if not genre_bucket:
                 genres_bucket.pop(active_genre, None)
             deleted_layer = 'genre'
@@ -947,9 +1392,22 @@ def delete_action_graph_node(
             return {'ok': False, 'detail': '当前没有通用层节点，无法执行“只保留通用层”'}
         if not genre_row:
             return {'ok': False, 'detail': '当前赛道层节点不存在，无法删除'}
+        genre_semantic_terms, genre_sfx_terms = _row_terms(genre_row)
         genre_bucket.pop(verb_head, None)
+        if genre_semantic_terms or genre_sfx_terms:
+            genre_deleted = deleted_genre_nodes.setdefault(active_genre, {})
+            genre_deleted[verb_head] = {
+                'semantic_terms': genre_semantic_terms,
+                'sfx_terms': genre_sfx_terms,
+                'deleted_at': datetime.now().isoformat(),
+            }
         if not genre_bucket:
             genres_bucket.pop(active_genre, None)
+        assignments = _genre_assignments(graph)
+        genre_heads = set(assignments.get(active_genre, set()))
+        genre_heads.add(verb_head)
+        assignments[active_genre] = genre_heads
+        _write_genre_assignments(graph, assignments)
         deleted_layer = 'genre'
         result_node_key = build_action_node_key(genre, verb_head)
         compare_genre = genre
@@ -969,6 +1427,7 @@ def delete_action_graph_node(
         result_node_key = build_action_node_key(active_genre, verb_head)
         compare_genre = active_genre
 
+    _write_deleted_genre_nodes_meta(graph, deleted_genre_nodes)
     _save_action_graph(graph)
     payload = get_action_graph_node_layers(result_node_key, target_genre=compare_genre)
     payload['ok'] = True
@@ -987,18 +1446,64 @@ def set_action_graph_inheritance_block(verb_head: str, genre: str, blocked: bool
     if not genre_name:
         return {'ok': False, 'detail': 'genre is required'}
     graph = _load_action_graph()
+    deleted_genre_nodes = _deleted_genre_nodes_meta(graph)
+    if not blocked:
+        deleted_payload = ((deleted_genre_nodes.get(genre_name) or {}).get(head)) or {}
+        if deleted_payload:
+            semantic_terms = _merge_unique([str(x or '').strip() for x in (deleted_payload.get('semantic_terms') or []) if str(x or '').strip()])
+            sfx_terms = _merge_unique([str(x or '').strip() for x in (deleted_payload.get('sfx_terms') or []) if str(x or '').strip()])
+            genre_bucket = graph['genres'].setdefault(genre_name, {})
+            genre_bucket[head] = {
+                'parent_node': {
+                    'genre': genre_name,
+                    'verb_head': head,
+                    'node_key': build_action_node_key(genre_name, head),
+                },
+                'children': {
+                    'semantic_terms': semantic_terms,
+                    'sfx_terms': sfx_terms,
+                },
+                'semantic_terms': semantic_terms,
+                'sfx_terms': sfx_terms,
+            }
+            genre_deleted = deleted_genre_nodes.get(genre_name) or {}
+            genre_deleted.pop(head, None)
+            if genre_deleted:
+                deleted_genre_nodes[genre_name] = genre_deleted
+            else:
+                deleted_genre_nodes.pop(genre_name, None)
+            _write_deleted_genre_nodes_meta(graph, deleted_genre_nodes)
+            _save_action_graph(graph)
+            return {
+                'ok': True,
+                'verb_head': head,
+                'genre': genre_name,
+                'blocked': False,
+                'restored_from': 'genre_deleted_pool',
+                'inheritance_blocked': False,
+                'genre_assigned': is_genre_assigned(genre_name, head, graph),
+            }
     if not ((graph.get('common') or {}).get(head)):
-        return {'ok': False, 'detail': '只能屏蔽或恢复通用层真实节点的赛道继承'}
+        return {'ok': False, 'detail': '只能调整通用元数据节点的赛道分配'}
+    assignments = _genre_assignments(graph)
     blocks = _inheritance_blocks(graph)
-    heads = set(blocks.get(genre_name, set()))
+    heads = set(assignments.get(genre_name, set()))
+    blocked_heads = set(blocks.get(genre_name, set()))
     if blocked:
-        heads.add(head)
-    else:
         heads.discard(head)
+        blocked_heads.add(head)
+    else:
+        heads.add(head)
+        blocked_heads.discard(head)
     if heads:
-        blocks[genre_name] = heads
+        assignments[genre_name] = heads
+    else:
+        assignments.pop(genre_name, None)
+    if blocked_heads:
+        blocks[genre_name] = blocked_heads
     else:
         blocks.pop(genre_name, None)
+    _write_genre_assignments(graph, assignments)
     _write_inheritance_blocks(graph, blocks)
     _save_action_graph(graph)
     return {
@@ -1006,13 +1511,15 @@ def set_action_graph_inheritance_block(verb_head: str, genre: str, blocked: bool
         'verb_head': head,
         'genre': genre_name,
         'blocked': bool(blocked),
-        'inheritance_blocked': is_inheritance_blocked(genre_name, head, graph),
+        'inheritance_blocked': not is_genre_assigned(genre_name, head, graph),
+        'genre_assigned': is_genre_assigned(genre_name, head, graph),
     }
 
 
 def list_action_graph_inheritance_blocks() -> dict:
     graph = _load_action_graph()
     blocks = _inheritance_blocks(graph)
+    deleted_genre_nodes = _deleted_genre_nodes_meta(graph)
     common_bucket = graph.get('common') or {}
     genres_bucket = graph.get('genres') or {}
     items = []
@@ -1034,6 +1541,27 @@ def list_action_graph_inheritance_blocks() -> dict:
                     'sfx_count': len(sfx_terms),
                     'genre_semantic_count': len(genre_semantic_terms),
                     'genre_sfx_count': len(genre_sfx_terms),
+                }
+            )
+    for genre, mapping in sorted(deleted_genre_nodes.items()):
+        for head, payload in sorted((mapping or {}).items()):
+            genre_row = ((((genres_bucket.get(genre)) or {}).get(head)) if isinstance(genres_bucket.get(genre), dict) else None)
+            semantic_terms = _merge_unique([str(x or '').strip() for x in (payload.get('semantic_terms') or []) if str(x or '').strip()])
+            sfx_terms = _merge_unique([str(x or '').strip() for x in (payload.get('sfx_terms') or []) if str(x or '').strip()])
+            items.append(
+                {
+                    'genre': genre,
+                    'verb_head': head,
+                    'node_key': build_action_node_key(genre, head),
+                    'blocked_node_key': build_action_node_key(genre, head),
+                    'common_exists': bool((common_bucket.get(head) if isinstance(common_bucket, dict) else None)),
+                    'genre_exists': bool(genre_row),
+                    'semantic_count': 0,
+                    'sfx_count': 0,
+                    'genre_semantic_count': len(semantic_terms),
+                    'genre_sfx_count': len(sfx_terms),
+                    'deleted_from': 'genre_layer',
+                    'deleted_at': str(payload.get('deleted_at') or '').strip(),
                 }
             )
     return {

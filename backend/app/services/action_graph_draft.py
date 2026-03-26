@@ -157,6 +157,71 @@ def _pick_target_head(verb: str, heads: dict[str, set[str]]) -> tuple[str, float
     return best_head, round(best_score, 4), best_reason
 
 
+def _source_scope_items(row: dict, terms: list[str], genre: str) -> list[dict]:
+    graph_source = (row or {}).get('graph_source') or {}
+    sfx_source_items = (graph_source.get('sfx_term_items') or [])
+    semantic_source_items = (graph_source.get('semantic_term_items') or [])
+    source_map = {}
+    for item in semantic_source_items:
+        if not isinstance(item, dict):
+            continue
+        term = str(item.get('term') or '').strip()
+        if term:
+            source_map[term] = str(item.get('source') or '').strip()
+    for item in sfx_source_items:
+        if not isinstance(item, dict):
+            continue
+        term = str(item.get('term') or '').strip()
+        source = str(item.get('source') or '').strip()
+        if not term:
+            continue
+        current = str(source_map.get(term) or '').strip()
+        # 如果音效层还是 fallback/unknown，但语义层已经明确 common+genre，则保留更强语义来源。
+        if current == 'common+genre' and source in {'fallback', 'unknown', ''}:
+            continue
+        source_map[term] = source
+    common_hit = bool(graph_source.get('common_hit'))
+    genre_hit = bool(graph_source.get('genre_hit'))
+    items = []
+    for term in _merge_unique(terms or []):
+        source = source_map.get(term) or 'unknown'
+        if source == 'common+genre' or (source in {'unknown', 'fallback'} and common_hit and genre_hit):
+            items.append({'task_scope': 'common', 'task_scope_genre': '', 'term': term, 'source': source})
+            items.append({'task_scope': 'genre', 'task_scope_genre': genre, 'term': term, 'source': source})
+        elif source == 'common' or (source in {'unknown', 'fallback'} and common_hit and not genre_hit):
+            items.append({'task_scope': 'common', 'task_scope_genre': '', 'term': term, 'source': source})
+        else:
+            items.append({'task_scope': 'genre', 'task_scope_genre': genre, 'term': term, 'source': source})
+    return items
+
+
+def _split_action_draft_variants(row: dict, genre: str, semantic_terms: list[str], sfx_terms: list[str], missing_sfx_terms: list[str]) -> list[dict]:
+    semantic_scope_items = _source_scope_items(row, semantic_terms, genre)
+    sfx_scope_items = _source_scope_items(row, sfx_terms, genre)
+    missing_scope_items = _source_scope_items(row, missing_sfx_terms, genre)
+    scope_keys = _merge_unique(
+        [f"{item['task_scope']}::{item['task_scope_genre']}" for item in (missing_scope_items or sfx_scope_items or semantic_scope_items)]
+    )
+    variants = []
+    for scope_key in scope_keys:
+        task_scope, _, task_scope_genre = scope_key.partition('::')
+        semantic_bucket = [item['term'] for item in semantic_scope_items if item['task_scope'] == task_scope and item['task_scope_genre'] == task_scope_genre]
+        sfx_bucket = [item['term'] for item in sfx_scope_items if item['task_scope'] == task_scope and item['task_scope_genre'] == task_scope_genre]
+        missing_bucket = [item['term'] for item in missing_scope_items if item['task_scope'] == task_scope and item['task_scope_genre'] == task_scope_genre]
+        if not sfx_bucket and not missing_bucket:
+            continue
+        variants.append(
+            {
+                'task_scope': task_scope,
+                'task_scope_genre': task_scope_genre,
+                'semantic_terms': _merge_unique(semantic_bucket)[:8],
+                'sfx_terms': _merge_unique(sfx_bucket)[:8],
+                'missing_sfx_terms': _merge_unique(missing_bucket)[:8],
+            }
+        )
+    return variants
+
+
 def generate_action_graph_draft(action_sfx_result: dict) -> dict:
     data = action_sfx_result if isinstance(action_sfx_result, dict) else {}
     genre = str(data.get('genre') or '').strip()
@@ -184,20 +249,35 @@ def generate_action_graph_draft(action_sfx_result: dict) -> dict:
         if target_head == verb and not genre:
             target_bucket = 'common'
 
-        item = {
-            'verb': verb,
-            'target_head': target_head,
-            'target_bucket': target_bucket,
-            'target_genre': target_genre,
-            'confidence': confidence,
-            'reason': reason,
-            'sentence_excerpt': str(row.get('sentence_excerpt') or '').strip(),
-            'semantic_terms': semantic_terms[:8],
-            'sfx_terms': sfx_terms[:8],
-            'missing_sfx_terms': [str(x).strip() for x in row.get('missing_sfx_terms', []) if str(x).strip()][:8],
-            'graph_source': graph_source,
-        }
-        items.append(item)
+        missing_sfx_terms = [str(x).strip() for x in row.get('missing_sfx_terms', []) if str(x).strip()][:8]
+        variant_items = _split_action_draft_variants(row, target_genre, semantic_terms[:8], sfx_terms[:8], missing_sfx_terms)
+        if not variant_items:
+            variant_items = [
+                {
+                    'task_scope': 'genre' if target_genre else 'common',
+                    'task_scope_genre': target_genre if target_genre else '',
+                    'semantic_terms': semantic_terms[:8],
+                    'sfx_terms': sfx_terms[:8],
+                    'missing_sfx_terms': missing_sfx_terms,
+                }
+            ]
+        for variant in variant_items:
+            item = {
+                'verb': verb,
+                'target_head': target_head,
+                'target_bucket': target_bucket,
+                'target_genre': target_genre,
+                'task_scope': str(variant.get('task_scope') or ('genre' if target_genre else 'common')).strip(),
+                'task_scope_genre': str(variant.get('task_scope_genre') or '').strip(),
+                'confidence': confidence,
+                'reason': reason,
+                'sentence_excerpt': str(row.get('sentence_excerpt') or '').strip(),
+                'semantic_terms': list(variant.get('semantic_terms') or [])[:8],
+                'sfx_terms': list(variant.get('sfx_terms') or [])[:8],
+                'missing_sfx_terms': list(variant.get('missing_sfx_terms') or [])[:8],
+                'graph_source': graph_source,
+            }
+            items.append(item)
 
         entry = {
             'parent_node': {
