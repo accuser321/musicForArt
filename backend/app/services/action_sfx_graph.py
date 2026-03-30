@@ -7,7 +7,7 @@ from sqlalchemy import select
 from app.config import settings
 from app.db import SessionLocal
 from app.models import ActionSupplementAsset, ActionSupplementTask
-from app.services.semantic_graph import expand_term
+from app.services.semantic_graph import suggest_action_semantic_terms, suggest_action_sfx_terms
 from app.services.sfx_matcher import load_sfx_library, match_sfx_candidates
 
 ACTION_GRAPH_PATH = Path('./assets/sfx/action_graph.json').resolve()
@@ -17,6 +17,33 @@ DIRECT_SFX_HINTS = (
     '破风', '门轴', '门把', '拖拽', '爆裂', '碎裂',
     '敲击', '拍击', '掌击', '拉拽', '推动', '抓取',
 )
+
+MAX_LLM_EXPAND_VERBS_PER_REQUEST = 10
+SEMANTIC_SUGGESTION_LIMIT = 3
+SFX_SUGGESTION_LIMIT = 2
+
+
+def _even_budget_indices(total: int, budget: int) -> set[int]:
+    total_count = max(0, int(total or 0))
+    budget_count = max(0, min(int(budget or 0), total_count))
+    if budget_count <= 0 or total_count <= 0:
+        return set()
+    if budget_count >= total_count:
+        return set(range(total_count))
+    if budget_count == 1:
+        return {0}
+    picks = set()
+    last = total_count - 1
+    for step in range(budget_count):
+        idx = round(step * last / (budget_count - 1))
+        picks.add(int(idx))
+    while len(picks) < budget_count:
+        for idx in range(total_count):
+            if idx not in picks:
+                picks.add(idx)
+                if len(picks) >= budget_count:
+                    break
+    return picks
 
 
 def _normalize_entry(v: dict) -> dict:
@@ -450,6 +477,8 @@ def load_action_node_coverage(node_keys: set[str] | None = None) -> dict[str, di
                     'score': 3.0,
                     'canonical': label,
                     'display_name': display_name,
+                    'source_pool': 'system',
+                    'source_label': '系统官方素材',
                 }
             )
 
@@ -504,6 +533,8 @@ def load_global_sfx_label_coverage() -> dict:
                 'score': 3.0,
                 'canonical': label,
                 'display_name': display_name,
+                'source_pool': 'system',
+                'source_label': '系统官方素材',
             }
         )
     return {
@@ -540,6 +571,7 @@ def _source_label(source: str) -> str:
         'genre': '赛道层',
         'common+genre': '通用+赛道',
         'fallback': '保底生成',
+        'suggested': '系统建议扩展词',
         'unknown': '未标注',
     }.get(str(source or '').strip(), '未标注')
 
@@ -556,6 +588,8 @@ def _layered_term_items(common_terms: list[str], genre_terms: list[str]) -> list
                 'term': term,
                 'source': source,
                 'source_label': _source_label(source),
+                'origin': 'system_maintained',
+                'origin_label': '系统维护',
                 'from_common': term in common_set,
                 'from_genre': term in genre_set,
             }
@@ -575,6 +609,8 @@ def _append_fallback_term_items(existing_items: list[dict], fallback_terms: list
                 'term': value,
                 'source': 'fallback',
                 'source_label': _source_label('fallback'),
+                'origin': 'system_fallback',
+                'origin_label': '系统兜底',
                 'from_common': False,
                 'from_genre': False,
                 'is_fallback': True,
@@ -582,6 +618,59 @@ def _append_fallback_term_items(existing_items: list[dict], fallback_terms: list
         )
         existing_terms.add(value)
     return out
+
+
+def _append_suggested_term_items(existing_items: list[dict], suggested_terms: list[dict | str]) -> list[dict]:
+    out = [dict(item) for item in (existing_items or []) if isinstance(item, dict)]
+    existing_terms = {str(item.get('term') or '').strip() for item in out if str(item.get('term') or '').strip()}
+    for term in suggested_terms or []:
+        if isinstance(term, dict):
+            value = str(term.get('term') or '').strip()
+            origin = str(term.get('origin') or 'system').strip() or 'system'
+            origin_label = str(term.get('origin_label') or '系统建议').strip() or '系统建议'
+            reason = str(term.get('reason') or '').strip()
+            source_label = str(term.get('source_label') or _source_label('suggested')).strip() or _source_label('suggested')
+            suggested_mode = str(term.get('suggested_mode') or '').strip()
+        else:
+            value = str(term or '').strip()
+            origin = 'system'
+            origin_label = '系统建议'
+            reason = ''
+            source_label = _source_label('suggested')
+            suggested_mode = ''
+        if not value or value in existing_terms:
+            continue
+        out.append(
+            {
+                'term': value,
+                'source': 'suggested',
+                'source_label': source_label,
+                'origin': origin,
+                'origin_label': origin_label,
+                'reason': reason,
+                'suggested_mode': suggested_mode,
+                'from_common': False,
+                'from_genre': False,
+                'is_suggested': True,
+            }
+        )
+        existing_terms.add(value)
+    return out
+
+
+def _split_sfx_term_items(term_items: list[dict]) -> tuple[list[dict], list[dict]]:
+    direct_items: list[dict] = []
+    composite_items: list[dict] = []
+    classified = classify_sfx_terms([str(item.get('term') or '').strip() for item in (term_items or [])])
+    direct_set = set(classified['direct_terms'])
+    for item in term_items or []:
+        term = str(item.get('term') or '').strip()
+        mode = str(item.get('suggested_mode') or '').strip()
+        if mode == 'direct' or (not mode and term in direct_set):
+            direct_items.append(item)
+        else:
+            composite_items.append(item)
+    return direct_items, composite_items
 
 
 def get_action_node_layer_term_items(genre: str, head: str) -> dict:
@@ -660,10 +749,14 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
             if reason and reason not in bucket['reasons']:
                 bucket['reasons'].append(reason)
     coverage_by_node = load_action_node_coverage(candidate_node_keys)
+    group_values = list(candidate_groups.values())
+    group_count = len(group_values)
+    semantic_budget_indices = _even_budget_indices(group_count, MAX_LLM_EXPAND_VERBS_PER_REQUEST)
+    sfx_budget_indices = _even_budget_indices(group_count, max(3, min(group_count, MAX_LLM_EXPAND_VERBS_PER_REQUEST // 2)))
 
     items = []
     gap_map: dict[str, dict] = {}
-    for group in candidate_groups.values():
+    for idx, group in enumerate(group_values):
         verb = str(group.get('verb') or '').strip()
         excerpt = ' / '.join((group.get('sentence_excerpts') or [])[:2]).strip()
         if not verb:
@@ -681,13 +774,38 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
         node_key = str((graph_entry.get('parent_node') or {}).get('node_key') or build_action_node_key(genre, verb)).strip()
         coverage = coverage_by_node.get(node_key) or {}
         semantic_terms = list(graph_entry.get('semantic_terms') or [])
-        expanded = expand_term(verb, backend_override=backend_override)
+        should_request_semantic_llm = idx in semantic_budget_indices and len(_merge_unique(common_semantic_terms + genre_semantic_terms + semantic_terms)) < 4
+        semantic_llm_rows = suggest_action_semantic_terms(
+            verb,
+            genre=genre,
+            limit=SEMANTIC_SUGGESTION_LIMIT,
+            provider_override=backend_override,
+        ) if should_request_semantic_llm else []
+        suggested_semantic_items = [
+            {
+                'term': item.term,
+                'origin': item.origin,
+                'origin_label': item.origin_label,
+                'source_label': '系统建议扩展词',
+                'reason': item.reason,
+                'score': item.score,
+            }
+            for item in semantic_llm_rows
+        ]
         semantic_terms = _filter_user_visible_fallback_terms(
             genre,
             verb,
-            _merge_unique([verb] + semantic_terms + sorted(expanded.terms)),
+            _merge_unique([verb] + semantic_terms + [str(item.get('term') or '').strip() for item in suggested_semantic_items]),
             graph,
         )
+        existing_semantic_candidates = {
+            str(x).strip() for x in _merge_unique(list(common_semantic_terms) + list(genre_semantic_terms))
+        }
+        suggested_semantic_items = [
+            item for item in suggested_semantic_items
+            if str(item.get('term') or '').strip()
+            and str(item.get('term') or '').strip() not in existing_semantic_candidates
+        ][:8]
 
         sfx_terms = _filter_user_visible_fallback_terms(
             genre,
@@ -695,6 +813,34 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
             ensure_action_sfx_terms(verb, list(graph_entry.get('sfx_terms') or [])),
             graph,
         )
+        should_request_sfx_llm = idx in sfx_budget_indices and len(_merge_unique(common_sfx_terms + genre_sfx_terms + sfx_terms)) < 3
+        sfx_llm_rows = suggest_action_sfx_terms(
+            verb,
+            genre=genre,
+            semantic_terms=semantic_terms,
+            limit=SFX_SUGGESTION_LIMIT,
+            provider_override=backend_override,
+        ) if should_request_sfx_llm else []
+        suggested_sfx_items = [
+            {
+                'term': item.term,
+                'origin': item.origin,
+                'origin_label': item.origin_label,
+                'source_label': '系统建议音效',
+                'suggested_mode': 'direct' if str(item.mode or '').strip() == 'direct' else 'composite',
+                'reason': item.reason,
+                'score': item.score,
+            }
+            for item in sfx_llm_rows
+        ]
+        existing_sfx_candidates = {
+            str(x).strip() for x in _merge_unique(list(common_sfx_terms) + list(genre_sfx_terms) + list(sfx_terms))
+        }
+        suggested_sfx_items = [
+            item for item in suggested_sfx_items
+            if str(item.get('term') or '').strip()
+            and str(item.get('term') or '').strip() not in existing_sfx_candidates
+        ][:SFX_SUGGESTION_LIMIT]
         sfx_classified = classify_sfx_terms(sfx_terms)
         asset_rows = [dict(x) for x in (coverage.get('assets') or [])]
         picked_labels = []
@@ -714,6 +860,8 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
                         'download_api': f"{settings.api_prefix}/sfx/file?path={quote(m['file_path'], safe='')}",
                         'score': m['score'],
                         'canonical': m['canonical'],
+                        'source_pool': m.get('source_pool') or 'system',
+                        'source_label': m.get('source_label') or '系统官方素材',
                     }
                 )
 
@@ -730,6 +878,8 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
                         'download_api': f"{settings.api_prefix}/sfx/file?path={quote(m['file_path'], safe='')}",
                         'score': m['score'],
                         'canonical': m['canonical'],
+                        'source_pool': m.get('source_pool') or 'system',
+                        'source_label': m.get('source_label') or '系统官方素材',
                     }
                 )
 
@@ -742,20 +892,41 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
             seen_asset.add(key)
             dedup_assets.append(a)
 
-        all_sfx_terms = _filter_user_visible_fallback_terms(genre, verb, _merge_unique(sfx_terms + picked_labels), graph)
-        all_sfx_classified = classify_sfx_terms(all_sfx_terms)
+        all_sfx_terms = _filter_user_visible_fallback_terms(
+            genre,
+            verb,
+            _merge_unique(sfx_terms + [str(item.get('term') or '').strip() for item in suggested_sfx_items] + picked_labels),
+            graph,
+        )
         semantic_term_items = _layered_term_items(common_semantic_terms, genre_semantic_terms)
         sfx_term_items = _layered_term_items(common_sfx_terms, genre_sfx_terms)
         semantic_term_items = _append_fallback_term_items(
             semantic_term_items,
             [term for term in semantic_terms if term not in {str(item.get('term') or '').strip() for item in semantic_term_items}],
         )
+        semantic_term_items = _append_suggested_term_items(
+            semantic_term_items,
+            [
+                item for item in suggested_semantic_items
+                if str(item.get('term') or '').strip() not in {str(existing.get('term') or '').strip() for existing in semantic_term_items}
+            ],
+        )
         sfx_term_items = _append_fallback_term_items(
             sfx_term_items,
             [term for term in all_sfx_terms if term not in {str(item.get('term') or '').strip() for item in sfx_term_items}],
         )
-        direct_term_items = [item for item in sfx_term_items if item['term'] in set(all_sfx_classified['direct_terms'])]
-        composite_term_items = [item for item in sfx_term_items if item['term'] in set(all_sfx_classified['composite_terms'])]
+        sfx_term_items = _append_suggested_term_items(
+            sfx_term_items,
+            [
+                item for item in suggested_sfx_items
+                if str(item.get('term') or '').strip() not in {str(existing.get('term') or '').strip() for existing in sfx_term_items}
+            ],
+        )
+        direct_term_items, composite_term_items = _split_sfx_term_items(sfx_term_items)
+        all_sfx_classified = classify_sfx_terms(
+            [str(item.get('term') or '').strip() for item in direct_term_items]
+            + [str(item.get('term') or '').strip() for item in composite_term_items]
+        )
         covered_label_set = {str(x).strip() for x in (coverage.get('covered_labels') or []) if str(x).strip()}
         covered_label_set.update(str(x).strip() for x in (global_label_coverage.get('labels') or []) if str(x).strip())
         covered_label_set.update(str(x.get('label') or '').strip() for x in dedup_assets if str(x.get('label') or '').strip())
@@ -807,8 +978,10 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
                 'children': {
                     'semantic_terms': semantic_terms[:10],
                     'semantic_term_items': semantic_term_items[:10],
+                    'pending_semantic_term_items': [item for item in semantic_term_items if str(item.get('source') or '').strip() == 'suggested'][:8],
                     'sfx_terms': all_sfx_terms[:8],
                     'sfx_term_items': sfx_term_items[:8],
+                    'pending_sfx_term_items': [item for item in sfx_term_items if str(item.get('source') or '').strip() == 'suggested'][:8],
                     'missing_sfx_terms': missing_sfx_terms[:10],
                     'covered_sfx_terms': covered_sfx_terms[:10],
                     'direct_sfx_terms': all_sfx_classified['direct_terms'][:8],
@@ -833,7 +1006,9 @@ def build_action_sfx_recommendation(project_id: int, action_report: dict, backen
                     'genre': genre,
                     'has_fallback_terms': any(str(item.get('source') or '') == 'fallback' for item in (sfx_term_items + semantic_term_items)),
                     'semantic_term_items': semantic_term_items[:10],
+                    'pending_semantic_term_items': [item for item in semantic_term_items if str(item.get('source') or '').strip() == 'suggested'][:8],
                     'sfx_term_items': sfx_term_items[:8],
+                    'pending_sfx_term_items': [item for item in sfx_term_items if str(item.get('source') or '').strip() == 'suggested'][:8],
                     'direct_sfx_term_items': direct_term_items[:8],
                     'composite_sfx_term_items': composite_term_items[:8],
                 },

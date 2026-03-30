@@ -1,5 +1,6 @@
 import json
 import re
+import socket
 import sys
 import time
 import uuid
@@ -14,12 +15,13 @@ PROMPT_DIR = Path(__file__).resolve().parent.parent / 'prompts'
 SYSTEM_PROMPT_FILE = ''
 PROMPT_CHAIN_BY_KIND = {
     'audio': ['V3-music_analysis_task.txt', 'V3-music_analysis_task_retry.txt'],
+    'music_match': ['V3-music_match_task.txt'],
     'action_verbs': ['V3-action_verbs_task.txt', 'V3-action_verbs_task_retry.txt'],
     'scene_building': ['V3-scene_building_task.txt', 'V3-scene_building_task_retry.txt'],
     'text_analysis': ['V3-text_analysis_task.txt', 'V3-text_analysis_task_retry.txt'],
     'text_with_music': ['V3-text_analysis_task.txt', 'V3-text_analysis_task_retry.txt'],
     'fusion': ['V3-production_analysis_task.txt', 'V3-production_analysis_task_retry.txt'],
-    'director_final': ['director_final_task.txt', 'director_final_task_retry.txt'],
+    'director_final': ['V3-director_final_task.txt', 'V3-director_final_task_retry.txt'],
 }
 DEFAULT_SYSTEM_PROMPT_FALLBACK = (
     '你是有声书后期分析助手。请严格遵守任务提示词中的输入输出约束。'
@@ -267,6 +269,33 @@ def _validate_contract(payload: dict, evidence_kind: str | None) -> tuple[bool, 
             for rk in req:
                 if rk not in row:
                     return False, f'scene_items[{i}] missing key: {rk}'
+        return True, ''
+
+    if kind == 'music_match':
+        required = [
+            'title',
+            'summary',
+            'professional_verdict',
+            'professional_reasons',
+            'editing_focus',
+            'replace_direction',
+            'evidence_focus',
+        ]
+        for k in required:
+            if k not in payload:
+                return False, f'missing key: {k}'
+        if not isinstance(payload.get('summary'), str):
+            return False, 'summary must be string'
+        if not isinstance(payload.get('professional_verdict'), str):
+            return False, 'professional_verdict must be string'
+        if not isinstance(payload.get('professional_reasons'), list):
+            return False, 'professional_reasons must be list'
+        if not isinstance(payload.get('editing_focus'), list):
+            return False, 'editing_focus must be list'
+        if not isinstance(payload.get('replace_direction'), list):
+            return False, 'replace_direction must be list'
+        if not isinstance(payload.get('evidence_focus'), list):
+            return False, 'evidence_focus must be list'
         return True, ''
 
     def _validate_sections_and_structure(obj: dict) -> tuple[bool, str]:
@@ -611,6 +640,56 @@ def _normalize_contract_payload(payload: dict, evidence_kind: str | None) -> dic
     return normalized
 
 
+def _normalize_text_token(value) -> str:
+    text = str(value or '').strip()
+    text = re.sub(r'\s+', '', text)
+    return text
+
+
+def _assess_audio_output_quality(payload: dict) -> tuple[bool, str]:
+    if not isinstance(payload, dict):
+        return False, 'payload is not object'
+    sections = payload.get('sections')
+    if not isinstance(sections, list) or not sections:
+        return False, 'sections empty'
+    signatures: list[str] = []
+    nontrivial_layers = 0
+    nontrivial_instruments = 0
+    nontrivial_plans = 0
+    for row in sections:
+        if not isinstance(row, dict):
+            continue
+        layers = [_normalize_text_token(x) for x in (row.get('main_layers') or []) if _normalize_text_token(x)]
+        instruments = [_normalize_text_token(x) for x in (row.get('instrument_guess') or []) if _normalize_text_token(x)]
+        entry = _normalize_text_token(row.get('entry_suggestion'))
+        exit_ = _normalize_text_token(row.get('exit_suggestion'))
+        if len(layers) >= 2:
+            nontrivial_layers += 1
+        if len(instruments) >= 1:
+            nontrivial_instruments += 1
+        if entry and entry != '无':
+            nontrivial_plans += 1
+        if exit_ and exit_ != '无':
+            nontrivial_plans += 1
+        signatures.append('|'.join([
+            '、'.join(layers[:4]),
+            '、'.join(instruments[:4]),
+            entry,
+            exit_,
+        ]))
+    unique_signatures = len({sig for sig in signatures if sig})
+    section_count = len(sections)
+    if section_count >= 3 and unique_signatures <= 1:
+        return False, 'sections too repetitive'
+    if section_count >= 3 and nontrivial_layers < max(2, section_count - 1):
+        return False, 'main_layers not differentiated enough'
+    if section_count >= 3 and nontrivial_instruments < max(2, section_count - 1):
+        return False, 'instrument_guess not differentiated enough'
+    if section_count >= 3 and nontrivial_plans < 2:
+        return False, 'entry/exit suggestions too weak'
+    return True, ''
+
+
 def _max_tokens_for_kind(evidence_kind: str) -> int:
     base = int(settings.llm_max_tokens or 1200)
     kind = (evidence_kind or '').strip().lower()
@@ -689,6 +768,24 @@ def _chat_completion(system_prompt: str, user_prompt: str, evidence_kind: str = 
         except urllib.error.URLError as e:
             elapsed = int((time.perf_counter() - t0) * 1000)
             print(f'[LLM URLError] req={req_id} elapsed_ms={elapsed} reason={e.reason}', file=sys.stderr)
+            reason_obj = getattr(e, 'reason', None)
+            reason_text = str(reason_obj or '')
+            non_retryable = isinstance(reason_obj, socket.gaierror) or (
+                'nodename nor servname provided' in reason_text.lower()
+                or 'name or service not known' in reason_text.lower()
+                or 'temporary failure in name resolution' in reason_text.lower()
+            )
+            if non_retryable:
+                return None, {
+                    'status': 'url_error',
+                    'request_id': req_id,
+                    'elapsed_ms': elapsed,
+                    'error': reason_text,
+                    'attempt': attempt,
+                    'provider': provider['provider'],
+                    'model': provider['model'],
+                    'non_retryable': True,
+                }
             if attempt < max_attempts:
                 time.sleep(0.8)
                 continue
@@ -754,8 +851,8 @@ def _resolve_prompt_chain(evidence_kind: str, task_mode: str) -> list[str]:
         return list(PROMPT_CHAIN_BY_KIND[kind])
     mode = (task_mode or '').strip().lower()
     if mode == 'teaching':
-        return ['music_teaching_task.txt']
-    return ['production_task.txt']
+        return ['V3-music_teaching_task.txt']
+    return ['V3-production_task.txt']
 
 
 def _output_limits_by_kind(evidence_kind: str) -> str:
@@ -802,6 +899,13 @@ def _output_limits_by_kind(evidence_kind: str) -> str:
             '- music_entry_plan<=10，sections<=8，hit_points<=8。\n'
             '- key_points/risks/export_hints 各<=6，单条尽量短句。\n'
             '- markdown 控制在 500-800 字，避免重复。'
+        )
+    if kind == 'music_match':
+        return (
+            '长度硬约束（必须执行）：\n'
+            '- professional_reasons<=5，editing_focus<=5，replace_direction<=4，evidence_focus<=4。\n'
+            '- summary<=60字，单条建议尽量短句。\n'
+            '- 只输出 JSON，不输出额外解释文本。'
         )
     return (
         '长度控制要求：\n'
@@ -875,6 +979,12 @@ def generate_report(task_mode: str, evidence_payload: dict, debug_prompt: bool =
             }
         )
         if not raw:
+            if (call_meta or {}).get('non_retryable'):
+                print(
+                    f'[LLM FAST FALLBACK] prompt={prompt_file} reason={(call_meta or {}).get("error", "")}',
+                    file=sys.stderr,
+                )
+                break
             continue
 
         parsed = _extract_json_blob(raw)
@@ -888,6 +998,17 @@ def generate_report(task_mode: str, evidence_payload: dict, debug_prompt: bool =
                     trace[-1]['contract_valid'] = False
                     trace[-1]['contract_reason'] = reason
                 continue
+            quality_ok = True
+            quality_reason = ''
+            if evidence_kind == 'audio':
+                quality_ok, quality_reason = _assess_audio_output_quality(parsed)
+                if trace:
+                    trace[-1]['quality_valid'] = quality_ok
+                    trace[-1]['quality_reason'] = quality_reason
+                if not quality_ok and prompt_file != prompt_chain[-1]:
+                    print(f'[LLM QUALITY RETRY] prompt={prompt_file} reason={quality_reason}', file=sys.stderr)
+                    last_contract_reason = f'音乐分析质量不足：{quality_reason}'
+                    continue
             if trace:
                 trace[-1]['contract_valid'] = True
                 trace[-1]['contract_reason'] = ''

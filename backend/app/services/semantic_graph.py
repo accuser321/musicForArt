@@ -1,15 +1,40 @@
 import json
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 from app.config import settings
 from app.services.nlp_zh import normalize_text, tokenize_cn
+from app.services.llm import _chat_completion, _extract_json_blob, _load_prompt, _load_system_prompt, llm_enabled
 
 
 @dataclass
 class ExpandResult:
     terms: set[str]
     sources: list[str]
+
+
+@dataclass
+class SemanticSuggestion:
+    term: str
+    origin: str
+    origin_label: str
+    score: float = 0.0
+    reason: str = ''
+
+
+SEMANTIC_EXPAND_PROMPT_FILE = 'V3-semantic_expand_action_terms_task.txt'
+SFX_EXPAND_PROMPT_FILE = 'V3-semantic_expand_action_sfx_task.txt'
+
+
+@dataclass
+class SfxSuggestion:
+    term: str
+    mode: str
+    origin: str
+    origin_label: str
+    score: float = 0.0
+    reason: str = ''
 
 
 def _load_local_lexicon() -> dict[str, list[str]]:
@@ -105,6 +130,234 @@ def expand_term(term: str, backend_override: str | None = None) -> ExpandResult:
         sources.append('neo4j')
 
     return ExpandResult(terms=merged, sources=sources)
+
+
+def _normalize_candidate_term(term: str | None, base_term: str) -> str:
+    value = normalize_text(term or '')
+    if not value:
+        return ''
+    if value == normalize_text(base_term):
+        return ''
+    if len(value) < 2:
+        return ''
+    return value
+
+
+def _dedupe_suggestions(items: list[SemanticSuggestion], limit: int = 8) -> list[SemanticSuggestion]:
+    merged: dict[str, SemanticSuggestion] = {}
+    for item in items:
+        term = _normalize_candidate_term(item.term, '')
+        if not term:
+            continue
+        current = merged.get(term)
+        if current is None:
+            merged[term] = SemanticSuggestion(
+                term=term,
+                origin=item.origin,
+                origin_label=item.origin_label,
+                score=float(item.score or 0),
+                reason=str(item.reason or '').strip(),
+            )
+            continue
+        current.score = max(float(current.score or 0), float(item.score or 0))
+        if not current.reason and item.reason:
+            current.reason = item.reason
+    out = list(merged.values())
+    out.sort(key=lambda x: (-float(x.score or 0), x.term))
+    return out[:limit]
+
+
+def _parse_llm_suggestions(payload: dict, base_term: str, limit: int) -> list[SemanticSuggestion]:
+    suggestions = payload.get('suggestions') if isinstance(payload, dict) else None
+    if not isinstance(suggestions, list):
+        suggestions = payload.get('terms') if isinstance(payload, dict) else None
+    if not isinstance(suggestions, list):
+        return []
+    out: list[SemanticSuggestion] = []
+    for idx, row in enumerate(suggestions):
+        if isinstance(row, dict):
+            candidate = _normalize_candidate_term(row.get('term'), base_term)
+            reason = str(row.get('reason') or '').strip()
+        else:
+            candidate = _normalize_candidate_term(str(row or ''), base_term)
+            reason = ''
+        if not candidate:
+            continue
+        out.append(
+            SemanticSuggestion(
+                term=candidate,
+                origin='llm',
+                origin_label='LLM建议',
+                score=max(0.1, 1.0 - idx * 0.08),
+                reason=reason,
+            )
+        )
+    return _dedupe_suggestions(out, limit=limit)
+
+
+@lru_cache(maxsize=256)
+def _cached_llm_action_suggestions(term: str, genre: str, provider_override: str, limit: int) -> tuple[tuple[str, str, float, str], ...]:
+    if not llm_enabled(provider_override):
+        return tuple()
+    task_prompt = _load_prompt(SEMANTIC_EXPAND_PROMPT_FILE)
+    if not task_prompt:
+        return tuple()
+    system_prompt, _ = _load_system_prompt()
+    payload = {
+        'genre': str(genre or '').strip() or '通用',
+        'action_term': normalize_text(term),
+        'limit': int(limit),
+        'goal': '给有声书后期声音设计推荐围绕当前动作词的语义扩展动作词',
+    }
+    user_prompt = (
+        f'{task_prompt}\n\n'
+        '输出要求：\n'
+        '1) 只输出一个 JSON 对象，不要输出代码块。\n'
+        '2) suggestions 中每个 term 必须是适合声音设计检索的动作词或动作短语。\n'
+        '3) 不要输出单字词，不要重复输入词本身，不要输出解释性前言。\n\n'
+        f'输入 JSON:\n{json.dumps(payload, ensure_ascii=False, indent=2)}'
+    )
+    try:
+        raw, _meta = _chat_completion(system_prompt, user_prompt, evidence_kind='semantic_expand_action', provider_override=provider_override)
+    except Exception:
+        return tuple()
+    parsed = _extract_json_blob(raw or '')
+    if not isinstance(parsed, dict):
+        return tuple()
+    rows = _parse_llm_suggestions(parsed, base_term=term, limit=limit)
+    return tuple((row.term, row.origin_label, float(row.score or 0), row.reason) for row in rows)
+
+
+def _llm_action_suggestions(term: str, genre: str, limit: int = 6, provider_override: str | None = None) -> list[SemanticSuggestion]:
+    rows = _cached_llm_action_suggestions(normalize_text(term), str(genre or '').strip(), str(provider_override or ''), int(limit))
+    return [
+        SemanticSuggestion(term=term, origin='llm', origin_label=origin_label, score=score, reason=reason)
+        for term, origin_label, score, reason in rows
+        if term
+    ]
+
+
+def suggest_action_semantic_terms(term: str, genre: str = '', limit: int = 8, provider_override: str | None = None) -> list[SemanticSuggestion]:
+    base = normalize_text(term)
+    if not base:
+        return []
+    llm_items = _llm_action_suggestions(base, genre, limit=max(4, min(limit, 6)), provider_override=provider_override)
+    return [item for item in _dedupe_suggestions(llm_items, limit=limit) if _normalize_candidate_term(item.term, base)]
+
+
+def _parse_llm_sfx_suggestions(payload: dict, base_term: str, limit: int) -> list[SfxSuggestion]:
+    if not isinstance(payload, dict):
+        return []
+    groups = [
+        ('direct_terms', 'direct'),
+        ('composite_terms', 'composite'),
+    ]
+    out: list[SfxSuggestion] = []
+    seen: set[tuple[str, str]] = set()
+    for key, mode in groups:
+        rows = payload.get(key)
+        if not isinstance(rows, list):
+            continue
+        for idx, row in enumerate(rows):
+            if isinstance(row, dict):
+                candidate = _normalize_candidate_term(row.get('term'), base_term)
+                reason = str(row.get('reason') or '').strip()
+            else:
+                candidate = _normalize_candidate_term(str(row or ''), base_term)
+                reason = ''
+            if not candidate:
+                continue
+            pair = (candidate, mode)
+            if pair in seen:
+                continue
+            seen.add(pair)
+            out.append(
+                SfxSuggestion(
+                    term=candidate,
+                    mode=mode,
+                    origin='llm',
+                    origin_label='LLM建议',
+                    score=max(0.1, 1.0 - idx * 0.08),
+                    reason=reason,
+                )
+            )
+    out.sort(key=lambda x: (-float(x.score or 0), x.term, x.mode))
+    return out[:limit]
+
+
+@lru_cache(maxsize=256)
+def _cached_llm_action_sfx_suggestions(term: str, genre: str, semantic_terms_key: str, limit: int, provider_override: str) -> tuple[tuple[str, str, str, float, str], ...]:
+    if not llm_enabled(provider_override):
+        return tuple()
+    task_prompt = _load_prompt(SFX_EXPAND_PROMPT_FILE)
+    if not task_prompt:
+        return tuple()
+    system_prompt, _ = _load_system_prompt()
+    semantic_terms = [str(x).strip() for x in str(semantic_terms_key or '').split('|') if str(x).strip()]
+    payload = {
+        'genre': str(genre or '').strip() or '通用',
+        'action_term': normalize_text(term),
+        'semantic_terms': semantic_terms[:8],
+        'limit': int(limit),
+        'goal': '给有声书后期声音设计推荐围绕当前动作词的直达音效词和整体音效词',
+    }
+    user_prompt = (
+        f'{task_prompt}\n\n'
+        '输出要求：\n'
+        '1) 只输出一个 JSON 对象，不要输出代码块。\n'
+        '2) direct_terms 只放更像具体声音标签、可直接用于搜索音效的词。\n'
+        '3) composite_terms 只放更像完整动作声音方案的词。\n'
+        '4) 不要输出单字词，不要重复输入词本身，不要输出解释性前言。\n\n'
+        f'输入 JSON:\n{json.dumps(payload, ensure_ascii=False, indent=2)}'
+    )
+    try:
+        raw, _meta = _chat_completion(system_prompt, user_prompt, evidence_kind='semantic_expand_action_sfx', provider_override=provider_override)
+    except Exception:
+        return tuple()
+    parsed = _extract_json_blob(raw or '')
+    rows = _parse_llm_sfx_suggestions(parsed, base_term=term, limit=limit)
+    return tuple((row.term, row.mode, row.origin, row.origin_label, float(row.score or 0), row.reason) for row in rows)
+
+
+def suggest_action_sfx_terms(
+    term: str,
+    *,
+    genre: str = '',
+    semantic_terms: list[str] | None = None,
+    limit: int = 8,
+    provider_override: str | None = None,
+) -> list[SfxSuggestion]:
+    base = normalize_text(term)
+    if not base:
+        return []
+    semantic_terms_key = '|'.join(
+        _normalize_candidate_term(item, '')
+        for item in _merge_semantic_seed_terms(semantic_terms or [])
+    )
+    rows = _cached_llm_action_sfx_suggestions(
+        base,
+        str(genre or '').strip(),
+        semantic_terms_key,
+        int(limit),
+        str(provider_override or ''),
+    )
+    return [
+        SfxSuggestion(term=term, mode=mode, origin=origin, origin_label=origin_label, score=score, reason=reason)
+        for term, mode, origin, origin_label, score, reason in rows
+        if term and mode in {'direct', 'composite'}
+    ]
+
+
+def _merge_semantic_seed_terms(items: list[str]) -> list[str]:
+    seen = set()
+    out = []
+    for item in items or []:
+        value = normalize_text(item or '')
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        out.append(value)
+    return out
 
 
 def graph_status() -> dict:

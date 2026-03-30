@@ -2,6 +2,7 @@
 
 输入：
 - audio_features（时长、锚点、标签）
+- feature_evidence（真实音频证据，可能包含静音断点、活跃段、响度、动态范围、声道与码率）
 
 只允许输出：
 1) 一个 JSON 对象；
@@ -47,6 +48,8 @@ JSON 字段（必须齐全）：
 5) title 字段固定写为“音乐分析结果”，不得省略、不得改名、不得留空。
 6) summary 字段必须输出一句中文用途总结，不得省略、不得留空。
 7) fit_genres、risk_genres、sections、hit_points、mix_notes、key_points、structure_logic 均不得省略；若证据不足可返回空数组或保守对象，但字段必须存在。
+8) 若 feature_evidence 中存在明显静音断点/活跃段变化，sections 必须体现分段差异，不得所有乐段都写成同一套“主层次/配器推测”。
+9) 即便证据不足，也要尽量让不同乐段的描述有层次变化，避免整篇重复。
 
 长度约束（严格）：
 1) sections<=4，hit_points<=4。

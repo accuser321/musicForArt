@@ -1,5 +1,6 @@
 import json
 import re
+from pathlib import Path
 
 from app.config import settings
 from app.services.llm import (
@@ -24,6 +25,7 @@ DEFAULT_ACTION_GENRE = '玄幻'
 SINGLE_PASS_SAFE_CHARS = 350
 SEGMENT_TARGET_CHARS = 320
 SEGMENT_MAX_CHARS = 360
+ACTION_GRAPH_PATH = Path('./assets/sfx/action_graph.json').resolve()
 
 
 def _normalize_genre(genre: str | None) -> str:
@@ -146,6 +148,83 @@ def _segment_text(sentences: list[dict], full_text: str) -> list[dict]:
         current_len += sent_len
     flush()
     return segments
+
+
+def _load_action_graph_terms(genre: str) -> list[str]:
+    if not ACTION_GRAPH_PATH.exists():
+        return []
+    try:
+        graph = json.loads(ACTION_GRAPH_PATH.read_text(encoding='utf-8'))
+    except Exception:
+        return []
+    common = (graph.get('common') or {}) if isinstance(graph, dict) else {}
+    genres = (graph.get('genres') or {}) if isinstance(graph, dict) else {}
+    genre_bucket = genres.get(genre) if isinstance(genres.get(genre), dict) else {}
+    terms: list[str] = []
+    for bucket in (common, genre_bucket):
+        if not isinstance(bucket, dict):
+            continue
+        for head, row in bucket.items():
+            head_value = str(head or '').strip()
+            if head_value:
+                terms.append(head_value)
+            if isinstance(row, dict):
+                semantic_terms = row.get('semantic_terms') or ((row.get('children') or {}).get('semantic_terms')) or []
+                for term in semantic_terms or []:
+                    term_value = str(term or '').strip()
+                    if term_value:
+                        terms.append(term_value)
+    terms = sorted({term for term in terms if term}, key=lambda x: (-len(x), x))
+    return terms
+
+
+def _find_sentence_excerpt_for_term(term: str, sentences: list[dict], full_text: str) -> str:
+    value = str(term or '').strip()
+    if not value:
+        return ''
+    for sent in sentences or []:
+        text = str(sent.get('text') or '').strip()
+        if value and value in text:
+            return text
+    return full_text.strip()[:120]
+
+
+def _append_graph_hits(merged: dict, text: str, genre: str, sentences: list[dict]) -> dict:
+    report = dict(merged or {})
+    candidates = [dict(item) for item in (report.get('action_candidates') or []) if isinstance(item, dict)]
+    qualified = [dict(item) for item in (report.get('qualified_actions') or []) if isinstance(item, dict)]
+    existing_verbs = {str(item.get('verb') or '').strip() for item in candidates if str(item.get('verb') or '').strip()}
+    graph_terms = _load_action_graph_terms(genre)
+    if not graph_terms:
+        report['action_candidates'] = candidates
+        report['qualified_actions'] = qualified
+        return report
+
+    for term in graph_terms:
+        if not term or term in existing_verbs:
+            continue
+        if term not in text:
+            continue
+        excerpt = _find_sentence_excerpt_for_term(term, sentences, text)
+        candidate = {
+            'candidate_no': len(candidates) + 1,
+            'verb': term,
+            'sentence_excerpt': excerpt,
+            'reason': '命中已维护动作词',
+        }
+        candidates.append(candidate)
+        qualified.append({'verb': term, 'sentence_excerpt': excerpt})
+        existing_verbs.add(term)
+
+    report['action_candidates'] = candidates
+    report['qualified_actions'] = qualified
+    key_points = [str(x).strip() for x in (report.get('key_points') or []) if str(x).strip()]
+    if any(item.get('reason') == '命中已维护动作词' for item in candidates):
+        graph_note = '已补充命中图谱中已维护的动作词，保证正式建设后的词能在动作提取阶段稳定出现。'
+        if graph_note not in key_points:
+            key_points.insert(0, graph_note)
+    report['key_points'] = key_points[:8]
+    return report
 
 
 def _resolve_prompt(genre: str, prompt_file: str | None) -> tuple[str, str]:
@@ -345,6 +424,7 @@ def analyze_action_verbs(
         all_trace.extend(seg_report.get('llm_trace') or [])
 
     merged_report = _merge_reports(text, normalized_genre, segment_reports)
+    merged_report = _append_graph_hits(merged_report, text, normalized_genre, sentences)
     actual_prompt = None
     if all_trace:
         actual_prompt = all_trace[0].get('prompt_file')

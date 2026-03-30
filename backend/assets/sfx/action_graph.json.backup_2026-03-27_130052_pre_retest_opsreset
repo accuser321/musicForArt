@@ -1,0 +1,306 @@
+{
+  "_meta": {
+    "version": "genre-v3-parent-child",
+    "description": "动作图谱按 common + genres 分层；每个动作词节点显式包含 parent_node 与 children。",
+    "notes": [
+      "parent_node 表示父级节点（赛道+动作词）",
+      "children.semantic_terms 表示语义子级",
+      "children.sfx_terms 表示音效子级",
+      "保留 semantic_terms/sfx_terms 兼容旧逻辑读取"
+    ],
+    "fallback_alias_map": {
+      "common": {},
+      "genres": {}
+    },
+    "inheritance_blocks": {},
+    "genre_assignments": {
+      "玄幻": [
+        "飞身"
+      ]
+    },
+    "fallback_ignored_terms": {
+      "common": [
+        "一",
+        "上",
+        "下",
+        "作",
+        "凝",
+        "出",
+        "出去",
+        "出来",
+        "到",
+        "刺",
+        "劈",
+        "化",
+        "印",
+        "去",
+        "发",
+        "受",
+        "向",
+        "吸",
+        "幻",
+        "开",
+        "引",
+        "张",
+        "感",
+        "成",
+        "手",
+        "扔",
+        "扔出",
+        "拿",
+        "掐",
+        "操",
+        "收",
+        "晕",
+        "来",
+        "死",
+        "眼",
+        "着",
+        "砸",
+        "纵",
+        "结",
+        "而",
+        "而起",
+        "落",
+        "诀",
+        "起",
+        "跃",
+        "跃而",
+        "踏",
+        "身",
+        "躲",
+        "避",
+        "闪",
+        "闭",
+        "飞"
+      ],
+      "genres": {}
+    },
+    "fallback_replacement_map": {
+      "common": {
+        "一跃而起": [
+          "一跃",
+          "跃起"
+        ],
+        "凝成": [
+          "凝成"
+        ],
+        "劈去": [
+          "劈去"
+        ],
+        "化作": [
+          "化作"
+        ],
+        "发出": [
+          "发出"
+        ],
+        "吸收": [
+          "吸收"
+        ],
+        "幻出": [
+          "幻出"
+        ],
+        "引来": [
+          "引来"
+        ],
+        "张手": [
+          "张手"
+        ],
+        "感受着": [
+          "受着",
+          "感受"
+        ],
+        "扔出去": [
+          "扔出"
+        ],
+        "拿出来": [
+          "拿出"
+        ],
+        "掐诀": [
+          "掐诀"
+        ],
+        "操纵": [
+          "操纵"
+        ],
+        "晕死": [
+          "晕倒"
+        ],
+        "来到": [
+          "来到"
+        ],
+        "砸去": [
+          "砸去"
+        ],
+        "结印": [
+          "结印"
+        ],
+        "落下": [
+          "落下"
+        ],
+        "踏上": [
+          "踏上"
+        ],
+        "躲闪": [
+          "躲闪"
+        ],
+        "避开": [
+          "避开"
+        ],
+        "闭眼": [
+          "闭眼"
+        ],
+        "飞身": [
+          "飞身"
+        ]
+      },
+      "genres": {}
+    },
+    "fallback_reopen_queue": [],
+    "deleted_genre_nodes": {}
+  },
+  "common": {
+    "飞身": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "飞身",
+        "node_key": "飞身"
+      },
+      "children": {
+        "semantic_terms": [
+          "腾空而起"
+        ],
+        "sfx_terms": [
+          "飞身"
+        ]
+      },
+      "semantic_terms": [
+        "腾空而起"
+      ],
+      "sfx_terms": [
+        "飞身"
+      ]
+    },
+    "跃起": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "跃起",
+        "node_key": "跃起"
+      },
+      "children": {
+        "semantic_terms": [
+          "弹跳起身",
+          "蹬地起跳",
+          "跳跃落地",
+          "凌空飞扑",
+          "纵身一跃"
+        ],
+        "sfx_terms": [
+          "跃起"
+        ]
+      },
+      "semantic_terms": [
+        "弹跳起身",
+        "蹬地起跳",
+        "跳跃落地",
+        "凌空飞扑",
+        "纵身一跃"
+      ],
+      "sfx_terms": [
+        "跃起"
+      ]
+    },
+    "闭眼": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "闭眼",
+        "node_key": "闭眼"
+      },
+      "children": {
+        "semantic_terms": [
+          "闭眼",
+          "缓缓睁开眼",
+          "揉眼睛"
+        ],
+        "sfx_terms": []
+      },
+      "semantic_terms": [
+        "闭眼",
+        "缓缓睁开眼",
+        "揉眼睛"
+      ],
+      "sfx_terms": []
+    },
+    "幻出": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "幻出",
+        "node_key": "幻出"
+      },
+      "children": {
+        "semantic_terms": [
+          "光影浮现"
+        ],
+        "sfx_terms": []
+      },
+      "semantic_terms": [
+        "光影浮现"
+      ],
+      "sfx_terms": []
+    }
+  },
+  "genres": {
+    "玄幻": {
+      "幻出": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "幻出",
+          "node_key": "玄幻::幻出"
+        },
+        "children": {
+          "semantic_terms": [
+            "法相凝现"
+          ],
+          "sfx_terms": [
+            "幻出"
+          ]
+        },
+        "semantic_terms": [
+          "法相凝现"
+        ],
+        "sfx_terms": [
+          "幻出"
+        ]
+      },
+      "飞身": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "飞身",
+          "node_key": "玄幻::飞身"
+        },
+        "children": {
+          "semantic_terms": [
+            "纵身一跃",
+            "闪身移动",
+            "腾空而起",
+            "滑翔俯冲",
+            "凌空踏步",
+            "御风飞行"
+          ],
+          "sfx_terms": []
+        },
+        "semantic_terms": [
+          "纵身一跃",
+          "闪身移动",
+          "腾空而起",
+          "滑翔俯冲",
+          "凌空踏步",
+          "御风飞行"
+        ],
+        "sfx_terms": []
+      }
+    },
+    "言情": {},
+    "悬疑": {},
+    "科幻": {}
+  }
+}

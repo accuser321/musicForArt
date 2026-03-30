@@ -1,0 +1,3519 @@
+{
+  "_meta": {
+    "version": "genre-v3-parent-child",
+    "description": "动作图谱按 common + genres 分层；每个动作词节点显式包含 parent_node 与 children。",
+    "notes": [
+      "parent_node 表示父级节点（赛道+动作词）",
+      "children.semantic_terms 表示语义子级",
+      "children.sfx_terms 表示音效子级",
+      "保留 semantic_terms/sfx_terms 兼容旧逻辑读取"
+    ],
+    "fallback_alias_map": {
+      "common": {
+        "受着": "感受",
+        "快步": "快步走",
+        "感受着": "感受",
+        "扔出": "扔出去",
+        "拿出": "拿出来",
+        "步走": "快步走"
+      },
+      "genres": {
+        "玄幻": {
+          "一跃": "一跃而起",
+          "劈去": "劈",
+          "印结": "结印",
+          "恐道": "惊恐",
+          "惊恐道": "惊恐",
+          "晕死": "晕",
+          "来到": "来",
+          "闭眼": "闭"
+        },
+        "科幻": {
+          "了翻": "翻了翻",
+          "翻了": "翻了翻"
+        }
+      }
+    },
+    "inheritance_blocks": {},
+    "genre_assignments": {},
+    "fallback_ignored_terms": {
+      "common": [
+        "下",
+        "令",
+        "作",
+        "借",
+        "入",
+        "冲",
+        "出",
+        "出来",
+        "到",
+        "刺",
+        "加",
+        "动",
+        "助",
+        "化",
+        "升",
+        "去",
+        "发",
+        "受",
+        "向",
+        "吩",
+        "听",
+        "启",
+        "吸",
+        "命",
+        "咐",
+        "回",
+        "在",
+        "复",
+        "夺",
+        "开",
+        "快",
+        "恢",
+        "感",
+        "戴",
+        "扔",
+        "抢",
+        "拿",
+        "插",
+        "收",
+        "来",
+        "步",
+        "看",
+        "着",
+        "砸",
+        "穿",
+        "站",
+        "行",
+        "调",
+        "走",
+        "起",
+        "踏",
+        "身",
+        "进",
+        "追",
+        "送",
+        "避",
+        "飞"
+      ],
+      "genres": {
+        "玄幻": [
+          "一",
+          "上",
+          "下",
+          "传",
+          "凝",
+          "出",
+          "到",
+          "印",
+          "去",
+          "幻",
+          "延",
+          "张",
+          "成",
+          "手",
+          "掐",
+          "操",
+          "死",
+          "爆",
+          "眼",
+          "纵",
+          "结",
+          "而",
+          "而起",
+          "腾空",
+          "落",
+          "蔓",
+          "诀",
+          "起",
+          "跃",
+          "跃而",
+          "踏",
+          "道",
+          "音"
+        ],
+        "科幻": [
+          "了",
+          "启",
+          "射",
+          "救",
+          "翻",
+          "解"
+        ]
+      }
+    }
+  },
+  "common": {
+    "推门": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "推门",
+        "node_key": "推门"
+      },
+      "children": {
+        "semantic_terms": [
+          "开门",
+          "推开",
+          "闯入",
+          "推门而入"
+        ],
+        "sfx_terms": [
+          "门响",
+          "脚步声",
+          "门轴声"
+        ]
+      },
+      "semantic_terms": [
+        "开门",
+        "推开",
+        "闯入",
+        "推门而入"
+      ],
+      "sfx_terms": [
+        "门响",
+        "脚步声",
+        "门轴声"
+      ]
+    },
+    "拉门": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "拉门",
+        "node_key": "拉门"
+      },
+      "children": {
+        "semantic_terms": [
+          "开门",
+          "拽门",
+          "拉开门"
+        ],
+        "sfx_terms": [
+          "门把手声",
+          "门响",
+          "门轴声"
+        ]
+      },
+      "semantic_terms": [
+        "开门",
+        "拽门",
+        "拉开门"
+      ],
+      "sfx_terms": [
+        "门把手声",
+        "门响",
+        "门轴声"
+      ]
+    },
+    "敲击": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "敲击",
+        "node_key": "敲击"
+      },
+      "children": {
+        "semantic_terms": [
+          "敲打",
+          "点击",
+          "触碰",
+          "拍击"
+        ],
+        "sfx_terms": [
+          "敲击声",
+          "碰触声",
+          "轻击声"
+        ]
+      },
+      "semantic_terms": [
+        "敲打",
+        "点击",
+        "触碰",
+        "拍击"
+      ],
+      "sfx_terms": [
+        "敲击声",
+        "碰触声",
+        "轻击声"
+      ]
+    },
+    "拍": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "拍",
+        "node_key": "拍"
+      },
+      "children": {
+        "semantic_terms": [
+          "拍打",
+          "拍击",
+          "挥拍"
+        ],
+        "sfx_terms": [
+          "拍击声",
+          "掌击声",
+          "衣料带动声"
+        ]
+      },
+      "semantic_terms": [
+        "拍打",
+        "拍击",
+        "挥拍"
+      ],
+      "sfx_terms": [
+        "拍击声",
+        "掌击声",
+        "衣料带动声"
+      ]
+    },
+    "抓": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "抓",
+        "node_key": "抓"
+      },
+      "children": {
+        "semantic_terms": [
+          "抓住",
+          "攥住",
+          "一把抓住"
+        ],
+        "sfx_terms": [
+          "抓取声",
+          "衣料摩擦声",
+          "瞬间动作声"
+        ]
+      },
+      "semantic_terms": [
+        "抓住",
+        "攥住",
+        "一把抓住"
+      ],
+      "sfx_terms": [
+        "抓取声",
+        "衣料摩擦声",
+        "瞬间动作声"
+      ]
+    },
+    "拉": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "拉",
+        "node_key": "拉"
+      },
+      "children": {
+        "semantic_terms": [
+          "拽",
+          "拖",
+          "拉扯"
+        ],
+        "sfx_terms": [
+          "拉拽声",
+          "衣料摩擦声",
+          "拖拽声"
+        ]
+      },
+      "semantic_terms": [
+        "拽",
+        "拖",
+        "拉扯"
+      ],
+      "sfx_terms": [
+        "拉拽声",
+        "衣料摩擦声",
+        "拖拽声"
+      ]
+    },
+    "推": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "推",
+        "node_key": "推"
+      },
+      "children": {
+        "semantic_terms": [
+          "推开",
+          "一把推开",
+          "推过去"
+        ],
+        "sfx_terms": [
+          "推动声",
+          "碰撞声",
+          "脚步调整声"
+        ]
+      },
+      "semantic_terms": [
+        "推开",
+        "一把推开",
+        "推过去"
+      ],
+      "sfx_terms": [
+        "推动声",
+        "碰撞声",
+        "脚步调整声"
+      ]
+    },
+    "奔跑": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "奔跑",
+        "node_key": "奔跑"
+      },
+      "children": {
+        "semantic_terms": [
+          "快跑",
+          "疾跑",
+          "冲跑",
+          "发足狂奔"
+        ],
+        "sfx_terms": [
+          "快速脚步声",
+          "喘息声",
+          "破风声"
+        ]
+      },
+      "semantic_terms": [
+        "快跑",
+        "疾跑",
+        "冲跑",
+        "发足狂奔"
+      ],
+      "sfx_terms": [
+        "快速脚步声",
+        "喘息声",
+        "破风声"
+      ]
+    },
+    "走近": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "走近",
+        "node_key": "走近"
+      },
+      "children": {
+        "semantic_terms": [
+          "靠近",
+          "逼近",
+          "接近",
+          "迈近"
+        ],
+        "sfx_terms": [
+          "脚步声",
+          "轻步声",
+          "衣料摩擦声"
+        ]
+      },
+      "semantic_terms": [
+        "靠近",
+        "逼近",
+        "接近",
+        "迈近"
+      ],
+      "sfx_terms": [
+        "脚步声",
+        "轻步声",
+        "衣料摩擦声"
+      ]
+    },
+    "后退": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "后退",
+        "node_key": "后退"
+      },
+      "children": {
+        "semantic_terms": [
+          "退后",
+          "后撤",
+          "往后退",
+          "倒退"
+        ],
+        "sfx_terms": [
+          "脚步后撤声",
+          "衣料摩擦声",
+          "急停声"
+        ]
+      },
+      "semantic_terms": [
+        "退后",
+        "后撤",
+        "往后退",
+        "倒退"
+      ],
+      "sfx_terms": [
+        "脚步后撤声",
+        "衣料摩擦声",
+        "急停声"
+      ]
+    },
+    "停下": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "停下",
+        "node_key": "停下"
+      },
+      "children": {
+        "semantic_terms": [
+          "止步",
+          "急停",
+          "顿住",
+          "驻足"
+        ],
+        "sfx_terms": [
+          "脚步急停声",
+          "衣料摩擦声",
+          "地面摩擦声"
+        ]
+      },
+      "semantic_terms": [
+        "止步",
+        "急停",
+        "顿住",
+        "驻足"
+      ],
+      "sfx_terms": [
+        "脚步急停声",
+        "衣料摩擦声",
+        "地面摩擦声"
+      ]
+    },
+    "坐下": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "坐下",
+        "node_key": "坐下"
+      },
+      "children": {
+        "semantic_terms": [
+          "落座",
+          "坐回去",
+          "坐到"
+        ],
+        "sfx_terms": [
+          "椅子轻响",
+          "落座声",
+          "衣料轻擦声"
+        ]
+      },
+      "semantic_terms": [
+        "落座",
+        "坐回去",
+        "坐到"
+      ],
+      "sfx_terms": [
+        "椅子轻响",
+        "落座声",
+        "衣料轻擦声"
+      ]
+    },
+    "站起": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "站起",
+        "node_key": "站起"
+      },
+      "children": {
+        "semantic_terms": [
+          "起身",
+          "站起来",
+          "霍然起身"
+        ],
+        "sfx_terms": [
+          "起身声",
+          "椅子摩擦声",
+          "衣料摩擦声"
+        ]
+      },
+      "semantic_terms": [
+        "起身",
+        "站起来",
+        "霍然起身"
+      ],
+      "sfx_terms": [
+        "起身声",
+        "椅子摩擦声",
+        "衣料摩擦声"
+      ]
+    },
+    "回头": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "回头",
+        "node_key": "回头"
+      },
+      "children": {
+        "semantic_terms": [
+          "转头",
+          "扭头",
+          "猛地回头"
+        ],
+        "sfx_terms": [
+          "衣料轻擦声",
+          "细微脚步调整声"
+        ]
+      },
+      "semantic_terms": [
+        "转头",
+        "扭头",
+        "猛地回头"
+      ],
+      "sfx_terms": [
+        "衣料轻擦声",
+        "细微脚步调整声"
+      ]
+    },
+    "转身": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "转身",
+        "node_key": "转身"
+      },
+      "children": {
+        "semantic_terms": [
+          "回身",
+          "转过去",
+          "侧身"
+        ],
+        "sfx_terms": [
+          "衣料摩擦声",
+          "脚步挪动声"
+        ]
+      },
+      "semantic_terms": [
+        "回身",
+        "转过去",
+        "侧身"
+      ],
+      "sfx_terms": [
+        "衣料摩擦声",
+        "脚步挪动声"
+      ]
+    },
+    "开口": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "开口",
+        "node_key": "开口"
+      },
+      "children": {
+        "semantic_terms": [
+          "出声",
+          "发声",
+          "说话",
+          "启唇"
+        ],
+        "sfx_terms": [
+          "呼吸声",
+          "口部动作声",
+          "轻微换气声"
+        ]
+      },
+      "semantic_terms": [
+        "出声",
+        "发声",
+        "说话",
+        "启唇"
+      ],
+      "sfx_terms": [
+        "呼吸声",
+        "口部动作声",
+        "轻微换气声"
+      ]
+    },
+    "抬头": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "抬头",
+        "node_key": "抬头"
+      },
+      "children": {
+        "semantic_terms": [
+          "扬起头",
+          "抬起脸",
+          "仰头"
+        ],
+        "sfx_terms": [
+          "衣料轻擦声",
+          "细微动作声"
+        ]
+      },
+      "semantic_terms": [
+        "扬起头",
+        "抬起脸",
+        "仰头"
+      ],
+      "sfx_terms": [
+        "衣料轻擦声",
+        "细微动作声"
+      ]
+    },
+    "握紧": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "握紧",
+        "node_key": "握紧"
+      },
+      "children": {
+        "semantic_terms": [
+          "攥紧",
+          "捏紧",
+          "死死握住"
+        ],
+        "sfx_terms": [
+          "手部用力声",
+          "细微摩擦声"
+        ]
+      },
+      "semantic_terms": [
+        "攥紧",
+        "捏紧",
+        "死死握住"
+      ],
+      "sfx_terms": [
+        "手部用力声",
+        "细微摩擦声"
+      ]
+    },
+    "松开": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "松开",
+        "node_key": "松开"
+      },
+      "children": {
+        "semantic_terms": [
+          "放开",
+          "撒手",
+          "松手"
+        ],
+        "sfx_terms": [
+          "松手声",
+          "细微摩擦声"
+        ]
+      },
+      "semantic_terms": [
+        "放开",
+        "撒手",
+        "松手"
+      ],
+      "sfx_terms": [
+        "松手声",
+        "细微摩擦声"
+      ]
+    },
+    "逃": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "逃",
+        "node_key": "逃"
+      },
+      "children": {
+        "semantic_terms": [
+          "奔逃",
+          "远离",
+          "逃"
+        ],
+        "sfx_terms": [
+          "喘息声",
+          "逃",
+          "破风声",
+          "疾跑"
+        ]
+      },
+      "semantic_terms": [
+        "奔逃",
+        "远离",
+        "逃"
+      ],
+      "sfx_terms": [
+        "喘息声",
+        "逃",
+        "破风声",
+        "疾跑"
+      ]
+    },
+    "低头": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "低头",
+        "node_key": "低头"
+      },
+      "children": {
+        "semantic_terms": [
+          "垂首",
+          "俯首",
+          "低下头"
+        ],
+        "sfx_terms": [
+          "衣料轻擦声"
+        ]
+      },
+      "semantic_terms": [
+        "垂首",
+        "俯首",
+        "低下头"
+      ],
+      "sfx_terms": [
+        "衣料轻擦声"
+      ]
+    },
+    "引来": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "引来",
+        "node_key": "引来"
+      },
+      "children": {
+        "semantic_terms": [],
+        "sfx_terms": [
+          "引来"
+        ]
+      },
+      "semantic_terms": [],
+      "sfx_terms": [
+        "引来"
+      ]
+    },
+    "躲闪": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "躲闪",
+        "node_key": "躲闪"
+      },
+      "children": {
+        "semantic_terms": [],
+        "sfx_terms": [
+          "快速移动声",
+          "衣料摩擦声",
+          "脚步急撤声",
+          "避让",
+          "疾退",
+          "后撤",
+          "躲闪",
+          "闪开"
+        ]
+      },
+      "semantic_terms": [],
+      "sfx_terms": [
+        "快速移动声",
+        "衣料摩擦声",
+        "脚步急撤声",
+        "避让",
+        "疾退",
+        "后撤",
+        "躲闪",
+        "闪开"
+      ]
+    },
+    "走": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "走",
+        "node_key": "走"
+      },
+      "children": {
+        "semantic_terms": [
+          "行走",
+          "迈步",
+          "缓步前行"
+        ],
+        "sfx_terms": [
+          "脚步声",
+          "地面摩擦声",
+          "衣料轻擦声"
+        ]
+      },
+      "semantic_terms": [
+        "行走",
+        "迈步",
+        "缓步前行"
+      ],
+      "sfx_terms": [
+        "脚步声",
+        "地面摩擦声",
+        "衣料轻擦声"
+      ]
+    },
+    "快走": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "快走",
+        "node_key": "快走"
+      },
+      "children": {
+        "semantic_terms": [
+          "加快脚步",
+          "疾步",
+          "快步走开"
+        ],
+        "sfx_terms": [
+          "急促脚步声",
+          "衣料摩擦声",
+          "地面踏步声"
+        ]
+      },
+      "semantic_terms": [
+        "加快脚步",
+        "疾步",
+        "快步走开"
+      ],
+      "sfx_terms": [
+        "急促脚步声",
+        "衣料摩擦声",
+        "地面踏步声"
+      ]
+    },
+    "慢走": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "慢走",
+        "node_key": "慢走"
+      },
+      "children": {
+        "semantic_terms": [
+          "缓步",
+          "踱步",
+          "慢慢走近"
+        ],
+        "sfx_terms": [
+          "轻脚步声",
+          "拖步声",
+          "衣料轻擦声"
+        ]
+      },
+      "semantic_terms": [
+        "缓步",
+        "踱步",
+        "慢慢走近"
+      ],
+      "sfx_terms": [
+        "轻脚步声",
+        "拖步声",
+        "衣料轻擦声"
+      ]
+    },
+    "跳": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "跳",
+        "node_key": "跳"
+      },
+      "children": {
+        "semantic_terms": [
+          "跃起",
+          "跳起",
+          "腾跳"
+        ],
+        "sfx_terms": [
+          "起跳声",
+          "落地声",
+          "衣料带动声"
+        ]
+      },
+      "semantic_terms": [
+        "跃起",
+        "跳起",
+        "腾跳"
+      ],
+      "sfx_terms": [
+        "起跳声",
+        "落地声",
+        "衣料带动声"
+      ]
+    },
+    "爬": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "爬",
+        "node_key": "爬"
+      },
+      "children": {
+        "semantic_terms": [
+          "攀爬",
+          "爬上",
+          "手脚并用"
+        ],
+        "sfx_terms": [
+          "攀爬摩擦声",
+          "手部抓握声",
+          "布料摩擦声"
+        ]
+      },
+      "semantic_terms": [
+        "攀爬",
+        "爬上",
+        "手脚并用"
+      ],
+      "sfx_terms": [
+        "攀爬摩擦声",
+        "手部抓握声",
+        "布料摩擦声"
+      ]
+    },
+    "飞": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "飞",
+        "node_key": "飞"
+      },
+      "children": {
+        "semantic_terms": [
+          "腾空",
+          "飞起",
+          "掠空"
+        ],
+        "sfx_terms": [
+          "破风声",
+          "衣摆带风声",
+          "快速掠过声"
+        ]
+      },
+      "semantic_terms": [
+        "腾空",
+        "飞起",
+        "掠空"
+      ],
+      "sfx_terms": [
+        "破风声",
+        "衣摆带风声",
+        "快速掠过声"
+      ]
+    },
+    "摩擦": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "摩擦",
+        "node_key": "摩擦"
+      },
+      "children": {
+        "semantic_terms": [
+          "擦过",
+          "磨蹭",
+          "蹭到"
+        ],
+        "sfx_terms": [
+          "摩擦声",
+          "衣料摩擦声",
+          "表面刮擦声"
+        ]
+      },
+      "semantic_terms": [
+        "擦过",
+        "磨蹭",
+        "蹭到"
+      ],
+      "sfx_terms": [
+        "摩擦声",
+        "衣料摩擦声",
+        "表面刮擦声"
+      ]
+    },
+    "蹲下": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "蹲下",
+        "node_key": "蹲下"
+      },
+      "children": {
+        "semantic_terms": [
+          "屈膝蹲下",
+          "蹲伏",
+          "俯身蹲下"
+        ],
+        "sfx_terms": [
+          "衣料轻擦声",
+          "下蹲动作声",
+          "脚步调整声"
+        ]
+      },
+      "semantic_terms": [
+        "屈膝蹲下",
+        "蹲伏",
+        "俯身蹲下"
+      ],
+      "sfx_terms": [
+        "衣料轻擦声",
+        "下蹲动作声",
+        "脚步调整声"
+      ]
+    },
+    "抬手": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "抬手",
+        "node_key": "抬手"
+      },
+      "children": {
+        "semantic_terms": [
+          "抬起手",
+          "扬手",
+          "抬臂"
+        ],
+        "sfx_terms": [
+          "衣袖带动声",
+          "细微动作声",
+          "布料摩擦声"
+        ]
+      },
+      "semantic_terms": [
+        "抬起手",
+        "扬手",
+        "抬臂"
+      ],
+      "sfx_terms": [
+        "衣袖带动声",
+        "细微动作声",
+        "布料摩擦声"
+      ]
+    },
+    "放下": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "放下",
+        "node_key": "放下"
+      },
+      "children": {
+        "semantic_terms": [
+          "搁下",
+          "放回去",
+          "放到一旁"
+        ],
+        "sfx_terms": [
+          "放置声",
+          "轻碰声",
+          "物体落定声"
+        ]
+      },
+      "semantic_terms": [
+        "搁下",
+        "放回去",
+        "放到一旁"
+      ],
+      "sfx_terms": [
+        "放置声",
+        "轻碰声",
+        "物体落定声"
+      ]
+    },
+    "挥手": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "挥手",
+        "node_key": "挥手"
+      },
+      "children": {
+        "semantic_terms": [
+          "摆手",
+          "招手",
+          "扬手示意"
+        ],
+        "sfx_terms": [
+          "衣袖摆动声",
+          "细微破风声",
+          "布料摩擦声"
+        ]
+      },
+      "semantic_terms": [
+        "摆手",
+        "招手",
+        "扬手示意"
+      ],
+      "sfx_terms": [
+        "衣袖摆动声",
+        "细微破风声",
+        "布料摩擦声"
+      ]
+    },
+    "触碰": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "触碰",
+        "node_key": "触碰"
+      },
+      "children": {
+        "semantic_terms": [
+          "碰到",
+          "轻触",
+          "触到"
+        ],
+        "sfx_terms": [
+          "轻触声",
+          "接触声",
+          "细小碰触声"
+        ]
+      },
+      "semantic_terms": [
+        "碰到",
+        "轻触",
+        "触到"
+      ],
+      "sfx_terms": [
+        "轻触声",
+        "接触声",
+        "细小碰触声"
+      ]
+    },
+    "拾起": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "拾起",
+        "node_key": "拾起"
+      },
+      "children": {
+        "semantic_terms": [
+          "捡起",
+          "拿起",
+          "弯腰拾起"
+        ],
+        "sfx_terms": [
+          "拿取声",
+          "物体轻碰声",
+          "衣料轻擦声"
+        ]
+      },
+      "semantic_terms": [
+        "捡起",
+        "拿起",
+        "弯腰拾起"
+      ],
+      "sfx_terms": [
+        "拿取声",
+        "物体轻碰声",
+        "衣料轻擦声"
+      ]
+    },
+    "封印": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "封印",
+        "node_key": "封印"
+      },
+      "children": {
+        "semantic_terms": [],
+        "sfx_terms": [
+          "低频嗡鸣",
+          "能量收束声",
+          "封禁声"
+        ]
+      },
+      "semantic_terms": [],
+      "sfx_terms": [
+        "低频嗡鸣",
+        "能量收束声",
+        "封禁声"
+      ]
+    },
+    "挥": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "挥",
+        "node_key": "挥"
+      },
+      "children": {
+        "semantic_terms": [],
+        "sfx_terms": [
+          "挥"
+        ]
+      },
+      "semantic_terms": [],
+      "sfx_terms": [
+        "挥"
+      ]
+    },
+    "吞下": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "吞下",
+        "node_key": "吞下"
+      },
+      "children": {
+        "semantic_terms": [
+          "吞下"
+        ],
+        "sfx_terms": [
+          "吞下"
+        ]
+      },
+      "semantic_terms": [
+        "吞下"
+      ],
+      "sfx_terms": [
+        "吞下"
+      ]
+    },
+    "惨叫": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "惨叫",
+        "node_key": "惨叫"
+      },
+      "children": {
+        "semantic_terms": [
+          "惨叫"
+        ],
+        "sfx_terms": [
+          "惨叫"
+        ]
+      },
+      "semantic_terms": [
+        "惨叫"
+      ],
+      "sfx_terms": [
+        "惨叫"
+      ]
+    },
+    "张望": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "张望",
+        "node_key": "张望"
+      },
+      "children": {
+        "semantic_terms": [
+          "张望"
+        ],
+        "sfx_terms": [
+          "张望"
+        ]
+      },
+      "semantic_terms": [
+        "张望"
+      ],
+      "sfx_terms": [
+        "张望"
+      ]
+    },
+    "想着": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "想着",
+        "node_key": "想着"
+      },
+      "children": {
+        "semantic_terms": [
+          "想着"
+        ],
+        "sfx_terms": [
+          "想着"
+        ]
+      },
+      "semantic_terms": [
+        "想着"
+      ],
+      "sfx_terms": [
+        "想着"
+      ]
+    },
+    "散落": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "散落",
+        "node_key": "散落"
+      },
+      "children": {
+        "semantic_terms": [
+          "散落"
+        ],
+        "sfx_terms": [
+          "散落"
+        ]
+      },
+      "semantic_terms": [
+        "散落"
+      ],
+      "sfx_terms": [
+        "散落"
+      ]
+    },
+    "惊叹": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "惊叹",
+        "node_key": "惊叹"
+      },
+      "children": {
+        "semantic_terms": [
+          "惊叹"
+        ],
+        "sfx_terms": [
+          "惊叹"
+        ]
+      },
+      "semantic_terms": [
+        "惊叹"
+      ],
+      "sfx_terms": [
+        "惊叹"
+      ]
+    },
+    "走向": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "走向",
+        "node_key": "走向"
+      },
+      "children": {
+        "semantic_terms": [
+          "走向"
+        ],
+        "sfx_terms": [
+          "走向"
+        ]
+      },
+      "semantic_terms": [
+        "走向"
+      ],
+      "sfx_terms": [
+        "走向"
+      ]
+    },
+    "阴笑": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "阴笑",
+        "node_key": "阴笑"
+      },
+      "children": {
+        "semantic_terms": [
+          "阴笑"
+        ],
+        "sfx_terms": [
+          "阴笑"
+        ]
+      },
+      "semantic_terms": [
+        "阴笑"
+      ],
+      "sfx_terms": [
+        "阴笑"
+      ]
+    },
+    "讪笑": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "讪笑",
+        "node_key": "讪笑"
+      },
+      "children": {
+        "semantic_terms": [
+          "讪笑"
+        ],
+        "sfx_terms": [
+          "讪笑"
+        ]
+      },
+      "semantic_terms": [
+        "讪笑"
+      ],
+      "sfx_terms": [
+        "讪笑"
+      ]
+    },
+    "说道": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "说道",
+        "node_key": "说道"
+      },
+      "children": {
+        "semantic_terms": [
+          "说道"
+        ],
+        "sfx_terms": [
+          "说道"
+        ]
+      },
+      "semantic_terms": [
+        "说道"
+      ],
+      "sfx_terms": [
+        "说道"
+      ]
+    },
+    "贴": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "贴",
+        "node_key": "贴"
+      },
+      "children": {
+        "semantic_terms": [
+          "贴"
+        ],
+        "sfx_terms": [
+          "贴"
+        ]
+      },
+      "semantic_terms": [
+        "贴"
+      ],
+      "sfx_terms": [
+        "贴"
+      ]
+    },
+    "劈": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "劈",
+        "node_key": "劈"
+      },
+      "children": {
+        "semantic_terms": [
+          "劈"
+        ],
+        "sfx_terms": [
+          "劈"
+        ]
+      },
+      "semantic_terms": [
+        "劈"
+      ],
+      "sfx_terms": [
+        "劈"
+      ]
+    },
+    "显现": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "显现",
+        "node_key": "显现"
+      },
+      "children": {
+        "semantic_terms": [
+          "显现"
+        ],
+        "sfx_terms": [
+          "显现"
+        ]
+      },
+      "semantic_terms": [
+        "显现"
+      ],
+      "sfx_terms": [
+        "显现"
+      ]
+    },
+    "化成": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "化成",
+        "node_key": "化成"
+      },
+      "children": {
+        "semantic_terms": [
+          "化成"
+        ],
+        "sfx_terms": [
+          "化成"
+        ]
+      },
+      "semantic_terms": [
+        "化成"
+      ],
+      "sfx_terms": [
+        "化成"
+      ]
+    },
+    "打开": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "打开",
+        "node_key": "打开"
+      },
+      "children": {
+        "semantic_terms": [
+          "打开"
+        ],
+        "sfx_terms": [
+          "打开"
+        ]
+      },
+      "semantic_terms": [
+        "打开"
+      ],
+      "sfx_terms": [
+        "打开"
+      ]
+    },
+    "围住": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "围住",
+        "node_key": "围住"
+      },
+      "children": {
+        "semantic_terms": [
+          "围住"
+        ],
+        "sfx_terms": [
+          "围住"
+        ]
+      },
+      "semantic_terms": [
+        "围住"
+      ],
+      "sfx_terms": [
+        "围住"
+      ]
+    },
+    "传输": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "传输",
+        "node_key": "传输"
+      },
+      "children": {
+        "semantic_terms": [
+          "传输"
+        ],
+        "sfx_terms": [
+          "传输"
+        ]
+      },
+      "semantic_terms": [
+        "传输"
+      ],
+      "sfx_terms": [
+        "传输"
+      ]
+    },
+    "惊恐": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "惊恐",
+        "node_key": "惊恐"
+      },
+      "children": {
+        "semantic_terms": [
+          "惊恐"
+        ],
+        "sfx_terms": [
+          "惊恐"
+        ]
+      },
+      "semantic_terms": [
+        "惊恐"
+      ],
+      "sfx_terms": [
+        "惊恐"
+      ]
+    },
+    "扔出去": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "扔出去",
+        "node_key": "扔出去"
+      },
+      "children": {
+        "semantic_terms": [
+          "扔出去"
+        ],
+        "sfx_terms": [
+          "扔出去"
+        ]
+      },
+      "semantic_terms": [
+        "扔出去"
+      ],
+      "sfx_terms": [
+        "扔出去"
+      ]
+    },
+    "拿出来": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "拿出来",
+        "node_key": "拿出来"
+      },
+      "children": {
+        "semantic_terms": [
+          "拿出来"
+        ],
+        "sfx_terms": [
+          "拿出来"
+        ]
+      },
+      "semantic_terms": [
+        "拿出来"
+      ],
+      "sfx_terms": [
+        "拿出来"
+      ]
+    },
+    "刺向": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "刺向",
+        "node_key": "刺向"
+      },
+      "children": {
+        "semantic_terms": [
+          "刺向"
+        ],
+        "sfx_terms": [
+          "刺向"
+        ]
+      },
+      "semantic_terms": [
+        "刺向"
+      ],
+      "sfx_terms": [
+        "刺向"
+      ]
+    },
+    "感受": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "感受",
+        "node_key": "感受"
+      },
+      "children": {
+        "semantic_terms": [
+          "感受"
+        ],
+        "sfx_terms": [
+          "感受"
+        ]
+      },
+      "semantic_terms": [
+        "感受"
+      ],
+      "sfx_terms": [
+        "感受"
+      ]
+    },
+    "吸收": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "吸收",
+        "node_key": "吸收"
+      },
+      "children": {
+        "semantic_terms": [
+          "吸收"
+        ],
+        "sfx_terms": [
+          "吸收"
+        ]
+      },
+      "semantic_terms": [
+        "吸收"
+      ],
+      "sfx_terms": [
+        "吸收"
+      ]
+    },
+    "避开": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "避开",
+        "node_key": "避开"
+      },
+      "children": {
+        "semantic_terms": [
+          "避开"
+        ],
+        "sfx_terms": [
+          "避开"
+        ]
+      },
+      "semantic_terms": [
+        "避开"
+      ],
+      "sfx_terms": [
+        "避开"
+      ]
+    },
+    "砸去": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "砸去",
+        "node_key": "砸去"
+      },
+      "children": {
+        "semantic_terms": [
+          "砸去"
+        ],
+        "sfx_terms": [
+          "砸去"
+        ]
+      },
+      "semantic_terms": [
+        "砸去"
+      ],
+      "sfx_terms": [
+        "砸去"
+      ]
+    },
+    "挡": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "挡",
+        "node_key": "挡"
+      },
+      "children": {
+        "semantic_terms": [
+          "挡"
+        ],
+        "sfx_terms": [
+          "挡"
+        ]
+      },
+      "semantic_terms": [
+        "挡"
+      ],
+      "sfx_terms": [
+        "挡"
+      ]
+    },
+    "掐": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "掐",
+        "node_key": "掐"
+      },
+      "children": {
+        "semantic_terms": [
+          "掐"
+        ],
+        "sfx_terms": [
+          "掐"
+        ]
+      },
+      "semantic_terms": [
+        "掐"
+      ],
+      "sfx_terms": [
+        "掐"
+      ]
+    },
+    "发出": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "发出",
+        "node_key": "发出"
+      },
+      "children": {
+        "semantic_terms": [
+          "发出"
+        ],
+        "sfx_terms": [
+          "发出"
+        ]
+      },
+      "semantic_terms": [
+        "发出"
+      ],
+      "sfx_terms": [
+        "发出"
+      ]
+    },
+    "飞身": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "飞身",
+        "node_key": "飞身"
+      },
+      "children": {
+        "semantic_terms": [
+          "飞身"
+        ],
+        "sfx_terms": [
+          "飞身"
+        ]
+      },
+      "semantic_terms": [
+        "飞身"
+      ],
+      "sfx_terms": [
+        "飞身"
+      ]
+    },
+    "骑": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "骑",
+        "node_key": "骑"
+      },
+      "children": {
+        "semantic_terms": [
+          "骑"
+        ],
+        "sfx_terms": [
+          "骑"
+        ]
+      },
+      "semantic_terms": [
+        "骑"
+      ],
+      "sfx_terms": [
+        "骑"
+      ]
+    },
+    "撞": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "撞",
+        "node_key": "撞"
+      },
+      "children": {
+        "semantic_terms": [
+          "撞"
+        ],
+        "sfx_terms": [
+          "撞"
+        ]
+      },
+      "semantic_terms": [
+        "撞"
+      ],
+      "sfx_terms": [
+        "撞"
+      ]
+    },
+    "借助": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "借助",
+        "node_key": "借助"
+      },
+      "children": {
+        "semantic_terms": [
+          "借助"
+        ],
+        "sfx_terms": [
+          "借助"
+        ]
+      },
+      "semantic_terms": [
+        "借助"
+      ],
+      "sfx_terms": [
+        "借助"
+      ]
+    },
+    "插入": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "插入",
+        "node_key": "插入"
+      },
+      "children": {
+        "semantic_terms": [
+          "插入"
+        ],
+        "sfx_terms": [
+          "插入"
+        ]
+      },
+      "semantic_terms": [
+        "插入"
+      ],
+      "sfx_terms": [
+        "插入"
+      ]
+    },
+    "踏入": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "踏入",
+        "node_key": "踏入"
+      },
+      "children": {
+        "semantic_terms": [
+          "踏入"
+        ],
+        "sfx_terms": [
+          "踏入"
+        ]
+      },
+      "semantic_terms": [
+        "踏入"
+      ],
+      "sfx_terms": [
+        "踏入"
+      ]
+    },
+    "冲进": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "冲进",
+        "node_key": "冲进"
+      },
+      "children": {
+        "semantic_terms": [
+          "冲进"
+        ],
+        "sfx_terms": [
+          "冲进"
+        ]
+      },
+      "semantic_terms": [
+        "冲进"
+      ],
+      "sfx_terms": [
+        "冲进"
+      ]
+    },
+    "来到": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "来到",
+        "node_key": "来到"
+      },
+      "children": {
+        "semantic_terms": [
+          "来到"
+        ],
+        "sfx_terms": [
+          "来到"
+        ]
+      },
+      "semantic_terms": [
+        "来到"
+      ],
+      "sfx_terms": [
+        "来到"
+      ]
+    },
+    "看到": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "看到",
+        "node_key": "看到"
+      },
+      "children": {
+        "semantic_terms": [
+          "看到"
+        ],
+        "sfx_terms": [
+          "看到"
+        ]
+      },
+      "semantic_terms": [
+        "看到"
+      ],
+      "sfx_terms": [
+        "看到"
+      ]
+    },
+    "站到": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "站到",
+        "node_key": "站到"
+      },
+      "children": {
+        "semantic_terms": [
+          "站到"
+        ],
+        "sfx_terms": [
+          "站到"
+        ]
+      },
+      "semantic_terms": [
+        "站到"
+      ],
+      "sfx_terms": [
+        "站到"
+      ]
+    },
+    "送到": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "送到",
+        "node_key": "送到"
+      },
+      "children": {
+        "semantic_terms": [
+          "送到"
+        ],
+        "sfx_terms": [
+          "送到"
+        ]
+      },
+      "semantic_terms": [
+        "送到"
+      ],
+      "sfx_terms": [
+        "送到"
+      ]
+    },
+    "回到": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "回到",
+        "node_key": "回到"
+      },
+      "children": {
+        "semantic_terms": [
+          "回到"
+        ],
+        "sfx_terms": [
+          "回到"
+        ]
+      },
+      "semantic_terms": [
+        "回到"
+      ],
+      "sfx_terms": [
+        "回到"
+      ]
+    },
+    "追加": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "追加",
+        "node_key": "追加"
+      },
+      "children": {
+        "semantic_terms": [
+          "追加"
+        ],
+        "sfx_terms": [
+          "追加"
+        ]
+      },
+      "semantic_terms": [
+        "追加"
+      ],
+      "sfx_terms": [
+        "追加"
+      ]
+    },
+    "站在": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "站在",
+        "node_key": "站在"
+      },
+      "children": {
+        "semantic_terms": [
+          "站在"
+        ],
+        "sfx_terms": [
+          "站在"
+        ]
+      },
+      "semantic_terms": [
+        "站在"
+      ],
+      "sfx_terms": [
+        "站在"
+      ]
+    },
+    "快步走": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "快步走",
+        "node_key": "快步走"
+      },
+      "children": {
+        "semantic_terms": [
+          "快步走"
+        ],
+        "sfx_terms": [
+          "快步走"
+        ]
+      },
+      "semantic_terms": [
+        "快步走"
+      ],
+      "sfx_terms": [
+        "快步走"
+      ]
+    },
+    "穿戴": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "穿戴",
+        "node_key": "穿戴"
+      },
+      "children": {
+        "semantic_terms": [
+          "穿戴"
+        ],
+        "sfx_terms": [
+          "穿戴"
+        ]
+      },
+      "semantic_terms": [
+        "穿戴"
+      ],
+      "sfx_terms": [
+        "穿戴"
+      ]
+    },
+    "拿着": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "拿着",
+        "node_key": "拿着"
+      },
+      "children": {
+        "semantic_terms": [
+          "拿着"
+        ],
+        "sfx_terms": [
+          "拿着"
+        ]
+      },
+      "semantic_terms": [
+        "拿着"
+      ],
+      "sfx_terms": [
+        "拿着"
+      ]
+    },
+    "挠": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "挠",
+        "node_key": "挠"
+      },
+      "children": {
+        "semantic_terms": [
+          "挠"
+        ],
+        "sfx_terms": [
+          "挠"
+        ]
+      },
+      "semantic_terms": [
+        "挠"
+      ],
+      "sfx_terms": [
+        "挠"
+      ]
+    },
+    "点": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "点",
+        "node_key": "点"
+      },
+      "children": {
+        "semantic_terms": [
+          "点"
+        ],
+        "sfx_terms": [
+          "点"
+        ]
+      },
+      "semantic_terms": [
+        "点"
+      ],
+      "sfx_terms": [
+        "点"
+      ]
+    },
+    "看着": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "看着",
+        "node_key": "看着"
+      },
+      "children": {
+        "semantic_terms": [
+          "看着"
+        ],
+        "sfx_terms": [
+          "看着"
+        ]
+      },
+      "semantic_terms": [
+        "看着"
+      ],
+      "sfx_terms": [
+        "看着"
+      ]
+    },
+    "翻": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "翻",
+        "node_key": "翻"
+      },
+      "children": {
+        "semantic_terms": [
+          "翻"
+        ],
+        "sfx_terms": [
+          "翻"
+        ]
+      },
+      "semantic_terms": [
+        "翻"
+      ],
+      "sfx_terms": [
+        "翻"
+      ]
+    },
+    "见": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "见",
+        "node_key": "见"
+      },
+      "children": {
+        "semantic_terms": [
+          "见"
+        ],
+        "sfx_terms": [
+          "见"
+        ]
+      },
+      "semantic_terms": [
+        "见"
+      ],
+      "sfx_terms": [
+        "见"
+      ]
+    },
+    "下令": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "下令",
+        "node_key": "下令"
+      },
+      "children": {
+        "semantic_terms": [
+          "下令"
+        ],
+        "sfx_terms": [
+          "下令"
+        ]
+      },
+      "semantic_terms": [
+        "下令"
+      ],
+      "sfx_terms": [
+        "下令"
+      ]
+    },
+    "命令": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "命令",
+        "node_key": "命令"
+      },
+      "children": {
+        "semantic_terms": [
+          "命令"
+        ],
+        "sfx_terms": [
+          "命令"
+        ]
+      },
+      "semantic_terms": [
+        "命令"
+      ],
+      "sfx_terms": [
+        "命令"
+      ]
+    },
+    "启动": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "启动",
+        "node_key": "启动"
+      },
+      "children": {
+        "semantic_terms": [
+          "启动"
+        ],
+        "sfx_terms": [
+          "启动"
+        ]
+      },
+      "semantic_terms": [
+        "启动"
+      ],
+      "sfx_terms": [
+        "启动"
+      ]
+    },
+    "升起": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "升起",
+        "node_key": "升起"
+      },
+      "children": {
+        "semantic_terms": [
+          "升起"
+        ],
+        "sfx_terms": [
+          "升起"
+        ]
+      },
+      "semantic_terms": [
+        "升起"
+      ],
+      "sfx_terms": [
+        "升起"
+      ]
+    },
+    "吩咐": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "吩咐",
+        "node_key": "吩咐"
+      },
+      "children": {
+        "semantic_terms": [
+          "吩咐"
+        ],
+        "sfx_terms": [
+          "吩咐"
+        ]
+      },
+      "semantic_terms": [
+        "吩咐"
+      ],
+      "sfx_terms": [
+        "吩咐"
+      ]
+    },
+    "听着": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "听着",
+        "node_key": "听着"
+      },
+      "children": {
+        "semantic_terms": [
+          "听着"
+        ],
+        "sfx_terms": [
+          "听着"
+        ]
+      },
+      "semantic_terms": [
+        "听着"
+      ],
+      "sfx_terms": [
+        "听着"
+      ]
+    },
+    "恢复": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "恢复",
+        "node_key": "恢复"
+      },
+      "children": {
+        "semantic_terms": [
+          "恢复"
+        ],
+        "sfx_terms": [
+          "恢复"
+        ]
+      },
+      "semantic_terms": [
+        "恢复"
+      ],
+      "sfx_terms": [
+        "恢复"
+      ]
+    },
+    "夺": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "夺",
+        "node_key": "夺"
+      },
+      "children": {
+        "semantic_terms": [
+          "夺"
+        ],
+        "sfx_terms": [
+          "夺"
+        ]
+      },
+      "semantic_terms": [
+        "夺"
+      ],
+      "sfx_terms": [
+        "夺"
+      ]
+    },
+    "抢夺": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "抢夺",
+        "node_key": "抢夺"
+      },
+      "children": {
+        "semantic_terms": [
+          "抢夺"
+        ],
+        "sfx_terms": [
+          "抢夺"
+        ]
+      },
+      "semantic_terms": [
+        "抢夺"
+      ],
+      "sfx_terms": [
+        "抢夺"
+      ]
+    },
+    "进行": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "进行",
+        "node_key": "进行"
+      },
+      "children": {
+        "semantic_terms": [
+          "进行"
+        ],
+        "sfx_terms": [
+          "进行"
+        ]
+      },
+      "semantic_terms": [
+        "进行"
+      ],
+      "sfx_terms": [
+        "进行"
+      ]
+    },
+    "调出": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "调出",
+        "node_key": "调出"
+      },
+      "children": {
+        "semantic_terms": [
+          "调出"
+        ],
+        "sfx_terms": [
+          "调出"
+        ]
+      },
+      "semantic_terms": [
+        "调出"
+      ],
+      "sfx_terms": [
+        "调出"
+      ]
+    },
+    "飞进": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "飞进",
+        "node_key": "飞进"
+      },
+      "children": {
+        "semantic_terms": [
+          "飞进"
+        ],
+        "sfx_terms": [
+          "飞进"
+        ]
+      },
+      "semantic_terms": [
+        "飞进"
+      ],
+      "sfx_terms": [
+        "飞进"
+      ]
+    },
+    "冲": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "冲",
+        "node_key": "冲"
+      },
+      "children": {
+        "semantic_terms": [
+          "冲"
+        ],
+        "sfx_terms": [
+          "冲"
+        ]
+      },
+      "semantic_terms": [
+        "冲"
+      ],
+      "sfx_terms": [
+        "冲"
+      ]
+    },
+    "送": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "送",
+        "node_key": "送"
+      },
+      "children": {
+        "semantic_terms": [
+          "送"
+        ],
+        "sfx_terms": [
+          "送"
+        ]
+      },
+      "semantic_terms": [
+        "送"
+      ],
+      "sfx_terms": [
+        "送"
+      ]
+    },
+    "化作": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "化作",
+        "node_key": "化作"
+      },
+      "children": {
+        "semantic_terms": [
+          "化作"
+        ],
+        "sfx_terms": [
+          "化作"
+        ]
+      },
+      "semantic_terms": [
+        "化作"
+      ],
+      "sfx_terms": [
+        "化作"
+      ]
+    },
+    "打打": {
+      "parent_node": {
+        "genre": "",
+        "verb_head": "打打",
+        "node_key": "打打"
+      },
+      "children": {
+        "semantic_terms": [],
+        "sfx_terms": [
+          "打打"
+        ]
+      },
+      "semantic_terms": [],
+      "sfx_terms": [
+        "打打"
+      ]
+    }
+  },
+  "genres": {
+    "玄幻": {
+      "传音": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "传音",
+          "node_key": "玄幻::传音"
+        },
+        "children": {
+          "semantic_terms": [
+            "传音"
+          ],
+          "sfx_terms": [
+            "传音"
+          ]
+        },
+        "semantic_terms": [
+          "传音"
+        ],
+        "sfx_terms": [
+          "传音"
+        ]
+      },
+      "结印": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "结印",
+          "node_key": "玄幻::结印"
+        },
+        "children": {
+          "semantic_terms": [
+            "结印"
+          ],
+          "sfx_terms": [
+            "结印"
+          ]
+        },
+        "semantic_terms": [
+          "结印"
+        ],
+        "sfx_terms": [
+          "结印"
+        ]
+      },
+      "惊恐": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "惊恐",
+          "node_key": "玄幻::惊恐"
+        },
+        "children": {
+          "semantic_terms": [
+            "惊恐"
+          ],
+          "sfx_terms": [
+            "惊恐"
+          ]
+        },
+        "semantic_terms": [
+          "惊恐"
+        ],
+        "sfx_terms": [
+          "惊恐"
+        ]
+      },
+      "爆起": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "爆起",
+          "node_key": "玄幻::爆起"
+        },
+        "children": {
+          "semantic_terms": [
+            "爆起"
+          ],
+          "sfx_terms": [
+            "爆起"
+          ]
+        },
+        "semantic_terms": [
+          "爆起"
+        ],
+        "sfx_terms": [
+          "爆起"
+        ]
+      },
+      "蔓延": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "蔓延",
+          "node_key": "玄幻::蔓延"
+        },
+        "children": {
+          "semantic_terms": [
+            "蔓延"
+          ],
+          "sfx_terms": [
+            "蔓延"
+          ]
+        },
+        "semantic_terms": [
+          "蔓延"
+        ],
+        "sfx_terms": [
+          "蔓延"
+        ]
+      },
+      "腾空而起": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "腾空而起",
+          "node_key": "玄幻::腾空而起"
+        },
+        "children": {
+          "semantic_terms": [
+            "腾空而起"
+          ],
+          "sfx_terms": [
+            "腾空而起"
+          ]
+        },
+        "semantic_terms": [
+          "腾空而起"
+        ],
+        "sfx_terms": [
+          "腾空而起"
+        ]
+      },
+      "腾空": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "腾空",
+          "node_key": "玄幻::腾空"
+        },
+        "children": {
+          "semantic_terms": [
+            "腾空"
+          ],
+          "sfx_terms": [
+            "腾空"
+          ]
+        },
+        "semantic_terms": [
+          "腾空"
+        ],
+        "sfx_terms": [
+          "腾空"
+        ]
+      },
+      "音": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "音",
+          "node_key": "玄幻::音"
+        },
+        "children": {
+          "semantic_terms": [
+            "音"
+          ],
+          "sfx_terms": [
+            "音"
+          ]
+        },
+        "semantic_terms": [
+          "音"
+        ],
+        "sfx_terms": [
+          "音"
+        ]
+      },
+      "结": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "结",
+          "node_key": "玄幻::结"
+        },
+        "children": {
+          "semantic_terms": [
+            "结"
+          ],
+          "sfx_terms": [
+            "结"
+          ]
+        },
+        "semantic_terms": [
+          "结"
+        ],
+        "sfx_terms": [
+          "结"
+        ]
+      },
+      "蔓": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "蔓",
+          "node_key": "玄幻::蔓"
+        },
+        "children": {
+          "semantic_terms": [
+            "蔓"
+          ],
+          "sfx_terms": [
+            "蔓"
+          ]
+        },
+        "semantic_terms": [
+          "蔓"
+        ],
+        "sfx_terms": [
+          "蔓"
+        ]
+      },
+      "起": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "起",
+          "node_key": "玄幻::起"
+        },
+        "children": {
+          "semantic_terms": [
+            "起"
+          ],
+          "sfx_terms": [
+            "起"
+          ]
+        },
+        "semantic_terms": [
+          "起"
+        ],
+        "sfx_terms": [
+          "起"
+        ]
+      },
+      "一跃而起": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "一跃而起",
+          "node_key": "玄幻::一跃而起"
+        },
+        "children": {
+          "semantic_terms": [
+            "一跃而起"
+          ],
+          "sfx_terms": [
+            "一跃而起"
+          ]
+        },
+        "semantic_terms": [
+          "一跃而起"
+        ],
+        "sfx_terms": [
+          "一跃而起"
+        ]
+      },
+      "踏上": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "踏上",
+          "node_key": "玄幻::踏上"
+        },
+        "children": {
+          "semantic_terms": [
+            "踏上"
+          ],
+          "sfx_terms": [
+            "踏上"
+          ]
+        },
+        "semantic_terms": [
+          "踏上"
+        ],
+        "sfx_terms": [
+          "踏上"
+        ]
+      },
+      "落下": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "落下",
+          "node_key": "玄幻::落下"
+        },
+        "children": {
+          "semantic_terms": [
+            "落下"
+          ],
+          "sfx_terms": [
+            "落下"
+          ]
+        },
+        "semantic_terms": [
+          "落下"
+        ],
+        "sfx_terms": [
+          "落下"
+        ]
+      },
+      "凝成": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "凝成",
+          "node_key": "玄幻::凝成"
+        },
+        "children": {
+          "semantic_terms": [
+            "凝成"
+          ],
+          "sfx_terms": [
+            "凝成"
+          ]
+        },
+        "semantic_terms": [
+          "凝成"
+        ],
+        "sfx_terms": [
+          "凝成"
+        ]
+      },
+      "幻出": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "幻出",
+          "node_key": "玄幻::幻出"
+        },
+        "children": {
+          "semantic_terms": [
+            "幻出"
+          ],
+          "sfx_terms": [
+            "幻出"
+          ]
+        },
+        "semantic_terms": [
+          "幻出"
+        ],
+        "sfx_terms": [
+          "幻出"
+        ]
+      },
+      "吐": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "吐",
+          "node_key": "玄幻::吐"
+        },
+        "children": {
+          "semantic_terms": [
+            "吐"
+          ],
+          "sfx_terms": [
+            "吐"
+          ]
+        },
+        "semantic_terms": [
+          "吐"
+        ],
+        "sfx_terms": [
+          "吐"
+        ]
+      },
+      "来": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "来",
+          "node_key": "玄幻::来"
+        },
+        "children": {
+          "semantic_terms": [
+            "来"
+          ],
+          "sfx_terms": [
+            "来"
+          ]
+        },
+        "semantic_terms": [
+          "来"
+        ],
+        "sfx_terms": [
+          "来"
+        ]
+      },
+      "晕": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "晕",
+          "node_key": "玄幻::晕"
+        },
+        "children": {
+          "semantic_terms": [
+            "晕"
+          ],
+          "sfx_terms": [
+            "晕"
+          ]
+        },
+        "semantic_terms": [
+          "晕"
+        ],
+        "sfx_terms": [
+          "晕"
+        ]
+      },
+      "闭": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "闭",
+          "node_key": "玄幻::闭"
+        },
+        "children": {
+          "semantic_terms": [
+            "闭"
+          ],
+          "sfx_terms": [
+            "闭"
+          ]
+        },
+        "semantic_terms": [
+          "闭"
+        ],
+        "sfx_terms": [
+          "闭"
+        ]
+      },
+      "掐诀": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "掐诀",
+          "node_key": "玄幻::掐诀"
+        },
+        "children": {
+          "semantic_terms": [
+            "掐诀"
+          ],
+          "sfx_terms": [
+            "掐诀"
+          ]
+        },
+        "semantic_terms": [
+          "掐诀"
+        ],
+        "sfx_terms": [
+          "掐诀"
+        ]
+      },
+      "张手": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "张手",
+          "node_key": "玄幻::张手"
+        },
+        "children": {
+          "semantic_terms": [
+            "张手"
+          ],
+          "sfx_terms": [
+            "张手"
+          ]
+        },
+        "semantic_terms": [
+          "张手"
+        ],
+        "sfx_terms": [
+          "张手"
+        ]
+      },
+      "劈": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "劈",
+          "node_key": "玄幻::劈"
+        },
+        "children": {
+          "semantic_terms": [
+            "劈"
+          ],
+          "sfx_terms": [
+            "劈"
+          ]
+        },
+        "semantic_terms": [
+          "劈"
+        ],
+        "sfx_terms": [
+          "劈"
+        ]
+      },
+      "掐出": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "掐出",
+          "node_key": "玄幻::掐出"
+        },
+        "children": {
+          "semantic_terms": [
+            "掐出"
+          ],
+          "sfx_terms": [
+            "掐出"
+          ]
+        },
+        "semantic_terms": [
+          "掐出"
+        ],
+        "sfx_terms": [
+          "掐出"
+        ]
+      },
+      "操纵": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "操纵",
+          "node_key": "玄幻::操纵"
+        },
+        "children": {
+          "semantic_terms": [
+            "操纵"
+          ],
+          "sfx_terms": [
+            "操纵"
+          ]
+        },
+        "semantic_terms": [
+          "操纵"
+        ],
+        "sfx_terms": [
+          "操纵"
+        ]
+      },
+      "躲闪": {
+        "parent_node": {
+          "genre": "玄幻",
+          "verb_head": "躲闪",
+          "node_key": "玄幻::躲闪"
+        },
+        "children": {
+          "semantic_terms": [
+            "躲闪"
+          ],
+          "sfx_terms": [
+            "躲闪"
+          ]
+        },
+        "semantic_terms": [
+          "躲闪"
+        ],
+        "sfx_terms": [
+          "躲闪"
+        ]
+      }
+    },
+    "言情": {},
+    "悬疑": {},
+    "科幻": {
+      "扔": {
+        "parent_node": {
+          "genre": "科幻",
+          "verb_head": "扔",
+          "node_key": "科幻::扔"
+        },
+        "children": {
+          "semantic_terms": [
+            "扔"
+          ],
+          "sfx_terms": [
+            "扔"
+          ]
+        },
+        "semantic_terms": [
+          "扔"
+        ],
+        "sfx_terms": [
+          "扔"
+        ]
+      },
+      "翻了翻": {
+        "parent_node": {
+          "genre": "科幻",
+          "verb_head": "翻了翻",
+          "node_key": "科幻::翻了翻"
+        },
+        "children": {
+          "semantic_terms": [
+            "翻了翻"
+          ],
+          "sfx_terms": [
+            "翻了翻"
+          ]
+        },
+        "semantic_terms": [
+          "翻了翻"
+        ],
+        "sfx_terms": [
+          "翻了翻"
+        ]
+      },
+      "发射": {
+        "parent_node": {
+          "genre": "科幻",
+          "verb_head": "发射",
+          "node_key": "科幻::发射"
+        },
+        "children": {
+          "semantic_terms": [
+            "发射",
+            "射"
+          ],
+          "sfx_terms": [
+            "发射"
+          ]
+        },
+        "semantic_terms": [
+          "发射",
+          "射"
+        ],
+        "sfx_terms": [
+          "发射"
+        ]
+      },
+      "开启": {
+        "parent_node": {
+          "genre": "科幻",
+          "verb_head": "开启",
+          "node_key": "科幻::开启"
+        },
+        "children": {
+          "semantic_terms": [
+            "开启"
+          ],
+          "sfx_terms": [
+            "开启"
+          ]
+        },
+        "semantic_terms": [
+          "开启"
+        ],
+        "sfx_terms": [
+          "开启"
+        ]
+      },
+      "解救": {
+        "parent_node": {
+          "genre": "科幻",
+          "verb_head": "解救",
+          "node_key": "科幻::解救"
+        },
+        "children": {
+          "semantic_terms": [
+            "解救"
+          ],
+          "sfx_terms": [
+            "解救"
+          ]
+        },
+        "semantic_terms": [
+          "解救"
+        ],
+        "sfx_terms": [
+          "解救"
+        ]
+      },
+      "快步走": {
+        "parent_node": {
+          "genre": "科幻",
+          "verb_head": "快步走",
+          "node_key": "科幻::快步走"
+        },
+        "children": {
+          "semantic_terms": [
+            "快步走"
+          ],
+          "sfx_terms": [
+            "快步走"
+          ]
+        },
+        "semantic_terms": [
+          "快步走"
+        ],
+        "sfx_terms": [
+          "快步走"
+        ]
+      },
+      "送": {
+        "parent_node": {
+          "genre": "科幻",
+          "verb_head": "送",
+          "node_key": "科幻::送"
+        },
+        "children": {
+          "semantic_terms": [
+            "送"
+          ],
+          "sfx_terms": [
+            "送"
+          ]
+        },
+        "semantic_terms": [
+          "送"
+        ],
+        "sfx_terms": [
+          "送"
+        ]
+      },
+      "挠": {
+        "parent_node": {
+          "genre": "科幻",
+          "verb_head": "挠",
+          "node_key": "科幻::挠"
+        },
+        "children": {
+          "semantic_terms": [
+            "挠"
+          ],
+          "sfx_terms": [
+            "挠"
+          ]
+        },
+        "semantic_terms": [
+          "挠"
+        ],
+        "sfx_terms": [
+          "挠"
+        ]
+      },
+      "冲": {
+        "parent_node": {
+          "genre": "科幻",
+          "verb_head": "冲",
+          "node_key": "科幻::冲"
+        },
+        "children": {
+          "semantic_terms": [
+            "冲"
+          ],
+          "sfx_terms": [
+            "冲"
+          ]
+        },
+        "semantic_terms": [
+          "冲"
+        ],
+        "sfx_terms": [
+          "冲"
+        ]
+      },
+      "拿着": {
+        "parent_node": {
+          "genre": "科幻",
+          "verb_head": "拿着",
+          "node_key": "科幻::拿着"
+        },
+        "children": {
+          "semantic_terms": [
+            "拿着"
+          ],
+          "sfx_terms": [
+            "拿着"
+          ]
+        },
+        "semantic_terms": [
+          "拿着"
+        ],
+        "sfx_terms": [
+          "拿着"
+        ]
+      },
+      "来到": {
+        "parent_node": {
+          "genre": "科幻",
+          "verb_head": "来到",
+          "node_key": "科幻::来到"
+        },
+        "children": {
+          "semantic_terms": [
+            "来到"
+          ],
+          "sfx_terms": [
+            "来到"
+          ]
+        },
+        "semantic_terms": [
+          "来到"
+        ],
+        "sfx_terms": [
+          "来到"
+        ]
+      },
+      "追加": {
+        "parent_node": {
+          "genre": "科幻",
+          "verb_head": "追加",
+          "node_key": "科幻::追加"
+        },
+        "children": {
+          "semantic_terms": [
+            "追加"
+          ],
+          "sfx_terms": [
+            "追加"
+          ]
+        },
+        "semantic_terms": [
+          "追加"
+        ],
+        "sfx_terms": [
+          "追加"
+        ]
+      },
+      "看着": {
+        "parent_node": {
+          "genre": "科幻",
+          "verb_head": "看着",
+          "node_key": "科幻::看着"
+        },
+        "children": {
+          "semantic_terms": [
+            "看着"
+          ],
+          "sfx_terms": [
+            "看着"
+          ]
+        },
+        "semantic_terms": [
+          "看着"
+        ],
+        "sfx_terms": [
+          "看着"
+        ]
+      },
+      "听着": {
+        "parent_node": {
+          "genre": "科幻",
+          "verb_head": "听着",
+          "node_key": "科幻::听着"
+        },
+        "children": {
+          "semantic_terms": [
+            "听着",
+            "听"
+          ],
+          "sfx_terms": [
+            "听着"
+          ]
+        },
+        "semantic_terms": [
+          "听着",
+          "听"
+        ],
+        "sfx_terms": [
+          "听着"
+        ]
+      },
+      "翻": {
+        "parent_node": {
+          "genre": "科幻",
+          "verb_head": "翻",
+          "node_key": "科幻::翻"
+        },
+        "children": {
+          "semantic_terms": [
+            "翻"
+          ],
+          "sfx_terms": [
+            "翻"
+          ]
+        },
+        "semantic_terms": [
+          "翻"
+        ],
+        "sfx_terms": [
+          "翻"
+        ]
+      },
+      "借助": {
+        "parent_node": {
+          "genre": "科幻",
+          "verb_head": "借助",
+          "node_key": "科幻::借助"
+        },
+        "children": {
+          "semantic_terms": [
+            "借助"
+          ],
+          "sfx_terms": [
+            "借助"
+          ]
+        },
+        "semantic_terms": [
+          "借助"
+        ],
+        "sfx_terms": [
+          "借助"
+        ]
+      },
+      "点": {
+        "parent_node": {
+          "genre": "科幻",
+          "verb_head": "点",
+          "node_key": "科幻::点"
+        },
+        "children": {
+          "semantic_terms": [
+            "点"
+          ],
+          "sfx_terms": [
+            "点"
+          ]
+        },
+        "semantic_terms": [
+          "点"
+        ],
+        "sfx_terms": [
+          "点"
+        ]
+      }
+    }
+  }
+}

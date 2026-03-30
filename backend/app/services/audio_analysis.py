@@ -1,4 +1,7 @@
 import json
+import math
+import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -19,6 +22,228 @@ def _duration_by_mutagen(file_path: str) -> float:
     except Exception as e:
         print(f'[AUDIO WARN] duration parse failed: {type(e).__name__}: {e}', file=sys.stderr)
         return 0.0
+
+
+def _run_capture(cmd: list[str]) -> str:
+    try:
+        proc = subprocess.run(
+            cmd,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        return (proc.stdout or '') + (proc.stderr or '')
+    except Exception as e:
+        print(f'[AUDIO WARN] command failed: {cmd[:2]} {type(e).__name__}: {e}', file=sys.stderr)
+        return ''
+
+
+def _probe_audio_metadata(file_path: str) -> dict:
+    out = _run_capture(
+        [
+            'ffprobe',
+            '-v',
+            'error',
+            '-select_streams',
+            'a:0',
+            '-show_entries',
+            'stream=codec_name,channels,sample_rate,bit_rate',
+            '-show_entries',
+            'format=duration,bit_rate',
+            '-of',
+            'json',
+            file_path,
+        ]
+    )
+    try:
+        payload = json.loads(out or '{}')
+    except Exception:
+        payload = {}
+    stream = ((payload.get('streams') or [{}])[:1] or [{}])[0]
+    fmt = payload.get('format') or {}
+    duration = _to_float(fmt.get('duration') or stream.get('duration') or 0.0, 0.0)
+    sample_rate = int(_to_float(stream.get('sample_rate') or 0, 0))
+    channels = int(_to_float(stream.get('channels') or 0, 0))
+    bit_rate = int(_to_float(stream.get('bit_rate') or fmt.get('bit_rate') or 0, 0))
+    return {
+        'codec_name': str(stream.get('codec_name') or '').strip() or 'unknown',
+        'duration_sec': duration,
+        'sample_rate': sample_rate,
+        'channels': channels,
+        'bit_rate': bit_rate,
+    }
+
+
+def _detect_silences(file_path: str, duration_sec: float) -> list[dict]:
+    out = _run_capture(
+        [
+            'ffmpeg',
+            '-hide_banner',
+            '-nostats',
+            '-i',
+            file_path,
+            '-af',
+            'silencedetect=noise=-32dB:d=0.35',
+            '-f',
+            'null',
+            '-',
+        ]
+    )
+    starts = [float(v) for v in re.findall(r'silence_start:\s*([0-9.]+)', out)]
+    ends = [float(v) for v in re.findall(r'silence_end:\s*([0-9.]+)', out)]
+    segments = []
+    for idx, start in enumerate(starts):
+        end = ends[idx] if idx < len(ends) else duration_sec
+        if end <= start:
+            continue
+        span = round(end - start, 2)
+        if span < 0.25:
+            continue
+        segments.append(
+            {
+                'start_sec': round(start, 2),
+                'end_sec': round(min(end, duration_sec), 2),
+                'duration_sec': span,
+            }
+        )
+    return segments[:16]
+
+
+def _analyze_volume(file_path: str) -> dict:
+    out = _run_capture(
+        [
+            'ffmpeg',
+            '-hide_banner',
+            '-nostats',
+            '-i',
+            file_path,
+            '-af',
+            'volumedetect',
+            '-f',
+            'null',
+            '-',
+        ]
+    )
+    mean_match = re.search(r'mean_volume:\s*([-\d.]+)\s*dB', out)
+    max_match = re.search(r'max_volume:\s*([-\d.]+)\s*dB', out)
+    mean_db = _to_float(mean_match.group(1), -18.0) if mean_match else -18.0
+    max_db = _to_float(max_match.group(1), -4.0) if max_match else -4.0
+    dynamic_range = round(max_db - mean_db, 2)
+    return {
+        'mean_volume_db': round(mean_db, 2),
+        'max_volume_db': round(max_db, 2),
+        'dynamic_range_db': dynamic_range,
+    }
+
+
+def _build_active_segments(duration_sec: float, silences: list[dict]) -> list[dict]:
+    if duration_sec <= 0:
+        return []
+    cursor = 0.0
+    segments = []
+    for silence in silences:
+        start = _to_float(silence.get('start_sec'), 0.0)
+        end = _to_float(silence.get('end_sec'), start)
+        if start - cursor >= 1.0:
+            segments.append({'start_sec': round(cursor, 2), 'end_sec': round(start, 2)})
+        cursor = max(cursor, end)
+    if duration_sec - cursor >= 1.0:
+        segments.append({'start_sec': round(cursor, 2), 'end_sec': round(duration_sec, 2)})
+    if not segments:
+        segments.append({'start_sec': 0.0, 'end_sec': round(duration_sec, 2)})
+    for seg in segments:
+        seg['duration_sec'] = round(seg['end_sec'] - seg['start_sec'], 2)
+    return segments[:8]
+
+
+def _infer_tags(metadata: dict, silences: list[dict], volume: dict) -> list[str]:
+    tags: list[str] = []
+    channels = int(metadata.get('channels') or 0)
+    duration_sec = _to_float(metadata.get('duration_sec'), 0.0)
+    dynamic_range = _to_float(volume.get('dynamic_range_db'), 0.0)
+    mean_db = _to_float(volume.get('mean_volume_db'), -18.0)
+    silence_total = round(sum(_to_float(s.get('duration_sec'), 0.0) for s in silences), 2)
+    silence_ratio = silence_total / duration_sec if duration_sec > 0 else 0.0
+
+    if channels >= 2:
+        tags.append('双声道空间感')
+    if dynamic_range >= 10:
+        tags.append('动态起伏明显')
+    elif dynamic_range <= 5:
+        tags.append('动态较平稳')
+    if mean_db >= -12:
+        tags.append('整体能量靠前')
+    elif mean_db <= -18:
+        tags.append('氛围铺底明显')
+    if silence_ratio >= 0.12:
+        tags.append('停顿转场较多')
+    elif silence_ratio <= 0.03:
+        tags.append('持续推进感强')
+    if duration_sec >= 180:
+        tags.append('长线叙事适配')
+    elif duration_sec <= 75:
+        tags.append('短结构利于剪辑')
+    return tags[:6] or ['结构推进型', '待进一步判断']
+
+
+def _build_dynamic_markers(duration_sec: float, active_segments: list[dict], silences: list[dict]) -> list[dict]:
+    if duration_sec <= 0:
+        return _fallback_markers(180.0)
+    markers: list[dict] = []
+    if active_segments:
+        first = active_segments[0]
+        markers.append(
+            {
+                'label': '起势段',
+                'time_sec': round(first['start_sec'] + min(first['duration_sec'] * 0.25, 6.0), 2),
+                'type': 'build',
+            }
+        )
+        longest = max(active_segments, key=lambda s: s.get('duration_sec', 0.0))
+        markers.append(
+            {
+                'label': '主体推进',
+                'time_sec': round(longest['start_sec'] + longest['duration_sec'] / 2, 2),
+                'type': 'peak',
+            }
+        )
+        if len(active_segments) >= 2:
+            second = active_segments[1]
+            markers.append(
+                {
+                    'label': '转段点',
+                    'time_sec': round(second['start_sec'], 2),
+                    'type': 'turn',
+                }
+            )
+        last = active_segments[-1]
+        markers.append(
+            {
+                'label': '终段推进',
+                'time_sec': round(last['start_sec'] + min(last['duration_sec'] * 0.35, 8.0), 2),
+                'type': 'peak',
+            }
+        )
+    for silence in silences[:2]:
+        markers.append(
+            {
+                'label': '抽空回落',
+                'time_sec': round(_to_float(silence.get('start_sec'), 0.0), 2),
+                'type': 'valley',
+            }
+        )
+    # 去重并排序
+    dedup = []
+    seen = set()
+    for marker in markers:
+        key = (marker['label'], marker['time_sec'], marker['type'])
+        if key in seen:
+            continue
+        seen.add(key)
+        dedup.append(marker)
+    dedup.sort(key=lambda row: row.get('time_sec', 0.0))
+    return dedup[:6] or _fallback_markers(duration_sec)
 
 
 def _fallback_markers(duration_sec: float) -> list[dict]:
@@ -217,19 +442,41 @@ def analyze_audio_for_audiobook(
     file_path = str(Path(file_path).resolve())
     mode = report_mode or settings.report_mode_default
 
-    duration_sec = _duration_by_mutagen(file_path)
+    metadata = _probe_audio_metadata(file_path)
+    duration_sec = _to_float(metadata.get('duration_sec'), 0.0)
+    if duration_sec <= 0:
+        duration_sec = _duration_by_mutagen(file_path)
     if duration_sec <= 0:
         duration_sec = 180.0
 
+    metadata['duration_sec'] = duration_sec
+    silences = _detect_silences(file_path, duration_sec)
+    active_segments = _build_active_segments(duration_sec, silences)
+    volume = _analyze_volume(file_path)
+    tags = _infer_tags(metadata, silences, volume)
+    markers = _build_dynamic_markers(duration_sec, active_segments, silences)
+
     features = {
         'duration_sec': duration_sec,
-        'estimated_bpm': 120.0,
-        'tags': ['电影感', '史诗感', '战斗推进'],
-        'markers': _fallback_markers(duration_sec),
+        'estimated_bpm': round(max(68.0, min(148.0, 92.0 + (volume.get('dynamic_range_db', 0.0) * 3.6))), 1),
+        'tags': tags,
+        'markers': markers,
         'feature_evidence': {
-            'engine': 'rule-based-timeline-v1',
+            'engine': 'ffprobe+ffmpeg-audio-evidence-v2',
             'confidence': 'medium',
-            'note': '当前环境默认使用稳定规则特征，接入LLM后生成导演级解释。',
+            'stream': {
+                'codec_name': metadata.get('codec_name'),
+                'channels': metadata.get('channels'),
+                'sample_rate': metadata.get('sample_rate'),
+                'bit_rate': metadata.get('bit_rate'),
+            },
+            'volume': volume,
+            'silence_profile': {
+                'count': len(silences),
+                'segments': silences[:8],
+            },
+            'active_segments': active_segments[:6],
+            'note': '基于真实音频元数据、静音断点、响度与动态范围抽取证据，再交给LLM做导演可读分析。',
         },
     }
 

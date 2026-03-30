@@ -1,0 +1,35 @@
+{
+  "_meta": {
+    "version": "genre-v3-parent-child",
+    "description": "动作图谱按 common + genres 分层；每个动作词节点显式包含 parent_node 与 children。",
+    "notes": [
+      "parent_node 表示父级节点（赛道+动作词）",
+      "children.semantic_terms 表示语义子级",
+      "children.sfx_terms 表示音效子级",
+      "保留 semantic_terms/sfx_terms 兼容旧逻辑读取"
+    ],
+    "fallback_alias_map": {
+      "common": {},
+      "genres": {}
+    },
+    "inheritance_blocks": {},
+    "genre_assignments": {},
+    "fallback_ignored_terms": {
+      "common": [],
+      "genres": {}
+    },
+    "fallback_replacement_map": {
+      "common": {},
+      "genres": {}
+    },
+    "fallback_reopen_queue": [],
+    "deleted_genre_nodes": {}
+  },
+  "common": {},
+  "genres": {
+    "玄幻": {},
+    "言情": {},
+    "悬疑": {},
+    "科幻": {}
+  }
+}

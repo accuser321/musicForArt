@@ -1,2013 +1,4 @@
-<!doctype html>
-<html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>有声书·后期·设计台 - MVP</title>
-    <style>
-      :root {
-        --bg: #f4efe6;
-        --ink: #1f1f1f;
-        --panel: #fff8ee;
-        --accent: #8d2b20;
-        --accent2: #b64e42;
-        --line: #d4c6ad;
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        font-family: "Noto Serif SC", "Source Han Serif SC", serif;
-        color: var(--ink);
-        background: radial-gradient(circle at top, #fffaf3 0%, var(--bg) 65%);
-      }
-      .wrap { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
-      .hero-top {
-        position: relative;
-        overflow: hidden;
-        margin-bottom: 12px;
-        padding: 14px 16px;
-        border: 1px solid #d9c09a;
-        border-radius: 18px;
-        background:
-          radial-gradient(420px 180px at 92% 12%, rgba(182, 78, 66, 0.14) 0%, transparent 70%),
-          radial-gradient(380px 160px at 8% 100%, rgba(141, 43, 32, 0.12) 0%, transparent 72%),
-          linear-gradient(135deg, #fff9f1, #fff1df 44%, #fff8ef 100%);
-        box-shadow: 0 16px 36px rgba(123, 87, 47, 0.1);
-      }
-      .hero-top::after {
-        content: "";
-        position: absolute;
-        right: -32px;
-        top: -34px;
-        width: 180px;
-        height: 180px;
-        border-radius: 999px;
-        background: radial-gradient(circle, rgba(182, 78, 66, 0.18) 0%, rgba(182, 78, 66, 0.04) 55%, transparent 72%);
-        pointer-events: none;
-      }
-      h1 {
-        margin: 0;
-        font-size: 28px;
-        letter-spacing: 0.5px;
-        line-height: 1.02;
-        color: #65241d;
-        text-shadow: 0 1px 0 rgba(255,255,255,.55);
-      }
-      .hero-subtitle {
-        margin-top: 8px;
-        max-width: 920px;
-        font-size: 13px;
-        line-height: 1.7;
-        color: #7a5a41;
-      }
-      .hero-dot {
-        display: inline-block;
-        width: 8px;
-        height: 8px;
-        margin: 0 6px 1px;
-        border-radius: 999px;
-        background: linear-gradient(180deg, #a83f33, #7f271d);
-        box-shadow: 0 0 0 2px rgba(168, 63, 51, 0.08);
-        vertical-align: middle;
-      }
-      .hero-inline {
-        display: inline-flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        align-items: center;
-        vertical-align: baseline;
-      }
-      .hero-inline-chip {
-        display: inline-flex;
-        align-items: center;
-        padding: 3px 9px;
-        border-radius: 999px;
-        border: 1px solid #d7bea0;
-        background: linear-gradient(135deg, rgba(255,255,255,.92), rgba(253, 242, 225, .92));
-        color: #744b32;
-        font-size: 12px;
-        font-weight: 700;
-        line-height: 1.2;
-        transform: translateY(-1px);
-        box-shadow: 0 6px 12px rgba(123, 87, 47, 0.07);
-      }
-      .hero-inline-chip.capability {
-        border-color: #d7bea0;
-        color: #744b32;
-      }
-      .hero-inline-chip.outcome {
-        border-color: #c97e68;
-        background: linear-gradient(135deg, rgba(255, 243, 239, .96), rgba(255, 223, 214, .94));
-        color: #8a2f24;
-        box-shadow: 0 7px 14px rgba(169, 70, 53, 0.1);
-      }
-      .hero-lead {
-        font-weight: 600;
-        color: #734b32;
-      }
-      .hero-sep {
-        display: inline-block;
-        margin: 0 8px;
-        color: #b64e42;
-        font-weight: 700;
-        background: linear-gradient(90deg, #8d2b20, #c85d50);
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
-      }
-      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-      .card {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 14px;
-      }
-      label { display: block; margin: 8px 0 4px; font-weight: 600; }
-      .api-base-hidden {
-        display: none;
-      }
-      .mini-field-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 10px;
-        margin-top: 10px;
-      }
-      .login-shell {
-        margin-top: 8px;
-        padding: 12px;
-        border: 1px solid #d8c4a5;
-        border-radius: 14px;
-        background: linear-gradient(180deg, rgba(255, 250, 241, 0.96), rgba(255, 244, 228, 0.96));
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.65);
-      }
-      .login-primary-row {
-        display: grid;
-        grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) auto;
-        gap: 10px;
-        align-items: end;
-      }
-      .login-primary-row .login-field {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-      .login-field-label {
-        font-size: 11px;
-        line-height: 1.2;
-        color: #7a5a41;
-        font-weight: 700;
-      }
-      .auth-inline-row {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 8px;
-        align-items: end;
-      }
-      .login-shell input,
-      .login-shell button {
-        height: 42px;
-        border-radius: 10px;
-      }
-      .login-shell input {
-        border: 1px solid #d7bea0;
-        background: linear-gradient(180deg, #fffdfa, #fff5e7);
-        box-shadow: inset 0 1px 2px rgba(110, 73, 39, 0.06);
-      }
-      .login-shell input:focus {
-        outline: none;
-        border-color: #ba684f;
-        box-shadow: 0 0 0 3px rgba(182, 78, 66, 0.12);
-      }
-      .login-shell button {
-        box-shadow: 0 8px 16px rgba(123, 87, 47, 0.12);
-      }
-      .auth-inline-row input,
-      .auth-inline-row button,
-      .mini-field input {
-        height: 42px;
-      }
-      .auth-inline-row button {
-        width: auto;
-        padding: 0 16px;
-        white-space: nowrap;
-      }
-      .code-row {
-        grid-template-columns: 116px auto;
-        justify-content: start;
-      }
-      .code-row input {
-        width: 116px;
-        min-width: 116px;
-        max-width: 116px;
-        text-align: center;
-        letter-spacing: 0.24em;
-        font-variant-numeric: tabular-nums;
-      }
-      .mini-field label {
-        margin: 0 0 4px;
-        font-size: 11px;
-        line-height: 1.2;
-        color: #7a5a41;
-        font-weight: 700;
-      }
-      .mini-field input {
-        padding: 9px 10px;
-        font-size: 12px;
-      }
-      .mini-field.code-field {
-        grid-column: span 2;
-      }
-      .mini-field.code-field .auth-inline-row button {
-        background: #916946;
-      }
-      .mini-field.triple-row {
-        grid-column: span 4;
-      }
-      .triple-inline-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 10px;
-      }
-      .login-action-row {
-        display: flex;
-        gap: 8px;
-        margin-top: 10px;
-        flex-wrap: wrap;
-      }
-      .login-action-row button {
-        width: auto;
-        padding: 0 16px;
-      }
-      @media (max-width: 900px) {
-        .mini-field-grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-        .mini-field.code-field,
-        .mini-field.triple-row {
-          grid-column: span 2;
-        }
-        .triple-inline-grid {
-          grid-template-columns: 1fr;
-        }
-        .login-primary-row {
-          grid-template-columns: 1fr;
-        }
-      }
-      .share-toggle {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        width: auto;
-        margin-top: 10px;
-        padding: 8px 12px;
-        border-radius: 999px;
-        border: 1px solid #d7bea0;
-        background: linear-gradient(180deg, #fff9f1, #fff0de);
-        color: #734b32;
-        font-size: 13px;
-        font-weight: 700;
-        box-shadow: none;
-      }
-      .share-toggle .caret {
-        font-size: 11px;
-        transition: transform 160ms ease;
-      }
-      .share-toggle.open .caret {
-        transform: rotate(180deg);
-      }
-      input, textarea, button, select {
-        width: 100%;
-        padding: 10px;
-        border-radius: 8px;
-        border: 1px solid var(--line);
-        font: inherit;
-      }
-      button {
-        cursor: pointer;
-        border: none;
-        background: var(--accent);
-        color: #fff;
-        font-weight: 700;
-      }
-      button:disabled {
-        cursor: not-allowed;
-        background: #b7c2d0;
-        color: #f8fbff;
-        opacity: 0.9;
-      }
-      pre {
-        white-space: pre-wrap;
-        line-height: 1.45;
-        background: #fff;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 10px;
-        min-height: 120px;
-      }
-      .pretty {
-        background: #fff;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 10px;
-        min-height: 220px;
-        margin-bottom: 10px;
-      }
-      .kv {
-        display: grid;
-        grid-template-columns: 120px 1fr;
-        gap: 6px;
-        font-size: 14px;
-        margin-bottom: 8px;
-      }
-      .table-lite {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13px;
-      }
-      .table-lite th, .table-lite td {
-        border: 1px solid var(--line);
-        padding: 6px;
-        text-align: left;
-      }
-      .asset-candidate-details {
-        margin-top: 6px;
-      }
-      .asset-candidate-details summary {
-        cursor: pointer;
-        color: var(--accent);
-        font-weight: 600;
-      }
-      .asset-candidate-details[open] summary {
-        margin-bottom: 6px;
-      }
-      .source-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        margin-top: 4px;
-        padding: 2px 8px;
-        border-radius: 999px;
-        font-size: 12px;
-        font-weight: 700;
-        line-height: 1.4;
-        border: 1px solid rgba(64, 105, 62, 0.16);
-        background: #eef7ea;
-        color: #35653a;
-      }
-      .source-badge-user {
-        border-color: rgba(171, 111, 22, 0.18);
-        background: linear-gradient(180deg, #fff5db, #fff0c4);
-        color: #9a6500;
-      }
-      .md h1, .md h2, .md h3 { margin: 8px 0; }
-      .md ul { margin: 6px 0 6px 20px; }
-      .error {
-        border: 1px solid #b3261e;
-        background: #ffeceb;
-        color: #7b1e1a;
-        border-radius: 8px;
-        padding: 8px;
-        font-size: 14px;
-      }
-      .ok {
-        border: 1px solid #2e7d32;
-        background: #ebfff0;
-        color: #1b5e20;
-        border-radius: 8px;
-        padding: 8px;
-        font-size: 14px;
-      }
-      .panel {
-        background: #fff;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        padding: 10px;
-        margin-bottom: 10px;
-      }
-      .usage-panel {
-        background: linear-gradient(135deg, #fffaf2, #fff1df);
-        border: 1px solid #d7bd94;
-        border-radius: 10px;
-        padding: 12px;
-        margin-bottom: 10px;
-      }
-      .usage-panel h4 {
-        margin: 0 0 8px;
-        font-size: 16px;
-      }
-      .usage-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
-      }
-      .usage-stat {
-        background: #fff;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        padding: 8px 10px;
-      }
-      .usage-stat .k {
-        font-size: 12px;
-        color: #7e6440;
-      }
-      .usage-stat .v {
-        margin-top: 4px;
-        font-size: 18px;
-        font-weight: 700;
-      }
-      .usage-meta {
-        margin-top: 8px;
-        font-size: 12px;
-        color: #7e6440;
-        line-height: 1.7;
-      }
-      .usage-alert {
-        margin-top: 8px;
-        padding: 8px 10px;
-        border-radius: 10px;
-        border: 1px solid #d49c95;
-        background: linear-gradient(135deg, #fff5f2, #ffe6e0);
-        color: #9f2f2a;
-        font-size: 12px;
-        line-height: 1.6;
-      }
-      .panel h4 {
-        margin: 0 0 8px;
-      }
-      .pill {
-        display: inline-block;
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        padding: 2px 8px;
-        font-size: 12px;
-        background: #fffdf7;
-        margin-right: 6px;
-      }
-      .pill-wrap {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-      }
-      .pill-wrap .pill {
-        margin-right: 0;
-      }
-      .supp-pill-group {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-      }
-      .supp-pill {
-        display: inline-flex;
-        align-items: center;
-        max-width: 100%;
-        padding: 3px 9px;
-        border-radius: 999px;
-        border: 1px solid #d9d8d2;
-        background: #fffdf8;
-        color: #5c5444;
-        font-size: 12px;
-        line-height: 1.45;
-      }
-      .supp-pill.semantic {
-        border-color: #d6dfea;
-        background: #f7fbff;
-        color: #39516d;
-      }
-      .supp-pill.sfx {
-        border-color: #e0d4b7;
-        background: #fff7e8;
-        color: #7c5922;
-      }
-      .scene-pill.sfx {
-        border-color: #d4b079;
-        background: linear-gradient(135deg, #fff7e9, #ffefd2);
-        color: #77521c;
-        box-shadow: 0 2px 8px rgba(199, 148, 61, 0.12);
-      }
-      .scene-pill.sfx.hit {
-        border-color: #78b08b;
-        background: linear-gradient(135deg, #eefaf2, #dcf4e4);
-        color: #2f6240;
-        box-shadow: 0 2px 8px rgba(79, 155, 105, 0.14);
-      }
-      .scene-pill.sfx.missing {
-        border-color: #c8a65c;
-        background: linear-gradient(135deg, #fff7e7, #ffe9bf);
-        color: #6c5326;
-      }
-      .table-lite tr.asset-hit td {
-        background: #eef9f0;
-        color: #2f6240;
-      }
-      .table-lite tr.asset-hit td:first-child {
-        font-weight: 700;
-      }
-      .term-state-list {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        margin-top: 4px;
-      }
-      .term-state {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 10px;
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        background: #fff;
-        font-size: 12px;
-      }
-      .term-state.pending {
-        border-color: #c8a65c;
-        background: #fff7e8;
-        color: #6c5326;
-      }
-      .term-state.covered {
-        border-color: #78b08b;
-        background: #eefaf2;
-        color: #2f6240;
-      }
-      .term-icon {
-        width: 18px;
-        height: 18px;
-        border-radius: 999px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 11px;
-        font-weight: 700;
-      }
-      .term-state.pending .term-icon {
-        background: #d2b168;
-        color: #fff;
-      }
-      .term-state.covered .term-icon {
-        background: #4f9b69;
-        color: #fff;
-      }
-      .music-hero {
-        background: linear-gradient(120deg, #fff8ee 0%, #fff2dc 100%);
-        border: 1px solid #d6b684;
-        border-radius: 12px;
-        padding: 12px;
-        margin-bottom: 10px;
-      }
-      .music-hero h4 {
-        margin: 0 0 8px;
-        font-size: 18px;
-      }
-      .music-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 8px;
-      }
-      .music-stat {
-        background: #fff;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        padding: 8px;
-      }
-      .music-stat .k {
-        font-size: 12px;
-        opacity: 0.75;
-      }
-      .music-stat .v {
-        font-weight: 700;
-        margin-top: 3px;
-      }
-      .enhanced-view {
-        background:
-          radial-gradient(240px 100px at 100% 0%, rgba(122, 80, 195, 0.09) 0%, transparent 72%),
-          linear-gradient(145deg, #fffdfb 0%, #f9f3ff 100%);
-        border: 1px solid #d7c8ef;
-        border-radius: 16px;
-        padding: 14px;
-        box-shadow: 0 12px 28px rgba(96, 70, 148, 0.1);
-      }
-      .enhanced-hero {
-        display: grid;
-        grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.8fr);
-        gap: 12px;
-        margin-bottom: 12px;
-      }
-      .enhanced-main {
-        background: rgba(255, 255, 255, 0.72);
-        border: 1px solid rgba(168, 144, 208, 0.28);
-        border-radius: 14px;
-        padding: 12px;
-      }
-      .enhanced-kicker {
-        font-size: 11px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: #7a57a8;
-        font-weight: 700;
-        margin-bottom: 8px;
-      }
-      .enhanced-verdict {
-        font-size: 22px;
-        line-height: 1.2;
-        font-weight: 800;
-        color: #4d2a7a;
-        margin: 0 0 8px;
-      }
-      .enhanced-summary {
-        font-size: 14px;
-        line-height: 1.8;
-        color: #4f445c;
-      }
-      .enhanced-side {
-        display: grid;
-        gap: 10px;
-      }
-      .enhanced-side-card {
-        background: linear-gradient(180deg, rgba(255,255,255,0.94), rgba(245, 237, 255, 0.95));
-        border: 1px solid rgba(168, 144, 208, 0.28);
-        border-radius: 14px;
-        padding: 12px;
-      }
-      .enhanced-side-title {
-        font-size: 12px;
-        color: #7a57a8;
-        font-weight: 700;
-        margin-bottom: 6px;
-      }
-      .enhanced-side-value {
-        font-size: 14px;
-        line-height: 1.75;
-        color: #352945;
-        font-weight: 700;
-      }
-      .enhanced-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-      }
-      .enhanced-block {
-        background: rgba(255, 255, 255, 0.84);
-        border: 1px solid rgba(168, 144, 208, 0.24);
-        border-radius: 14px;
-        padding: 12px;
-      }
-      .enhanced-block h5 {
-        margin: 0 0 8px;
-        font-size: 14px;
-        color: #5b3c88;
-      }
-      .enhanced-block ul {
-        margin: 0;
-        padding-left: 18px;
-      }
-      .enhanced-block li {
-        margin: 0 0 6px;
-        line-height: 1.7;
-      }
-      .section-cards {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-      }
-      .action-graph-cards {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 12px;
-      }
-      .section-card {
-        position: relative;
-        background:
-          radial-gradient(180px 72px at 100% 0%, rgba(182, 78, 66, 0.08) 0%, transparent 72%),
-          linear-gradient(180deg, #fffdf8 0%, #fff6ea 100%);
-        border: 1px solid #d9c4a2;
-        border-radius: 16px;
-        padding: 12px;
-        box-shadow: 0 10px 22px rgba(128, 92, 48, 0.08);
-        overflow: hidden;
-      }
-      .section-card::after {
-        content: "";
-        position: absolute;
-        right: -28px;
-        bottom: -42px;
-        width: 108px;
-        height: 108px;
-        border-radius: 999px;
-        background: radial-gradient(circle, rgba(196, 148, 61, 0.14) 0%, transparent 68%);
-        pointer-events: none;
-      }
-      .section-head {
-        display: flex;
-        justify-content: space-between;
-        gap: 8px;
-        align-items: center;
-        margin-bottom: 10px;
-      }
-      .section-title-wrap {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-      .section-title-wrap strong {
-        font-size: 15px;
-        color: #60311e;
-      }
-      .section-time {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        width: fit-content;
-        padding: 4px 10px;
-        border-radius: 999px;
-        background: linear-gradient(135deg, #fffaf1, #ffefd7);
-        border: 1px solid #dec192;
-        color: #84511f;
-        font-size: 12px;
-        font-weight: 700;
-      }
-      .section-time::before {
-        content: "⏱";
-        font-size: 11px;
-      }
-      .section-time-label {
-        opacity: 0.88;
-      }
-      .badge {
-        border: 1px solid #d1b37c;
-        border-radius: 999px;
-        padding: 3px 10px;
-        font-size: 12px;
-        background: linear-gradient(135deg, #fff8ea, #ffe7bd);
-        color: #7a531f;
-        font-weight: 700;
-      }
-      .scene-badge-row {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin: 6px 0 8px;
-      }
-      .scene-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 3px 10px;
-        border-radius: 999px;
-        font-size: 12px;
-        border: 1px solid #c9d7e6;
-        background: #f7fbff;
-        color: #31506d;
-      }
-      .scene-badge.source {
-        border-color: #d8c28b;
-        background: #fff8e8;
-        color: #7a5b15;
-      }
-      .scene-badge.template {
-        border-color: #bed2c1;
-        background: #eef9f0;
-        color: #2f6842;
-      }
-      .scene-badge.collection {
-        border-color: #cdbde7;
-        background: #f6f0ff;
-        color: #60448d;
-      }
-      .scene-badge.warn {
-        border-color: #e4c38f;
-        background: #fff4df;
-        color: #8a5a19;
-      }
-      .kv-lite {
-        font-size: 13px;
-        margin: 6px 0;
-        line-height: 1.7;
-        color: #573f2a;
-      }
-      .section-meta-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 8px;
-      }
-      .section-meta-box {
-        border: 1px solid #e3d2b7;
-        border-radius: 12px;
-        padding: 10px;
-        background: rgba(255, 253, 248, 0.92);
-      }
-      .section-meta-box.layer {
-        background: linear-gradient(135deg, rgba(255, 248, 234, 0.96), rgba(255, 240, 214, 0.92));
-      }
-      .section-meta-box.instrument {
-        background: linear-gradient(135deg, rgba(247, 249, 255, 0.96), rgba(234, 241, 251, 0.92));
-      }
-      .section-meta-label {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        margin-bottom: 6px;
-        padding: 3px 9px;
-        border-radius: 999px;
-        font-size: 12px;
-        font-weight: 700;
-      }
-      .section-meta-label.layer {
-        background: #f3ddaf;
-        color: #7a531f;
-      }
-      .section-meta-label.instrument {
-        background: #d9e5f6;
-        color: #345574;
-      }
-      .section-meta-value {
-        font-size: 13px;
-        line-height: 1.85;
-        color: #4f3927;
-        white-space: pre-wrap;
-        word-break: break-word;
-      }
-      .section-plan-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
-        margin-top: 10px;
-      }
-      .section-plan-card {
-        border-radius: 12px;
-        padding: 10px;
-        border: 1px solid #d9cab4;
-        background: #fffdfa;
-      }
-      .section-plan-card.entry {
-        background: linear-gradient(135deg, #eef9f2, #e2f3ea);
-        border-color: #bfd9c8;
-      }
-      .section-plan-card.exit {
-        background: linear-gradient(135deg, #fff3ec, #ffe7da);
-        border-color: #e1c1af;
-      }
-      .section-plan-title {
-        font-size: 12px;
-        font-weight: 700;
-        margin-bottom: 4px;
-      }
-      .section-plan-card.entry .section-plan-title {
-        color: #2f6842;
-      }
-      .section-plan-card.exit .section-plan-title {
-        color: #914a2b;
-      }
-      .section-plan-value {
-        font-size: 13px;
-        line-height: 1.85;
-        color: #4f3927;
-        white-space: pre-wrap;
-        word-break: break-word;
-      }
-      .kv-title {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        margin-right: 8px;
-        padding: 3px 10px;
-        border-radius: 999px;
-        border: 1px solid #b9c8d8;
-        background: linear-gradient(135deg, #f7fbff, #e9f1f8);
-        color: #2f4d67;
-        font-weight: 700;
-        box-shadow: 0 2px 10px rgba(46, 89, 124, 0.08);
-      }
-      .kv-title::before {
-        content: "✦";
-        font-size: 11px;
-        color: #5f88ad;
-      }
-      .scene-field-tag {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        margin-right: 8px;
-        padding: 3px 10px;
-        border-radius: 999px;
-        font-weight: 700;
-        font-size: 12px;
-        border: 1px solid #c6d2dd;
-        box-shadow: 0 2px 10px rgba(46, 89, 124, 0.08);
-      }
-      .scene-field-tag::before {
-        width: 16px;
-        height: 16px;
-        border-radius: 999px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 10px;
-        font-weight: 800;
-      }
-      .scene-field-tag.text {
-        border-color: #aebfd1;
-        background: linear-gradient(135deg, #f4f9fd, #e9f2f9);
-        color: #355773;
-      }
-      .scene-field-tag.text::before {
-        content: "书";
-        background: #5f7fa0;
-        color: #fff;
-      }
-      .scene-field-tag.sfx {
-        border-color: #d5b37b;
-        background: linear-gradient(135deg, #fff7e9, #ffefcf);
-        color: #77521c;
-      }
-      .scene-field-tag.sfx::before {
-        content: "♪";
-        background: #c7943d;
-        color: #fff;
-      }
-      .view-switch {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin-bottom: 10px;
-      }
-      .view-chip {
-        width: auto;
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        padding: 6px 12px;
-        background: #fff;
-        color: #3b4a5f;
-        font-size: 12px;
-        cursor: pointer;
-      }
-      .view-chip.active {
-        background: linear-gradient(90deg, #fff4de, #eefaf6);
-        border-color: #c7a55b;
-        color: #2b3c4e;
-      }
-      .graph-browser {
-        background: linear-gradient(180deg, #fffdf9 0%, #fbf8f1 100%);
-        border: 1px solid #d9d0be;
-        border-radius: 12px;
-        padding: 12px;
-      }
-      .graph-browser + .graph-browser {
-        margin-top: 10px;
-      }
-      .graph-stage {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 12px;
-        align-items: stretch;
-      }
-      .graph-lane-row {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-      }
-      .graph-lane {
-        background: #fff;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 10px;
-      }
-      .graph-lane h5 {
-        margin: 0 0 8px;
-        font-size: 13px;
-        color: #66788f;
-      }
-      .graph-center {
-        background: linear-gradient(180deg, #fff6e7 0%, #f4fff9 100%);
-        border: 1px solid #cfb06c;
-        border-radius: 16px;
-        padding: 14px;
-        text-align: center;
-        max-width: 100%;
-      }
-      .graph-node {
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 8px 10px;
-        background: #fffdfa;
-        margin-bottom: 8px;
-      }
-      .graph-node.direct { border-color: #7bb3d9; }
-      .graph-node.composite { border-color: #86c8a8; }
-      .graph-node.semantic { border-color: #d8c28a; }
-      .graph-node .node-name {
-        font-weight: 700;
-        font-size: 13px;
-      }
-      .graph-node .node-meta {
-        font-size: 11px;
-        color: #708198;
-        margin-top: 4px;
-      }
-      .asset-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 8px;
-        margin-top: 8px;
-      }
-      .asset-card {
-        background: #fff;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 10px;
-      }
-      .asset-name {
-        font-weight: 700;
-        font-size: 13px;
-      }
-      .asset-meta {
-        color: #6a7b8f;
-        font-size: 11px;
-        line-height: 1.5;
-        margin-top: 4px;
-      }
-      .explain-box {
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        background: #fff;
-        padding: 10px;
-        margin-top: 10px;
-      }
-      .explain-box h5 {
-        margin: 0 0 8px;
-        font-size: 13px;
-        color: #66788f;
-      }
-      .reason-list {
-        margin: 0;
-        padding-left: 18px;
-        color: #425467;
-        font-size: 13px;
-        line-height: 1.6;
-      }
-      .map-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13px;
-      }
-      .map-table th, .map-table td {
-        border: 1px solid var(--line);
-        padding: 6px;
-        text-align: left;
-      }
-      .review {
-        margin-top: 12px;
-        background: #fff;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 10px;
-      }
-      .review h4 { margin: 0 0 8px; }
-      .review-actions {
-        display: flex;
-        gap: 8px;
-        margin: 8px 0;
-      }
-      .review-actions button {
-        width: auto;
-        padding: 6px 10px;
-      }
-      .review-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13px;
-      }
-      .review-table th,
-      .review-table td {
-        border: 1px solid var(--line);
-        padding: 6px;
-        text-align: left;
-      }
-      .hint { font-size: 12px; opacity: 0.8; }
-      .flow-group {
-        margin-top: 14px;
-        padding: 12px;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        background: rgba(255,255,255,0.62);
-      }
-      .flow-group h4 {
-        margin: 0 0 6px;
-        font-size: 16px;
-      }
-      .flow-group .flow-desc {
-        font-size: 12px;
-        line-height: 1.6;
-        opacity: 0.84;
-        margin-bottom: 8px;
-      }
-      .flow-buttons {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
-        margin-top: 12px;
-      }
-      .flow-buttons.single {
-        grid-template-columns: 1fr;
-      }
-      .flow-note {
-        margin-top: 8px;
-        font-size: 12px;
-        line-height: 1.6;
-        color: #6c4b45;
-      }
-      .pending-sfx-alert {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 5px 10px;
-        border-radius: 999px;
-        margin: 0 8px 6px 0;
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-        color: #8a2f00;
-        background: linear-gradient(135deg, rgba(255, 224, 188, 0.96), rgba(255, 241, 219, 0.98));
-        border: 1px solid rgba(205, 95, 22, 0.28);
-        box-shadow: 0 8px 20px rgba(205, 95, 22, 0.1);
-      }
-      .pending-sfx-alert::before {
-        content: "▲";
-        font-size: 11px;
-        color: #c44e00;
-      }
-      .busy {
-        margin-top: 8px;
-        padding: 8px;
-        border-radius: 8px;
-        border: 1px dashed var(--line);
-        background: #fff;
-        font-size: 13px;
-      }
-      .busy-overlay {
-        position: fixed;
-        inset: 0;
-        z-index: 9999;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-        background:
-          radial-gradient(circle at top, rgba(255, 244, 226, 0.78), rgba(31, 20, 14, 0.78)),
-          rgba(30, 20, 14, 0.7);
-        backdrop-filter: blur(5px);
-      }
-      .busy-overlay.active {
-        display: flex;
-      }
-      .busy-stage {
-        width: min(920px, 100%);
-        padding: 20px 22px 18px;
-        border-radius: 26px;
-        border: 1px solid rgba(238, 219, 192, 0.28);
-        background:
-          radial-gradient(circle at 18% 14%, rgba(255, 225, 182, 0.18) 0%, transparent 32%),
-          linear-gradient(180deg, rgba(32, 22, 17, 0.95), rgba(61, 42, 31, 0.96));
-        box-shadow: 0 28px 70px rgba(12, 8, 5, 0.42);
-        color: #fff5e8;
-      }
-      .busy-stage-top {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        margin-bottom: 12px;
-      }
-      .busy-stage-title {
-        font-size: 18px;
-        font-weight: 800;
-        color: #fff1dc;
-      }
-      .busy-stage-actions {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-      }
-      .busy-stage-close,
-      .busy-stage-close-lite {
-        width: auto;
-        padding: 7px 12px;
-        border-radius: 999px;
-        border: 1px solid rgba(245, 214, 173, 0.26);
-        background: rgba(255, 244, 227, 0.08);
-        color: #ffe8c9;
-        font-size: 12px;
-        font-weight: 700;
-        cursor: pointer;
-      }
-      .busy-stage-close-lite {
-        background: rgba(255,255,255,0.04);
-        color: rgba(255, 234, 205, 0.82);
-      }
-      .busy-stage-close:hover,
-      .busy-stage-close-lite:hover {
-        background: rgba(255, 244, 227, 0.16);
-      }
-      .busy-stage-note {
-        margin-top: 6px;
-        font-size: 13px;
-        line-height: 1.7;
-        color: rgba(255, 239, 217, 0.82);
-      }
-      .busy-stage-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        width: auto;
-        padding: 6px 12px;
-        border-radius: 999px;
-        border: 1px solid rgba(245, 214, 173, 0.32);
-        background: rgba(255, 239, 217, 0.08);
-        color: #ffe4bf;
-        font-size: 12px;
-        font-weight: 700;
-      }
-      .busy-stage-pill::before {
-        content: "";
-        width: 8px;
-        height: 8px;
-        border-radius: 999px;
-        background: #f29b5c;
-        box-shadow: 0 0 0 6px rgba(242, 155, 92, 0.12);
-      }
-      .busy-scene {
-        position: relative;
-        height: 270px;
-        overflow: hidden;
-        border-radius: 20px;
-        border: 1px solid rgba(255, 232, 206, 0.12);
-        background:
-          radial-gradient(circle at 50% 0%, rgba(255, 208, 141, 0.18), transparent 32%),
-          linear-gradient(180deg, rgba(78, 53, 39, 0.2), rgba(18, 11, 8, 0.2)),
-          linear-gradient(180deg, #3f2a20 0%, #291b15 58%, #1a120e 100%);
-      }
-      .busy-ground {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        height: 84px;
-        background:
-          radial-gradient(circle at 20% 0%, rgba(215, 160, 98, 0.18), transparent 25%),
-          linear-gradient(180deg, #4e3628 0%, #241813 100%);
-        border-top: 1px solid rgba(240, 214, 183, 0.15);
-      }
-      .busy-silhouette {
-        position: absolute;
-        bottom: 58px;
-        width: 120px;
-        height: 140px;
-        filter: drop-shadow(0 16px 18px rgba(0, 0, 0, 0.32));
-        transform-origin: 50% 100%;
-      }
-      .busy-silhouette .head {
-        position: absolute;
-        top: 0;
-        left: 42px;
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        background: #f8e4cb;
-      }
-      .busy-silhouette .hair {
-        position: absolute;
-        top: -2px;
-        left: 38px;
-        width: 36px;
-        height: 18px;
-        border-radius: 18px 18px 10px 10px;
-        background: #211813;
-      }
-      .busy-silhouette .collar {
-        position: absolute;
-        top: 24px;
-        left: 41px;
-        width: 30px;
-        height: 14px;
-        border-radius: 10px 10px 6px 6px;
-        background: rgba(244, 226, 204, 0.96);
-      }
-      .busy-silhouette .torso {
-        position: absolute;
-        top: 26px;
-        left: 46px;
-        width: 20px;
-        height: 58px;
-        border-radius: 14px;
-        background: #f1dbc1;
-      }
-      .busy-silhouette .robe {
-        position: absolute;
-        top: 34px;
-        left: 26px;
-        width: 60px;
-        height: 72px;
-        border-radius: 24px 24px 20px 20px;
-      }
-      .busy-silhouette .sash {
-        position: absolute;
-        top: 66px;
-        left: 30px;
-        width: 56px;
-        height: 10px;
-        border-radius: 999px;
-      }
-      .busy-silhouette .arm,
-      .busy-silhouette .leg {
-        position: absolute;
-        background: #ecd4b8;
-        border-radius: 999px;
-        transform-origin: 50% 0;
-      }
-      .busy-silhouette .arm {
-        width: 12px;
-        height: 54px;
-        top: 34px;
-      }
-      .busy-silhouette .leg {
-        width: 14px;
-        height: 64px;
-        top: 76px;
-      }
-      .busy-thrower {
-        left: 78px;
-      }
-      .busy-thrower .robe {
-        background: linear-gradient(180deg, #71442b 0%, #402518 100%);
-      }
-      .busy-thrower .sash {
-        background: linear-gradient(90deg, #d18e60, #8b4527);
-      }
-      .busy-thrower .arm.left {
-        left: 34px;
-        transform: rotate(30deg);
-      }
-      .busy-thrower .arm.right {
-        left: 67px;
-        transform: rotate(-58deg);
-      }
-      .busy-thrower .leg.left {
-        left: 40px;
-        transform: rotate(10deg);
-      }
-      .busy-thrower .leg.right {
-        left: 57px;
-        transform: rotate(-12deg);
-      }
-      .busy-target {
-        right: 96px;
-      }
-      .busy-target .head {
-        background: #ecd8bf;
-      }
-      .busy-target .hair {
-        background: linear-gradient(180deg, #15100d 0%, #2b1e18 100%);
-      }
-      .busy-target .robe {
-        background: linear-gradient(180deg, #274a63 0%, #142433 100%);
-      }
-      .busy-target .sash {
-        background: linear-gradient(90deg, #90c0d8, #426e88);
-      }
-      .busy-target .cape {
-        position: absolute;
-        top: 30px;
-        left: 18px;
-        width: 78px;
-        height: 82px;
-        border-radius: 28px 18px 26px 18px;
-        background: linear-gradient(180deg, rgba(123, 162, 188, 0.36), rgba(26, 42, 59, 0.08));
-        transform: rotate(-8deg);
-      }
-      .busy-target .arm.left {
-        left: 36px;
-        transform: rotate(-30deg);
-      }
-      .busy-target .arm.right {
-        left: 68px;
-        transform: rotate(28deg);
-      }
-      .busy-target .leg.left {
-        left: 42px;
-        transform: rotate(6deg);
-      }
-      .busy-target .leg.right {
-        left: 58px;
-        transform: rotate(-8deg);
-      }
-      .busy-dart {
-        position: absolute;
-        left: 230px;
-        top: 104px;
-        width: 220px;
-        height: 18px;
-        transform-origin: left center;
-      }
-      .busy-dart::before {
-        content: "";
-        position: absolute;
-        top: 6px;
-        left: 0;
-        width: 168px;
-        height: 4px;
-        border-radius: 999px;
-        background: linear-gradient(90deg, rgba(246, 220, 189, 0.2), rgba(246, 220, 189, 0.92));
-      }
-      .busy-dart::after {
-        content: "";
-        position: absolute;
-        top: 1px;
-        right: 0;
-        width: 0;
-        height: 0;
-        border-left: 28px solid #ffdbb2;
-        border-top: 8px solid transparent;
-        border-bottom: 8px solid transparent;
-        filter: drop-shadow(0 0 12px rgba(255, 200, 140, 0.32));
-      }
-      .busy-dart-feather {
-        position: absolute;
-        left: 154px;
-        top: 2px;
-        width: 18px;
-        height: 14px;
-        border-radius: 14px 0 0 14px;
-        background: linear-gradient(180deg, #f3a66e, #d36f49);
-        transform: rotate(-8deg);
-      }
-      .busy-overlay.active .busy-dart {
-        animation: dart-hover 1.7s ease-in-out infinite;
-      }
-      .busy-overlay.resolved .busy-dart {
-        animation: dart-impact .72s cubic-bezier(.18,.82,.34,1) forwards;
-      }
-      .busy-overlay.resolved .busy-target {
-        animation: target-fall .85s cubic-bezier(.2,.72,.22,1) forwards;
-      }
-      .busy-overlay.resolved .busy-thrower {
-        animation: thrower-settle .72s ease forwards;
-      }
-      .busy-hit-burst {
-        position: absolute;
-        right: 150px;
-        top: 102px;
-        width: 26px;
-        height: 26px;
-        border-radius: 50%;
-        background: radial-gradient(circle, rgba(255, 217, 180, 0.95) 0%, rgba(255, 168, 112, 0.8) 34%, transparent 76%);
-        opacity: 0;
-        transform: scale(.4);
-      }
-      .busy-overlay.resolved .busy-hit-burst {
-        animation: hit-burst .55s ease-out .24s forwards;
-      }
-      .busy-overlay:not(.resolved) .busy-hit-burst {
-        display: none;
-      }
-      .busy-stage-progress {
-        margin-top: 12px;
-        height: 8px;
-        border-radius: 999px;
-        background: rgba(255, 243, 226, 0.12);
-        overflow: hidden;
-      }
-      .busy-stage-progress span {
-        display: block;
-        width: 34%;
-        height: 100%;
-        border-radius: 999px;
-        background: linear-gradient(90deg, #ffcb7f, #ff9966, #ffd9ac);
-        animation: progress-sweep 1.4s linear infinite;
-      }
-      @keyframes dart-hover {
-        0%, 100% { transform: translateX(0) translateY(0) rotate(-4deg); }
-        50% { transform: translateX(32px) translateY(-10px) rotate(-1deg); }
-      }
-      @keyframes dart-impact {
-        0% { transform: translateX(16px) translateY(-6px) rotate(-3deg); }
-        100% { transform: translateX(430px) translateY(10px) rotate(10deg); }
-      }
-      @keyframes target-fall {
-        0% { transform: rotate(0deg) translateY(0); opacity: 1; }
-        40% { transform: rotate(12deg) translateY(4px); }
-        100% { transform: rotate(88deg) translateY(32px) translateX(10px); opacity: .82; }
-      }
-      @keyframes thrower-settle {
-        0% { transform: translateX(0) rotate(0deg); }
-        100% { transform: translateX(4px) rotate(-2deg); }
-      }
-      @keyframes hit-burst {
-        0% { opacity: 0; transform: scale(.4); }
-        40% { opacity: 1; transform: scale(1); }
-        100% { opacity: 0; transform: scale(1.5); }
-      }
-      @keyframes progress-sweep {
-        0% { transform: translateX(-120%); }
-        100% { transform: translateX(320%); }
-      }
-      @media (max-width: 720px) {
-        .busy-stage-top {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-        .busy-stage-actions {
-          justify-content: flex-start;
-        }
-        .busy-scene {
-          height: 228px;
-        }
-        .busy-thrower {
-          left: 18px;
-          transform: scale(.88);
-          transform-origin: left bottom;
-        }
-        .busy-target {
-          right: 8px;
-          transform: scale(.88);
-          transform-origin: right bottom;
-        }
-        .busy-dart {
-          left: 122px;
-          top: 96px;
-          width: 158px;
-        }
-        .busy-hit-burst {
-          right: 74px;
-          top: 96px;
-        }
-      }
-      .leaderboard-shell {
-        margin-bottom: 12px;
-      }
-      .leaderboard-toolbar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin-bottom: 6px;
-      }
-      .leaderboard-tabs {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      .leaderboard-tab {
-        width: auto;
-        padding: 5px 10px;
-        border-radius: 999px;
-        border: 1px solid var(--line);
-        background: #fffdfa;
-        color: #6b4c30;
-        font-size: 11px;
-        line-height: 1.1;
-        min-height: 0;
-      }
-      .leaderboard-tab.active {
-        background: linear-gradient(90deg, #8d2b20, #b64e42);
-        color: #fff;
-      }
-      .leaderboard-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-      }
-      .leaderboard-section {
-        background: linear-gradient(180deg, #fff9f0, #fffdf8);
-        border: 1px solid #d9c8ad;
-        border-radius: 14px;
-        padding: 8px;
-      }
-      .leaderboard-section h3 {
-        margin: 0 0 3px;
-        font-size: 15px;
-      }
-      .leaderboard-board {
-        background: #fff;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 7px;
-      }
-      .leaderboard-board-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 7px;
-      }
-      .leaderboard-board + .leaderboard-board {
-        margin-top: 8px;
-      }
-      .leaderboard-board.theme-action {
-        background: linear-gradient(135deg, #fff4ea, #ffd8bf 42%, #fffaf5 100%);
-        border-color: #cd7a2c;
-        box-shadow: 0 12px 28px rgba(158, 79, 24, 0.16);
-      }
-      .leaderboard-board.theme-common {
-        background: linear-gradient(135deg, #faf5ec, #e6d7c5 42%, #fffdfa 100%);
-        border-color: #aa8f6f;
-        box-shadow: 0 12px 28px rgba(123, 104, 80, 0.15);
-      }
-      .leaderboard-board.theme-xuanhuan {
-        background: linear-gradient(135deg, #fff6d9, #ffe7a8 42%, #fff9ef 100%);
-        border-color: #e0b54f;
-        box-shadow: 0 12px 26px rgba(224, 181, 79, 0.15);
-      }
-      .leaderboard-board.theme-yanqing {
-        background: linear-gradient(135deg, #fff0f1, #ffd7da 42%, #fff7f7 100%);
-        border-color: #e07a84;
-        box-shadow: 0 12px 26px rgba(224, 122, 132, 0.15);
-      }
-      .leaderboard-board.theme-xuanyi {
-        background: linear-gradient(135deg, #353535, #161616 56%, #505050 100%);
-        border-color: #5d5d5d;
-        box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
-      }
-      .leaderboard-board.theme-kehuan {
-        background: linear-gradient(135deg, #e8f5ff, #cce8ff 42%, #f4fbff 100%);
-        border-color: #6ca8de;
-        box-shadow: 0 12px 26px rgba(76, 137, 196, 0.16);
-      }
-      .leaderboard-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 6px;
-        margin-bottom: 6px;
-      }
-      .leaderboard-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 2px 8px;
-        border-radius: 999px;
-        font-size: 10px;
-        font-weight: 700;
-        border: 1px solid transparent;
-        flex: 0 0 auto;
-      }
-      .leaderboard-badge.theme-action {
-        background: linear-gradient(90deg, #9e4f18, #cd7a2c);
-        color: #fff7f0;
-      }
-      .leaderboard-badge.theme-common {
-        background: linear-gradient(90deg, #7b6850, #aa8f6f);
-        color: #fff9f1;
-      }
-      .leaderboard-badge.theme-xuanhuan {
-        background: linear-gradient(90deg, #d9a724, #f0cf74);
-        color: #5e4200;
-      }
-      .leaderboard-badge.theme-yanqing {
-        background: linear-gradient(90deg, #cf4e61, #f1979f);
-        color: #fff5f7;
-      }
-      .leaderboard-badge.theme-xuanyi {
-        background: linear-gradient(90deg, #131313, #474747);
-        color: #f7f7f7;
-      }
-      .leaderboard-badge.theme-kehuan {
-        background: linear-gradient(90deg, #3b79b4, #8fd0ff);
-        color: #eff8ff;
-      }
-      .leaderboard-board.theme-action .leaderboard-item {
-        background: rgba(255, 250, 245, 0.86);
-        border-color: rgba(205, 122, 44, 0.24);
-      }
-      .leaderboard-board.theme-common .leaderboard-item {
-        background: rgba(255, 252, 248, 0.88);
-        border-color: rgba(170, 143, 111, 0.26);
-      }
-      .leaderboard-board.theme-xuanyi .leaderboard-name,
-      .leaderboard-board.theme-xuanyi .leaderboard-count,
-      .leaderboard-board.theme-xuanyi h4 {
-        color: #f3f3f3;
-      }
-      .leaderboard-title-wrap h4 {
-        margin: 0;
-        font-size: 12px;
-        line-height: 1.15;
-      }
-      .leaderboard-list {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-      .leaderboard-item {
-        display: grid;
-        grid-template-columns: 22px minmax(0, 1fr) 34px;
-        gap: 6px;
-        align-items: center;
-        padding: 4px 6px;
-        border: 1px dashed #d8c6ad;
-        border-radius: 8px;
-        background: #fffdfa;
-      }
-      .leaderboard-rank {
-        width: 22px;
-        height: 22px;
-        border-radius: 999px;
-        background: #f3e3cd;
-        color: #8d2b20;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 700;
-        font-size: 10px;
-      }
-      .leaderboard-name {
-        font-size: 11px;
-        font-weight: 700;
-        line-height: 1.15;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .leaderboard-count {
-        text-align: right;
-        font-size: 11px;
-        font-weight: 700;
-        color: #8d2b20;
-        white-space: nowrap;
-      }
-      .leaderboard-empty {
-        padding: 8px;
-        border: 1px dashed #d8c6ad;
-        border-radius: 10px;
-        color: #7e6440;
-        font-size: 11px;
-        background: #fffdfa;
-      }
-      @media (max-width: 900px) {
-        .music-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .section-cards { grid-template-columns: 1fr; }
-        .section-plan-grid { grid-template-columns: 1fr; }
-        .graph-lane-row { grid-template-columns: 1fr; }
-        .leaderboard-grid { grid-template-columns: 1fr; }
-        .leaderboard-board-grid { grid-template-columns: 1fr; }
-        .mini-field-grid { grid-template-columns: 1fr; }
-        .enhanced-hero { grid-template-columns: 1fr; }
-        .enhanced-grid { grid-template-columns: 1fr; }
-      }
-      @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <section class="hero-top">
-        <h1>有声书·后期·设计台</h1>
-        <div class="hero-subtitle">
-          <span class="hero-lead">帮助有声书<span class="hero-dot" aria-hidden="true"></span>后期从业者，快速完成</span>
-          <span class="hero-inline">
-            <span class="hero-inline-chip capability">文本分析</span>
-            <span class="hero-inline-chip capability">动作音效</span>
-            <span class="hero-inline-chip capability">场景搭建</span>
-            <span class="hero-inline-chip capability">音乐分析</span>
-            <span class="hero-inline-chip capability">文本音乐执行单</span>
-          </span>
-          <span class="hero-sep">实现</span>
-          <span class="hero-inline">
-            <span class="hero-inline-chip outcome">音效命中</span>
-            <span class="hero-inline-chip outcome">素材下载</span>
-            <span class="hero-inline-chip outcome">制作决策</span>
-          </span>
-        </div>
-      </section>
-      <section id="homeLeaderboardShell" class="leaderboard-shell" style="display:none;">
-        <div class="leaderboard-toolbar">
-          <div><strong>热门排行榜</strong></div>
-          <div class="leaderboard-tabs">
-            <button class="leaderboard-tab active" id="lbTab_10d" onclick="setLeaderboardWindow('10d')">过去10天</button>
-            <button class="leaderboard-tab" id="lbTab_1d" onclick="setLeaderboardWindow('1d')">过去1天</button>
-            <button class="leaderboard-tab" id="lbTab_30d" onclick="setLeaderboardWindow('30d')">过去30天</button>
-            <button class="leaderboard-tab" id="lbTab_90d" onclick="setLeaderboardWindow('90d')">过去3个月</button>
-          </div>
-        </div>
-        <div id="leaderboardSections" class="leaderboard-grid">
-          <div class="leaderboard-section">排行榜加载中...</div>
-        </div>
-      </section>
-      <div class="grid">
-        <section class="card">
-          <div class="api-base-hidden" aria-hidden="true">
-            <input id="apiBase" value="http://127.0.0.1:8010/api" />
-          </div>
 
-          <label>用户登录</label>
-          <div class="login-shell">
-            <div class="login-primary-row">
-              <div class="login-field">
-                <div class="login-field-label">手机号</div>
-                <input id="loginPhone" placeholder="请输入手机号" />
-              </div>
-              <div class="login-field">
-                <div class="login-field-label">登录密码</div>
-                <input id="loginPassword" type="password" placeholder="请输入登录密码" />
-              </div>
-              <button onclick="loginAccount()" style="width:auto;">登录</button>
-            </div>
-            <div class="login-primary-row" style="margin-top:8px;">
-              <div class="login-field">
-                <div class="login-field-label">测试验证码</div>
-                <div class="auth-inline-row code-row">
-                  <input id="loginCode" placeholder="请输入6位验证码" value="111111" />
-                  <button onclick="requestCode()" type="button">发送验证码</button>
-                </div>
-              </div>
-              <div class="login-field">
-                <div class="login-field-label">UID</div>
-                <input id="userUid" placeholder="填写喜马拉雅的UID" />
-              </div>
-            </div>
-            <div class="mini-field-grid">
-            <div class="mini-field triple-row">
-              <div class="triple-inline-grid">
-                <div>
-                  <label for="inviteCode">邀请码</label>
-                  <input id="inviteCode" placeholder="测试期必填" />
-                </div>
-                <div>
-                  <label for="referralCode">推荐码</label>
-                  <input id="referralCode" placeholder="填写推荐人的UID" />
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="login-action-row">
-            <button onclick="registerAccount()" style="background:#80573b;">注册</button>
-            <button onclick="resetPassword()" style="background:#6a6f85;">忘记密码</button>
-            <button onclick="changeUid()" style="background:#546b73;">修改UID</button>
-            <button onclick="goUserCenter()" style="background:#8d6a42;">用户中心</button>
-            <button onclick="goWorksShowcase()" style="background:#9a4a2f;">作品展示</button>
-          </div>
-          </div>
-          <p class="hint">当前登录：<span id="loginState">未登录</span></p>
-          <p class="hint" id="loginPolicyHint">登录不强制 UID；注册时必须填写 UID（纯数字）与密码。忘记密码和修改 UID 都需先通过手机号验证码确认本人。邀请码激活规则仍然保留。</p>
-          <button id="referralShareToggle" class="share-toggle" type="button" onclick="toggleReferralShareBox()" style="display:none;">
-            推荐好友使用
-            <span class="caret">▾</span>
-          </button>
-          <div id="referralShareBox" class="panel" style="display:none; margin-top:10px;">
-            <div style="font-weight:700; margin-bottom:6px;">推荐好友使用</div>
-            <div class="hint" id="referralRewardHint">每成功推荐 1 位新用户，都会获得推荐奖励。</div>
-            <div class="mini-field-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top:8px;">
-              <div class="mini-field">
-                <label for="myReferralUid">我的推荐码（UID）</label>
-                <input id="myReferralUid" readonly />
-              </div>
-              <div class="mini-field">
-                <label for="myReferralLink">推荐短链</label>
-                <div class="auth-inline-row">
-                  <input id="myReferralLink" readonly />
-                  <button type="button" onclick="copyReferralLink()" style="background:#916946;">复制短链</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <label>项目标题</label>
-          <input id="projectTitle" placeholder="请填写项目标题" />
-          <label>内容赛道</label>
-          <select id="projectGenre">
-            <option value="玄幻" selected>玄幻</option>
-            <option value="言情">言情</option>
-            <option value="悬疑">悬疑</option>
-            <option value="科幻">科幻</option>
-          </select>
-          <div style="display:none;">
-            <label>LLM 测试模型</label>
-            <select id="llmProvider">
-              <option value="" selected>默认（DeepSeek）</option>
-              <option value="qwen">Qwen（测试）</option>
-            </select>
-            <p class="hint">仅影响当前页面发起的主要分析请求，不会改掉后台默认 DeepSeek 配置。</p>
-          </div>
-          <div class="flow-group">
-            <h4>基础准备</h4>
-            <div class="flow-desc">先创建项目。音乐分析可独立执行；文本与演绎音频是“文本演绎分析”和“文本音乐执行单”的基础输入。</div>
-            <label>上传音乐</label>
-            <input id="audioFile" type="file" accept="audio/*" />
-            <div class="flow-buttons">
-              <button data-auth-required="1" onclick="createProject()">1) 创建项目</button>
-              <button data-auth-required="1" onclick="uploadAudio()">2) 音乐分析（独立）</button>
-            </div>
-            <div class="flow-note">完成音乐分析后，可直接进入“文本与执行”链路，继续判断这首音乐是否适合作品，并生成文本音乐执行单。</div>
-          </div>
-          <p class="hint">当前项目ID: <span id="projectId">-</span> ｜ 当前赛道: <span id="projectGenreState">-</span></p>
-
-
-          <label>输入文本</label>
-          <textarea id="textInput" rows="8" placeholder="输入章节片段，系统会识别动作和音效建议"></textarea>
-
-          <label>上传演绎音频（文本演绎分析 / 文本音乐执行单使用）</label>
-          <input id="narrationFile" type="file" accept="audio/*" />
-          <div class="flow-group">
-            <h4>文本与执行</h4>
-            <div class="flow-desc">这部分只用于文本、音乐与演绎时间轴的后期制作，不包含动作模块和场景模块结果；依赖“文本 + 演绎音频”，其中“文本音乐执行单”还额外依赖音乐分析。</div>
-            <div class="flow-buttons">
-              <button data-auth-required="1" onclick="analyzeTextNarration()">3) 文本演绎分析（含时间轴）</button>
-              <button data-auth-required="1" onclick="buildFusion()">4) 生成文本音乐执行单</button>
-              <button data-auth-required="1" onclick="analyzeMusicMatch()">5) 判断是否适合作品</button>
-            </div>
-            <div class="flow-note">顺序建议：先做 <code>2) 音乐分析</code>，再做 <code>3) 文本演绎分析（含时间轴）</code>，然后生成 <code>4) 文本音乐执行单</code>，最后用 <code>5) 判断是否适合作品</code> 复核这首音乐是否适合当前作品。</div>
-          </div>
-
-          <div class="flow-group">
-            <h4>动作模块</h4>
-            <div class="flow-desc">动作模块只依赖“项目 + 文本”。它与场景模块互不依赖，可单独运行。图谱推荐依赖动作提取，动作补充单依赖图谱推荐。</div>
-            <div class="flow-buttons">
-              <button data-auth-required="1" onclick="analyzeActionVerbs()">6) 动作提取</button>
-              <button data-auth-required="1" onclick="buildActionSfxGraph()">7) 动作图谱推荐</button>
-              <button data-auth-required="1" onclick="buildActionGraphDraft()">8) 动作补充单</button>
-            </div>
-            <div class="flow-note">顺序建议：动作提取 → 动作图谱推荐 → 动作补充单。</div>
-          </div>
-
-          <div class="flow-group">
-            <h4>场景模块</h4>
-            <div class="flow-desc">场景模块也只依赖“项目 + 文本”。它与动作模块并列，不以动作模块为前提。场景音效推荐依赖场景搭建分析，场景补充单依赖场景音效推荐。</div>
-            <div class="flow-buttons">
-              <button data-auth-required="1" id="sceneBuildingBtn" onclick="buildSceneBuilding()">9) 场景搭建分析</button>
-              <button data-auth-required="1" id="sceneSfxBtn" onclick="buildSceneSfxGraph()">10) 场景音效推荐（待第9步）</button>
-              <button data-auth-required="1" id="sceneSupplementBtn" onclick="buildSceneSupplements()">11) 场景补充单（待第10步）</button>
-            </div>
-            <div id="sceneStageHint" class="flow-note">场景模块链路：先做 <code>9) 场景搭建分析</code>，再做 <code>10) 场景音效推荐</code>，最后再生成 <code>11) 场景补充单</code>。</div>
-          </div>
-
-          <div class="flow-group">
-            <h4>导出工程文件说明书</h4>
-            <div class="flow-desc">提供汇总后的数字资产，用于创作参考。当前先导出动作分析资产表，后续会随着场景模块完善继续扩充。</div>
-            <div class="flow-buttons">
-              <button data-auth-required="1" onclick="fetchReport()">12) 导出工程文件说明书</button>
-            </div>
-          </div>
-        </section>
-
-        <section class="card">
-          <h3>结果展示（中文）</h3>
-          <div id="usagePanel" class="usage-panel" style="display:none;"></div>
-          <div id="prettyOutput" class="pretty">等待操作...</div>
-          <details id="debugJsonWrap" style="display:none; margin-bottom:10px;">
-            <summary style="cursor:pointer; color:#7a5a41;">查看调试 JSON</summary>
-            <pre id="debugOutput" style="margin-top:8px; min-height:120px;">等待调试输出...</pre>
-          </details>
-          <div id="busyTip" class="busy" style="display:none;">处理中，请稍候...</div>
-        </section>
-      </div>
-    </div>
-
-    <div id="busyOverlay" class="busy-overlay" aria-hidden="true">
-      <div class="busy-stage">
-        <div class="busy-stage-top">
-          <div>
-            <div class="busy-stage-title">系统正在为你推演结果</div>
-            <div id="busyOverlayLabel" class="busy-stage-note">飞镖仍在途中，请稍候片刻。</div>
-          </div>
-          <div class="busy-stage-actions">
-            <div class="busy-stage-pill">分析进行中</div>
-            <button type="button" class="busy-stage-close-lite" onclick="dismissBusyOverlayUntilTomorrow()">今天不再显示</button>
-            <button type="button" class="busy-stage-close" onclick="dismissBusyOverlayOnce()">关闭</button>
-          </div>
-        </div>
-        <div class="busy-scene">
-          <div class="busy-silhouette busy-thrower">
-            <div class="head"></div>
-            <div class="hair"></div>
-            <div class="collar"></div>
-            <div class="torso"></div>
-            <div class="robe"></div>
-            <div class="sash"></div>
-            <div class="arm left"></div>
-            <div class="arm right"></div>
-            <div class="leg left"></div>
-            <div class="leg right"></div>
-          </div>
-          <div class="busy-dart">
-            <div class="busy-dart-feather"></div>
-          </div>
-          <div class="busy-hit-burst"></div>
-          <div class="busy-silhouette busy-target">
-            <div class="head"></div>
-            <div class="hair"></div>
-            <div class="collar"></div>
-            <div class="torso"></div>
-            <div class="robe"></div>
-            <div class="cape"></div>
-            <div class="sash"></div>
-            <div class="arm left"></div>
-            <div class="arm right"></div>
-            <div class="leg left"></div>
-            <div class="leg right"></div>
-          </div>
-          <div class="busy-ground"></div>
-        </div>
-        <div class="busy-stage-progress"><span></span></div>
-      </div>
-    </div>
-
-    <script>
       let projectId = null;
       let latestLexiconDraft = null;
       let latestActionVerbData = null;
@@ -2018,18 +9,10 @@
       let latestSceneSfxData = null;
       let latestSceneSupplementData = null;
       let uiBusy = false;
-      let busyResolveTimer = null;
       let authToken = localStorage.getItem('mfa_auth_token') || '';
       let authPhone = localStorage.getItem('mfa_auth_phone') || '';
       let authUser = null;
-      let authSettings = {
-        invite_only_enabled: true,
-        invite_code_required: true,
-        referral_code_supported: true,
-        uid_supported: true,
-        home_leaderboards_enabled: false,
-        referral_reward: { sfx_download_pack_reward: 15, text_char_pack_reward: 5000 },
-      };
+      let authSettings = { invite_only_enabled: true, invite_code_required: true, referral_code_supported: true, uid_supported: true, home_leaderboards_enabled: false };
       let leaderboardWindowKey = '10d';
       const ACTION_PROMPT_BY_GENRE = {
         '玄幻': 'V3-action_verbs_xuanhuan_task.txt',
@@ -2051,7 +34,7 @@
 
       function ensureLoggedInForFeature() {
         if (authToken) return true;
-        show('请先完成用户登录后再使用创作功能。');
+        show('请先完成测试用户登录后再使用创作功能。测试期间仅邀请码用户可激活使用。');
         return false;
       }
 
@@ -2121,7 +104,7 @@
           : '11) 场景补充单（待第10步）';
 
         if (!loggedIn) {
-          sceneStageHint.innerHTML = '场景模块链路：请先完成用户登录，登录后才能执行 <code>9) 场景搭建分析</code>。';
+          sceneStageHint.innerHTML = '场景模块链路：请先完成测试用户登录，登录后才能执行 <code>9) 场景搭建分析</code>。';
           return;
         }
         if (!hasProject) {
@@ -2371,13 +354,7 @@
         }
         const tierLabel = tierCode === '22' ? '种子用户' : (tierCode === '33' ? '普通用户' : '当前用户');
         const textRemaining = Number(quota.text_chars_remaining || 0);
-        const textPack = Number(quota.text_char_pack_balance || 0);
-        const textTotalAvailable = Number(quota.text_char_total_available || (textRemaining + textPack));
-        const textEffectiveLimit = Number(quota.text_char_effective_limit || (Number(quota.text_chars_limit || 0) + textPack));
         const sfxRemaining = Number(quota.sfx_download_remaining || 0);
-        const sfxPack = Number(quota.sfx_download_pack_balance || 0);
-        const sfxTotalAvailable = Number(quota.sfx_download_total_available || (sfxRemaining + sfxPack));
-        const sfxEffectiveLimit = Number(quota.sfx_download_effective_limit || (Number(quota.sfx_download_limit || 0) + sfxPack));
         const overLimitHint = (!isAuthorized && (textRemaining <= 0 || sfxRemaining <= 0))
           ? '<div class="usage-alert">用量超额，请联系管理员。文本分析支持单次最多超额 1000 字的缓冲；缓冲使用完后，当天将暂停继续使用。</div>'
           : '<div class="usage-alert">如今日用量达到上限，请联系管理员协助调整额度。</div>';
@@ -2387,18 +364,18 @@
           <div class="usage-grid">
             <div class="usage-stat">
               <div class="k">文本分析字符</div>
-              <div class="v">${escHtml(quota.text_chars_used || 0)} / ${escHtml(textEffectiveLimit || 0)}</div>
-              <div class="k">基础剩余 ${escHtml(quota.text_chars_remaining || 0)} 字 ｜ 奖励文字包 ${escHtml(textPack || 0)} 字 ｜ 当前总可用 ${escHtml(textTotalAvailable || 0)} 字</div>
+              <div class="v">${escHtml(quota.text_chars_used || 0)} / ${escHtml(quota.text_chars_limit || 0)}</div>
+              <div class="k">剩余 ${escHtml(quota.text_chars_remaining || 0)} 字</div>
             </div>
             <div class="usage-stat">
               <div class="k">音效下载数量</div>
-              <div class="v">${escHtml(quota.sfx_download_used || 0)} / ${escHtml(sfxEffectiveLimit || 0)}</div>
-              <div class="k">基础剩余 ${escHtml(quota.sfx_download_remaining || 0)} 个 ｜ 永久奖励包 ${escHtml(sfxPack || 0)} 个 ｜ 当前总可用 ${escHtml(sfxTotalAvailable || 0)} 个</div>
+              <div class="v">${escHtml(quota.sfx_download_used || 0)} / ${escHtml(quota.sfx_download_limit || 0)}</div>
+              <div class="k">剩余 ${escHtml(quota.sfx_download_remaining || 0)} 个</div>
             </div>
           </div>
           <div class="usage-meta">
             账号：${escHtml(phone || '未登录')}<br/>
-            级别：${escHtml(tierLabel)}<br/>
+            级别：${escHtml(tierLabel)}${tierCode ? `（${escHtml(tierCode)}）` : ''}<br/>
             统计日期：${escHtml(quota.ymd || '今日')}<br/>
             ${isAuthorized ? '当前账号为授权用户：默认不扣减每日额度。' : '当前账号按每日额度计数。'}
           </div>
@@ -2776,15 +753,12 @@
         return `${value.slice(0, head)}..........${value.slice(-tail)}`;
       }
 
-      function renderSourceBadge(source, explicitLabel = '') {
-        const custom = String(explicitLabel || '').trim();
-        if (custom) return `<span class="pill">${escHtml(custom)}</span>`;
+      function renderSourceBadge(source) {
         const key = String(source || '').trim();
         const label = ({
           'common': '通用层',
           'genre': '赛道层',
           'common+genre': '通用+赛道',
-          'suggested': '系统建议扩展词',
           'fallback': '保底生成',
         })[key] || '未标注';
         return `<span class="pill">${escHtml(label)}</span>`;
@@ -2802,21 +776,18 @@
         arr.forEach(item => {
           const term = String(item && item.term || '').trim();
           const source = String(item && item.source || '').trim();
-          const sourceLabel = String(item && item.source_label || '').trim();
-          const originLabel = String(item && item.origin_label || '').trim();
           if (!term) return;
           if (source === 'common+genre') {
-            expanded.push({ term: `${term}（通用）`, source: 'common', sourceLabel: '', originLabel: '' });
-            expanded.push({ term: `${term}（${currentGenreLabel}）`, source: 'genre', sourceLabel: '', originLabel: '' });
+            expanded.push({ term: `${term}（通用）`, source: 'common' });
+            expanded.push({ term: `${term}（${currentGenreLabel}）`, source: 'genre' });
             return;
           }
-          expanded.push({ term, source, sourceLabel, originLabel: source === 'suggested' ? originLabel : '' });
+          expanded.push({ term, source });
         });
         return `<div class="term-state-list">${expanded.map(item => `
           <span class="term-state">
             ${escHtml(String(item.term || ''))}${suffix}
-            ${renderSourceBadge(item.source, item.sourceLabel)}
-            ${item.originLabel ? `<span class="pill subtle">${escHtml(item.originLabel)}</span>` : ''}
+            ${renderSourceBadge(item.source)}
           </span>
         `).join('')}</div>`;
       }
@@ -2902,17 +873,19 @@
         const sections = Array.isArray(safeReport.sections) ? safeReport.sections : [];
         if (sections.length) {
           const cards = sections.map(s => `
-            <div class="panel" style="margin-bottom:8px;">
-              <div class="kv"><div>乐段</div><div>${escHtml(s.label || `乐段${s.section_no ?? ''}`)}</div></div>
-              <div class="kv"><div>时间区间</div><div>${fmtSec(s.start_sec)} - ${fmtSec(s.end_sec)}</div></div>
-              <div class="kv"><div>能量等级</div><div>${escHtml(s.energy_level || '未标注')}</div></div>
-              <div class="kv"><div>主层次</div><div>${escHtml((s.main_layers || []).join('、') || '无')}</div></div>
-              <div class="kv"><div>配器推测</div><div>${escHtml((s.instrument_guess || []).join('、') || '无')}</div></div>
-              <div class="kv"><div>进入建议</div><div>${escHtml(s.entry_suggestion || '无')}</div></div>
-              <div class="kv"><div>退出建议</div><div>${escHtml(s.exit_suggestion || '无')}</div></div>
-            </div>
+            <article class="section-card">
+              <div class="section-head">
+                <strong>${escHtml(s.label || `乐段${s.section_no ?? ''}`)}</strong>
+                <span class="badge">${escHtml(s.energy_level || '未标注')}</span>
+              </div>
+              <div class="kv-lite">时间区间：${fmtSec(s.start_sec)} - ${fmtSec(s.end_sec)}</div>
+              <div class="kv-lite">主层次：${escHtml((s.main_layers || []).join('、') || '无')}</div>
+              <div class="kv-lite">配器推测：${escHtml((s.instrument_guess || []).join('、') || '无')}</div>
+              <div class="kv-lite">进入建议：${escHtml(s.entry_suggestion || '无')}</div>
+              <div class="kv-lite">退出建议：${escHtml(s.exit_suggestion || '无')}</div>
+            </article>
           `).join('');
-          blocks.push(panel('乐段拆解（导演可读）', cards));
+          blocks.push(panel('乐段拆解（导演可读）', `<div class="section-cards">${cards}</div>`));
         }
 
         const hitPoints = Array.isArray(safeReport.hit_points) ? safeReport.hit_points : [];
@@ -2934,6 +907,9 @@
         if (Array.isArray(safeReport.mix_notes) && safeReport.mix_notes.length) {
           blocks.push(panel('混音与后期建议', `<ul>${safeReport.mix_notes.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`));
         }
+        if (Array.isArray(safeReport.key_points) && safeReport.key_points.length) {
+          blocks.push(panel('关键结论', `<ul>${safeReport.key_points.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`));
+        }
         if (safeReport.structure_logic && typeof safeReport.structure_logic === 'object') {
           const sl = safeReport.structure_logic;
           blocks.push(panel('结构规律', `
@@ -2952,6 +928,7 @@
             ['sections', '乐段拆解', `${sections.length} 段`],
             ['hit_points', '命中点', `${hitPoints.length} 个`],
             ['mix_notes', '混音建议', `${Array.isArray(safeReport.mix_notes) ? safeReport.mix_notes.length : 0} 条`],
+            ['key_points', '关键结论', `${Array.isArray(safeReport.key_points) ? safeReport.key_points.length : 0} 条`],
           ];
           const rows = mapping.map(([k, name, val]) => `<tr><td>${escHtml(k)}</td><td>${escHtml(name)}</td><td>${escHtml(String(val))}</td></tr>`).join('');
           blocks.push(panel('字段中文释义（便于创作者阅读）', `
@@ -2974,7 +951,6 @@
         const narrationMatch = data.narration_match && typeof data.narration_match === 'object' ? data.narration_match : {};
         const editingAdvice = data.editing_advice && typeof data.editing_advice === 'object' ? data.editing_advice : {};
         const replaceAdvice = data.replace_advice && typeof data.replace_advice === 'object' ? data.replace_advice : {};
-        const llmReview = data.llm_review && typeof data.llm_review === 'object' ? data.llm_review : {};
         blocks.push(`
           <section class="music-hero">
             <h4>音乐是否适合作品</h4>
@@ -2993,6 +969,10 @@
           <div class="kv"><div>匹配结论</div><div>${escHtml(genreMatch.verdict || '未判定')}（${Number(genreMatch.score || 0)}/100）</div></div>
           ${Array.isArray(genreMatch.reasons) && genreMatch.reasons.length ? `<ul>${genreMatch.reasons.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>` : ''}
         `));
+        blocks.push(panel('文本匹配判断', `
+          <div class="kv"><div>匹配结论</div><div>${escHtml(textMatch.verdict || '未判定')}（${Number(textMatch.score || 0)}/100）</div></div>
+          ${Array.isArray(textMatch.reasons) && textMatch.reasons.length ? `<ul>${textMatch.reasons.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>` : ''}
+        `));
         blocks.push(panel('演绎节奏匹配', `
           <div class="kv"><div>匹配结论</div><div>${escHtml(narrationMatch.verdict || '未判定')}${narrationMatch.available ? `（${Number(narrationMatch.score || 0)}/100）` : ''}</div></div>
           ${Array.isArray(narrationMatch.reasons) && narrationMatch.reasons.length ? `<ul>${narrationMatch.reasons.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>` : ''}
@@ -3003,37 +983,6 @@
           <div class="kv"><div>建议淡出点</div><div>${fmtSec(editingAdvice.fade_out_sec)}</div></div>
           ${Array.isArray(editingAdvice.advice) && editingAdvice.advice.length ? `<ul>${editingAdvice.advice.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>` : ''}
         `));
-        if (llmReview && Object.keys(llmReview).length) {
-          blocks.push(panel('增强视角', `
-            <div class="enhanced-view">
-              <div class="enhanced-hero">
-                <div class="enhanced-main">
-                  <div class="enhanced-kicker">专业解读</div>
-                  <div class="enhanced-verdict">${escHtml(llmReview.professional_verdict || '-')}</div>
-                  <div class="enhanced-summary">${escHtml(llmReview.summary || '-')}</div>
-                </div>
-                <div class="enhanced-side">
-                  <div class="enhanced-side-card">
-                    <div class="enhanced-side-title">判断重点</div>
-                    <div class="enhanced-side-value">${escHtml(llmReview.professional_verdict || '-')}</div>
-                  </div>
-                  <div class="enhanced-side-card">
-                    <div class="enhanced-side-title">一句话结论</div>
-                    <div class="enhanced-side-value">${escHtml(llmReview.summary || '-')}</div>
-                  </div>
-                </div>
-              </div>
-              <div class="enhanced-grid">
-                ${Array.isArray(llmReview.professional_reasons) && llmReview.professional_reasons.length ? `<div class="enhanced-block"><h5>专业原因</h5><ul>${llmReview.professional_reasons.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul></div>` : ''}
-                ${Array.isArray(llmReview.editing_focus) && llmReview.editing_focus.length ? `<div class="enhanced-block"><h5>剪辑重点</h5><ul>${llmReview.editing_focus.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul></div>` : ''}
-                ${Array.isArray(llmReview.replace_direction) && llmReview.replace_direction.length ? `<div class="enhanced-block"><h5>更换方向</h5><ul>${llmReview.replace_direction.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul></div>` : ''}
-                ${Array.isArray(llmReview.evidence_focus) && llmReview.evidence_focus.length ? `<div class="enhanced-block"><h5>主要参考证据</h5><ul>${llmReview.evidence_focus.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul></div>` : ''}
-              </div>
-            </div>
-          `));
-        } else if (data.llm_enabled === false) {
-          blocks.push(panel('增强视角', `<div class="muted">当前环境未启用 LLM，因此本次只展示规则评分结果。</div>`));
-        }
         if (replaceAdvice.need_replace) {
           blocks.push(panel('更换建议', `
             <div class="error" style="margin-bottom:10px;">当前音乐不建议作为该作品的主音乐继续使用。</div>
@@ -3042,7 +991,10 @@
           `));
         }
         if (Array.isArray(data.key_points) && data.key_points.length) {
-          blocks.push(panel('评分结果', `<ul>${data.key_points.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`));
+          blocks.push(panel('关键结论', `<ul>${data.key_points.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`));
+        }
+        if (Array.isArray(data.risks) && data.risks.length) {
+          blocks.push(panel('使用提醒', `<ul>${data.risks.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`));
         }
         return blocks;
       }
@@ -3058,8 +1010,8 @@
         const inviteActivated = Boolean(Number(user.invite_activated || 0));
         blocks.push(panel('登录成功', `
           <div class="kv"><div>当前账号</div><div>${escHtml(phone || '未标注')}</div></div>
-          <div class="kv"><div>账号 UID</div><div>${escHtml(uid || '-')}</div></div>
-          <div class="kv"><div>用户级别</div><div>${escHtml(tierLabel)}</div></div>
+          <div class="kv"><div>账号 UID</div><div>${escHtml(uid || '系统自动生成')}</div></div>
+          <div class="kv"><div>用户级别</div><div>${escHtml(tierLabel)}${tierCode ? `（${escHtml(tierCode)}）` : ''}</div></div>
           <div class="kv"><div>邀请码状态</div><div>${inviteActivated ? '已激活，可继续使用系统' : '当前未完成邀请码激活'}</div></div>
           <div class="kv"><div>建议下一步</div><div>现在可以继续创建项目，并依次体验音乐分析、动作提取、场景搭建与文本音乐执行单功能。</div></div>
         `));
@@ -3167,17 +1119,6 @@
         const summary = data.summary || {};
         const gapSummary = data.asset_gap_summary || {};
         const gapItems = Array.isArray(gapSummary.gap_items) ? gapSummary.gap_items : [];
-        const replacementExamples = [];
-        items.forEach(item => {
-          const shownVerb = String(item?.verb || '').trim();
-          const rawVerbs = Array.isArray(item?.raw_verbs) ? item.raw_verbs.map(x => String(x || '').trim()).filter(Boolean) : [];
-          rawVerbs.forEach(raw => {
-            if (raw && shownVerb && raw !== shownVerb) {
-              const pair = `${raw} -> ${shownVerb}`;
-              if (!replacementExamples.includes(pair)) replacementExamples.push(pair);
-            }
-          });
-        });
         const groupAssetsByLabel = (assets) => {
           const groups = [];
           const byLabel = new Map();
@@ -3216,13 +1157,7 @@
           <div class="kv"><div>素材候选数</div><div>${summary.asset_count ?? 0}</div></div>
           <div class="kv"><div>素材缺口词数</div><div>${summary.gap_count ?? gapItems.length}</div></div>
         `));
-        blocks.push(panel('系统整理能力', `
-          <div class="hint" style="line-height:1.8;">
-            系统会自动整理不稳定的动作表达，并按更适合声音制作的展示词为你推荐结果。
-            ${replacementExamples.length ? `本次示例：${escHtml(replacementExamples.slice(0, 3).join('；'))}` : '当前结果已按系统整理后的展示词输出。'}
-          </div>
-        `));
-        const cards = items.map((item, itemIdx) => {
+        const cards = items.map(item => {
           const assets = Array.isArray(item.assets) ? item.assets : [];
           const assetGroups = groupAssetsByLabel(assets);
           const parentNode = item.parent_node || {};
@@ -3236,12 +1171,6 @@
           const visibleDirectTerms = filterUserVisibleActionTerms(childNode.direct_sfx_terms || [], actionHead);
           const visibleCompositeTerms = filterUserVisibleActionTerms(childNode.composite_sfx_terms || [], actionHead);
           const visibleMissingTerms = filterUserVisibleActionTerms(childNode.missing_sfx_terms || item.missing_sfx_terms || [], actionHead);
-          const suggestedDisplayTerm = String(
-            visibleCompositeTerms[0]
-            || visibleDirectTerms[0]
-            || item.verb
-            || ''
-          ).trim();
           const sfxBuckets = renderSfxBuckets(
             childNode,
             filterUserVisibleActionTerms(childNode.sfx_terms || item.sfx_terms || [], actionHead),
@@ -3250,42 +1179,40 @@
           const assetRows = assetGroups.length
             ? assetGroups.map((group, idx) => {
                 const primary = group.assets[0] || {};
+                const extraAssets = group.assets.slice(1);
+                const extraRows = extraAssets.map((a, extraIdx) => `
+                  <tr>
+                    <td>${extraIdx + 1}</td>
+                    <td>${escHtml(a.file_display_name || a.file_name || '')}</td>
+                    <td>${a.score ?? '-'}</td>
+                    <td><button onclick="downloadActionSfxAsset('${escAttr(item.verb || '')}','${escAttr(a.label || '')}','${escAttr(a.file_name || 'sfx.bin')}','${escAttr(a.download_api || '')}','action','${escAttr(data.genre || '')}','${escAttr(a.scope_label || '')}','${escAttr(a.display_name || a.label || '')}')">下载</button></td>
+                  </tr>
+                `).join('');
                 return `
                   <tr>
                     <td>${idx + 1}</td>
                     <td>${escHtml(primary.display_name || group.display_name || group.label || '')}</td>
-                    <td>
-                      ${escHtml(buildReadableAssetFileName(primary))}
-                      ${renderAssetSourceLabel(primary.source_label)}
-                    </td>
+                    <td>${escHtml(primary.file_display_name || primary.file_name || '')}</td>
                     <td>${primary.score ?? '-'}</td>
                     <td><button onclick="downloadActionSfxAsset('${escAttr(item.verb || '')}','${escAttr(primary.label || '')}','${escAttr(primary.file_name || 'sfx.bin')}','${escAttr(primary.download_api || '')}','action','${escAttr(data.genre || '')}','${escAttr(primary.scope_label || '')}','${escAttr(primary.display_name || primary.label || '')}')">下载</button></td>
                   </tr>
+                  ${extraAssets.length ? `
+                    <tr>
+                      <td></td>
+                      <td colspan="4">
+                        <details class="asset-candidate-details">
+                          <summary>展开另外 ${extraAssets.length} 条候选</summary>
+                          <table class="table-lite">
+                            <thead><tr><th>#</th><th>素材</th><th>分数</th><th>下载</th></tr></thead>
+                            <tbody>${extraRows}</tbody>
+                          </table>
+                        </details>
+                      </td>
+                    </tr>
+                  ` : ''}
                 `;
               }).join('')
             : `<tr><td colspan="5" class="hint">当前没有命中素材</td></tr>`;
-          const uploadPanelHtml = `
-            <div id="userSfxSubmissionPanel_${itemIdx}" class="panel" style="display:none; margin-top:10px; background:#fff7ef; border-style:dashed;">
-              <div style="font-weight:700;">贡献优质音效</div>
-              <div class="hint" style="margin-top:4px; border:1px solid rgba(205,122,44,0.28); background:linear-gradient(135deg, rgba(255,244,227,0.96), rgba(255,232,204,0.98)); color:#7a4214; padding:10px 12px; border-radius:12px;">
-                重要提醒：如果你手里有比当前推荐更合适的音效，可以直接上传给系统补充说明原因。上传的音效被采纳后，会为你的账户永久增加 3 次下载次数，累计无上限。
-              </div>
-              <div class="row" style="margin-top:8px;">
-                <div class="cell"><input id="userSfxDisplayTerm_${itemIdx}" value="${escAttr(suggestedDisplayTerm)}" placeholder="展示词，如：围住（整体-玄幻）" /></div>
-                <div class="cell"><input id="userSfxFile_${itemIdx}" type="file" accept=".mp3,.wav,.m4a,.aac,.flac,.ogg,audio/*" /></div>
-              </div>
-              <textarea id="userSfxNote_${itemIdx}" rows="3" placeholder="可选：补充说明这条音效为什么更合适，例如更贴合动作力度、赛道气质或节奏点。" style="margin-top:8px;"></textarea>
-              <div class="row" style="margin-top:8px;">
-                <div class="cell"><button type="button" onclick="submitUserSfxSubmission(${itemIdx}, '${escAttr(item.verb || '')}', '${escAttr(data.genre || '')}', '${escAttr(item.sentence_excerpt || '')}')">贡献优质音效</button></div>
-                <div class="cell"><button type="button" class="ghost-btn" onclick="toggleUserSfxSubmissionPanel(${itemIdx}, false)">收起入口</button></div>
-              </div>
-              <div id="userSfxSubmissionHint_${itemIdx}" class="hint" style="margin-top:6px;"></div>
-              <div id="userSfxSubmissionThanks_${itemIdx}" style="display:none; margin-top:10px; border:1px solid rgba(77, 139, 89, 0.28); background:linear-gradient(135deg, rgba(241,255,244,0.98), rgba(222,247,228,0.98)); color:#235833; padding:12px 14px; border-radius:12px;">
-                <div style="font-weight:700;">感谢谢您的贡献！</div>
-                <div style="margin-top:6px; line-height:1.8;">感谢您为有声行业的贡献，望我们的存在能伴随您的整个创作周期，祝好！</div>
-              </div>
-            </div>
-          `;
           const graphHtml = `
             <div class="graph-browser">
               <div class="graph-stage">
@@ -3301,13 +1228,10 @@
                 </div>
                 <div class="graph-lane-row">
                   <div class="graph-lane">
-                    <h5>语义推荐词</h5>
+                    <h5>语义子级</h5>
                     ${renderGraphNodes(visibleSemanticTerms, 'semantic')}
                   </div>
                   <div class="graph-lane">
-                    <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
-                      <button type="button" class="ghost-btn" onclick="toggleUserSfxSubmissionPanel(${itemIdx}, true)">上传更合适音效</button>
-                    </div>
                     <h5>直达音效</h5>
                     ${renderGraphNodes(visibleDirectTerms, 'direct')}
                     <h5 style="margin-top:10px;">整体音效</h5>
@@ -3335,23 +1259,19 @@
                     ? `通用层=${graphSource.common_hit ? '是' : '否'} / 赛道层=${graphSource.genre_hit ? '是' : '否'}`
                     : '未标注'
                 )}</div>
-                <div class="kv-lite"><span class="kv-title">语义推荐词</span>${semanticTermItems.length ? renderTermItemsWithSource(semanticTermItems) : renderPills(visibleSemanticTerms)}</div>
+                <div class="kv-lite"><span class="kv-title">语义扩展词</span>${semanticTermItems.length ? renderTermItemsWithSource(semanticTermItems) : renderPills(visibleSemanticTerms)}</div>
                 <div class="kv-lite"><span class="kv-title">直达音效来源(可下载)</span>${directTermItems.length ? renderTermItemsWithSource(directTermItems) : renderPills(visibleDirectTerms)}</div>
                 <div class="kv-lite"><span class="kv-title">整体音效来源(可下载)</span>${compositeTermItems.length ? renderTermItemsWithSource(compositeTermItems, '（整体）') : renderPills(visibleCompositeTerms.map(x => `${x}（整体）`))}</div>
-                <div class="kv-lite"><span class="kv-title">待补推荐音效</span>${sfxBuckets.missing}</div>
+                <div class="kv-lite"><span class="kv-title">待补子级音效</span>${sfxBuckets.missing}</div>
                 <div class="kv-lite"><span class="kv-title">素材覆盖</span>已覆盖 ${escHtml((childNode.covered_sfx_terms || []).length)} 个音效词，当前命中 ${escHtml(assetGroups.length)} 个词、共 ${escHtml(assets.length)} 条素材候选</div>
                 <table class="table-lite" style="margin-top:8px;">
                   <thead><tr><th>#</th><th>音效词</th><th>最佳素材</th><th>分数</th><th>下载</th></tr></thead>
                   <tbody>${assetRows}</tbody>
                 </table>
-                <div style="display:flex; justify-content:flex-end; margin-top:10px;">
-                  <button type="button" class="ghost-btn" onclick="toggleUserSfxSubmissionPanel(${itemIdx}, true)">上传更合适音效</button>
-                </div>
               </div>
               <div id="actionGraphGraph_${escAttr(item.verb || '')}" style="display:none;">
                 ${graphHtml}
               </div>
-              ${uploadPanelHtml}
             </article>
           `;
         }).join('');
@@ -3369,64 +1289,6 @@
         return blocks;
       }
 
-      async function submitUserSfxSubmission(slotKey, verb, genre, sentenceExcerpt) {
-        if (!ensureLoggedInForFeature()) return;
-        const displayTermInput = document.getElementById(`userSfxDisplayTerm_${slotKey}`);
-        const fileInput = document.getElementById(`userSfxFile_${slotKey}`);
-        const noteInput = document.getElementById(`userSfxNote_${slotKey}`);
-        const hint = document.getElementById(`userSfxSubmissionHint_${slotKey}`);
-        const thanks = document.getElementById(`userSfxSubmissionThanks_${slotKey}`);
-        const displayTerm = String(displayTermInput?.value || '').trim();
-        const file = fileInput?.files?.[0];
-        const note = String(noteInput?.value || '').trim();
-        const projectText = String(document.getElementById('textInput')?.value || '').trim();
-        if (!displayTerm) {
-          if (hint) hint.textContent = '请先填写展示词后再提交。';
-          return;
-        }
-        if (!file) {
-          if (hint) hint.textContent = '请先选择要上传的音效文件。';
-          return;
-        }
-        const fd = new FormData();
-        fd.set('project_id', String(projectId || 0));
-        fd.set('genre', String(genre || '').trim());
-        fd.set('verb', String(verb || '').trim());
-        fd.set('display_term', displayTerm);
-        fd.set('sentence_excerpt', String(sentenceExcerpt || '').trim());
-        fd.set('project_text_excerpt', projectText);
-        fd.set('note', note);
-        fd.set('sfx_file', file);
-        if (hint) hint.textContent = '正在提交音效投稿...';
-        if (thanks) thanks.style.display = 'none';
-        try {
-          const res = await apiFetch(`${apiBase()}/home/sfx-submissions`, {
-            method: 'POST',
-            body: fd,
-          });
-          const data = await readApiResponse(res);
-          if (!res.ok) throw new Error(data.detail || '投稿失败');
-          if (hint) hint.textContent = data.message || '音效投稿已提交，待运营审核。';
-          if (noteInput) noteInput.value = '';
-          if (fileInput) fileInput.value = '';
-          if (displayTermInput) displayTermInput.closest('.row')?.style.setProperty('display', 'none');
-          if (noteInput) noteInput.style.display = 'none';
-          const row = hint?.previousElementSibling;
-          if (row && row.classList && row.classList.contains('row')) row.style.display = 'none';
-          if (thanks) thanks.style.display = '';
-        } catch (err) {
-          if (hint) hint.textContent = String(err?.message || err || '投稿失败');
-          if (thanks) thanks.style.display = 'none';
-        }
-      }
-
-      function toggleUserSfxSubmissionPanel(slotKey, forceOpen = null) {
-        const panel = document.getElementById(`userSfxSubmissionPanel_${slotKey}`);
-        if (!panel) return;
-        const shouldOpen = forceOpen === null ? panel.style.display === 'none' : !!forceOpen;
-        panel.style.display = shouldOpen ? '' : 'none';
-      }
-
       function toggleActionGraphView(key, mode, btn) {
         const safe = String(key || '');
         const list = document.getElementById(`actionGraphList_${safe}`);
@@ -3442,11 +1304,6 @@
       function renderActionGraphDraftPanels(data, panel) {
         const blocks = [];
         const items = Array.isArray(data.draft_items) ? data.draft_items : [];
-        const renderSuppChips = (arr, kind) => {
-          const list = Array.isArray(arr) ? arr.filter(Boolean).map(x => String(x).trim()).filter(Boolean) : [];
-          if (!list.length) return '<span class="muted">无</span>';
-          return `<div class="supp-pill-group">${list.map(x => `<span class="supp-pill ${kind}">${escHtml(x)}</span>`).join('')}</div>`;
-        };
         const scopeLabel = (item) => {
           const scope = String(item && item.task_scope || '').trim();
           const genre = String(item && (item.task_scope_genre || data.genre) || '').trim();
@@ -3463,8 +1320,8 @@
             <td>${idx + 1}</td>
             <td>${escHtml(it.verb || '')}</td>
             <td>${escHtml(scopeLabel(it))}</td>
-            <td>${renderSuppChips(it.semantic_terms || [], 'semantic')}</td>
-            <td>${renderSuppChips((((it.missing_sfx_terms_classified || {}).display_terms) || it.missing_sfx_terms || []), 'sfx')}</td>
+            <td>${escHtml((it.semantic_terms || []).join('、') || '无')}</td>
+            <td>${escHtml((((it.missing_sfx_terms_classified || {}).display_terms) || it.missing_sfx_terms || []).join('、') || '无')}</td>
           </tr>`).join('');
           blocks.push(panel('动作补充单明细', `<table class="table-lite"><thead><tr><th>#</th><th>动作词</th><th>目标版本</th><th>关联语义</th><th>待补充音效词</th></tr></thead><tbody>${rows}</tbody></table><div class="hint" style="margin-top:10px; font-weight:700; color:#9f2f2a;">补充单已经提交系统，待系统完成补充后，会给您手机号发送补足提醒，敬请期待。</div>`));
         }
@@ -4023,35 +1880,41 @@
             </div>
           `);
         }
+        if (!isMusicResult && !isActionVerbResult && userView && userView.title) {
+          blocks.push(panel('文本分析标题', `<div class="kv"><div>标题</div><div>${escHtml(userView.title)}</div></div>`));
+        }
         if (!isMusicResult && !isActionVerbResult && userView && userView.text_theme) {
           blocks.push(panel('文本主情绪与叙事方向', `<div>${escHtml(userView.text_theme)}</div>`));
         }
         const fitTextFromReport = !isMusicResult && !isActionVerbResult && userView && typeof userView.fit_with_music === 'object' ? userView.fit_with_music : null;
+        if (fitTextFromReport) {
+          const score = Number(fitTextFromReport.score || 0);
+          const verdict = fitTextFromReport.verdict || '未判定';
+          const reasons = Array.isArray(fitTextFromReport.reasons) ? fitTextFromReport.reasons.map(x => `<li>${escHtml(x)}</li>`).join('') : '';
+          blocks.push(panel('文本与音乐适配结论', `
+            <div class="kv"><div>结论</div><div><strong>${escHtml(verdict)}</strong></div></div>
+            <div class="kv"><div>适配评分</div><div>${score}/100</div></div>
+            ${reasons ? `<ul>${reasons}</ul>` : ''}
+          `));
+        }
         const fitFromReport = userView ? userView.fit_verdict : null;
-        const fitPanelData = (data.fit && typeof data.fit === 'object')
-          ? {
-              verdict: data.fit.verdict || '未判定',
-              score: Number(data.fit.fit_score || 0),
-              reasons: Array.isArray(data.fit.reasons) ? data.fit.reasons : [],
-            }
-          : (fitFromReport && typeof fitFromReport === 'object')
-            ? {
-                verdict: fitFromReport.verdict || '未判定',
-                score: Number(fitFromReport.score || 0),
-                reasons: Array.isArray(fitFromReport.reasons) ? fitFromReport.reasons : [],
-              }
-            : (fitTextFromReport && typeof fitTextFromReport === 'object')
-              ? {
-                  verdict: fitTextFromReport.verdict || '未判定',
-                  score: Number(fitTextFromReport.score || 0),
-                  reasons: Array.isArray(fitTextFromReport.reasons) ? fitTextFromReport.reasons : [],
-                }
-              : null;
-        if (fitPanelData) {
-          const reasons = fitPanelData.reasons.map(x => `<li>${escHtml(x)}</li>`).join('');
+        if (fitFromReport && typeof fitFromReport === 'object') {
+          const score = Number(fitFromReport.score || 0);
+          const verdict = fitFromReport.verdict || '未判定';
+          const reasons = Array.isArray(fitFromReport.reasons) ? fitFromReport.reasons.map(x => `<li>${escHtml(x)}</li>`).join('') : '';
           blocks.push(panel('音乐与文本适配结论', `
-            <div class="kv"><div>结论</div><div><strong>${escHtml(fitPanelData.verdict)}</strong></div></div>
-            <div class="kv"><div>适配评分</div><div>${fitPanelData.score}/100</div></div>
+            <div class="kv"><div>结论</div><div><strong>${escHtml(verdict)}</strong></div></div>
+            <div class="kv"><div>适配评分</div><div>${score}/100</div></div>
+            ${reasons ? `<ul>${reasons}</ul>` : ''}
+          `));
+        }
+        if (data.fit && typeof data.fit === 'object') {
+          const score = Number(data.fit.fit_score || 0);
+          const verdict = data.fit.verdict || '未判定';
+          const reasons = Array.isArray(data.fit.reasons) ? data.fit.reasons.map(x => `<li>${escHtml(x)}</li>`).join('') : '';
+          blocks.push(panel('音乐与文本适配结论', `
+            <div class="kv"><div>结论</div><div><strong>${escHtml(verdict)}</strong></div></div>
+            <div class="kv"><div>适配评分</div><div>${score}/100</div></div>
             ${reasons ? `<ul>${reasons}</ul>` : ''}
           `));
         }
@@ -4189,78 +2052,18 @@
         renderLlmDebug(data);
       }
 
-      function setBusy(busy, label, options = {}) {
+      function setBusy(busy, label) {
         uiBusy = busy;
         const buttons = document.querySelectorAll('button');
-        buttons.forEach(btn => {
-          if (btn.closest('#busyOverlay')) return;
-          btn.disabled = busy;
-        });
+        buttons.forEach(btn => { btn.disabled = busy; });
         const tip = document.getElementById('busyTip');
-        const overlay = document.getElementById('busyOverlay');
-        const overlayLabel = document.getElementById('busyOverlayLabel');
-        if (busyResolveTimer) {
-          clearTimeout(busyResolveTimer);
-          busyResolveTimer = null;
-        }
         if (busy) {
           tip.style.display = 'block';
           tip.textContent = label ? `处理中：${label}` : '处理中，请稍候...';
-          const shouldShowOverlay = options.showOverlay !== false;
-          if (overlay && shouldShowOverlay && !isBusyOverlayHiddenToday()) {
-            overlay.classList.remove('resolved');
-            overlay.classList.add('active');
-            overlay.setAttribute('aria-hidden', 'false');
-          }
-          if (overlayLabel) {
-            overlayLabel.textContent = label ? `飞镖仍在途中，系统正在完成「${label}」的分析。` : '飞镖仍在途中，请稍候片刻。';
-          }
         } else {
           tip.style.display = 'none';
           tip.textContent = '处理中，请稍候...';
-          if (overlay) {
-            overlay.classList.add('resolved');
-            busyResolveTimer = window.setTimeout(() => {
-              overlay.classList.remove('active', 'resolved');
-              overlay.setAttribute('aria-hidden', 'true');
-            }, 820);
-          }
         }
-      }
-      function currentBusyOverlayHideKey() {
-        const phone = String(authPhone || 'guest').trim() || 'guest';
-        return `mfa_busy_overlay_hide_until_${phone}`;
-      }
-      function isBusyOverlayHiddenToday() {
-        try {
-          const raw = localStorage.getItem(currentBusyOverlayHideKey()) || '';
-          if (!raw) return false;
-          return Date.now() < Number(raw || 0);
-        } catch (_) {
-          return false;
-        }
-      }
-      function hideBusyOverlay() {
-        const overlay = document.getElementById('busyOverlay');
-        if (!overlay) return;
-        overlay.classList.remove('active', 'resolved');
-        overlay.setAttribute('aria-hidden', 'true');
-      }
-      function dismissBusyOverlayOnce() {
-        hideBusyOverlay();
-      }
-      function dismissBusyOverlayUntilTomorrow() {
-        try {
-          const now = new Date();
-          const endOfToday = new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            now.getDate(),
-            23, 59, 59, 999
-          ).getTime();
-          localStorage.setItem(currentBusyOverlayHideKey(), String(endOfToday));
-        } catch (_) {}
-        hideBusyOverlay();
       }
 
       async function readApiResponse(res) {
@@ -4280,14 +2083,14 @@
         const requiresLogin = options.requiresLogin !== false;
         if (requiresLogin && !ensureLoggedInForFeature()) return;
         if (uiBusy) return show('已有任务在执行，请稍候完成');
-        setBusy(true, label, options);
+        setBusy(true, label);
         show(`正在执行：${label}`);
         try {
           await fn();
         } catch (e) {
           show(`执行失败：${label}\n${e.message || e}`);
         } finally {
-          setBusy(false, '', options);
+          setBusy(false);
         }
       }
 
@@ -4305,82 +2108,10 @@
         const policy = document.getElementById('loginPolicyHint');
         if (policy) {
           policy.textContent = authSettings && authSettings.invite_only_enabled
-            ? '测试期间仅邀请码用户可激活使用。邀请码激活后即刻失效；推荐码请填写推荐人的 UID。'
-            : '邀请码测试已关闭，可正常注册登录；推荐码请填写推荐人的 UID。';
+            ? '测试期间仅邀请码用户可激活使用。邀请码激活后即刻失效；推荐码可填写 UID 或手机号。'
+            : '邀请码测试已关闭，可正常注册登录；推荐码可填写 UID 或手机号。';
         }
-        renderReferralShareBox();
         updateFeatureGateUI();
-      }
-
-      function goUserCenter() {
-        window.location.href = '/user_center.html';
-      }
-
-      function goWorksShowcase() {
-        window.location.href = '/user_center.html#works';
-      }
-
-      function buildReferralShortLink(uid) {
-        const value = normalizeUidInput(uid || '');
-        if (!value) return '';
-        return `${window.location.origin}${window.location.pathname}?ru=${encodeURIComponent(value)}`;
-      }
-
-      function renderReferralShareBox() {
-        const shell = document.getElementById('referralShareBox');
-        const toggle = document.getElementById('referralShareToggle');
-        const uidInput = document.getElementById('myReferralUid');
-        const linkInput = document.getElementById('myReferralLink');
-        const rewardHint = document.getElementById('referralRewardHint');
-        if (!shell || !toggle || !uidInput || !linkInput) return;
-        const uid = normalizeUidInput(authUser && authUser.uid ? authUser.uid : '');
-        if (!authToken || !uid) {
-          shell.style.display = 'none';
-          shell.dataset.expanded = '0';
-          toggle.style.display = 'none';
-          toggle.classList.remove('open');
-          uidInput.value = '';
-          linkInput.value = '';
-          return;
-        }
-        const reward = authSettings && authSettings.referral_reward ? authSettings.referral_reward : {};
-        const sfx = Number(reward.sfx_download_pack_reward || 0);
-        const text = Number(reward.text_char_pack_reward || 0);
-        toggle.style.display = 'inline-flex';
-        if (!shell.dataset.expanded) shell.dataset.expanded = '0';
-        shell.style.display = shell.dataset.expanded === '1' ? '' : 'none';
-        toggle.classList.toggle('open', shell.dataset.expanded === '1');
-        uidInput.value = uid;
-        linkInput.value = buildReferralShortLink(uid);
-        if (rewardHint) {
-          rewardHint.textContent = `每成功推荐 1 位新用户，可获得 ${sfx} 次音效下载次数和 ${text} 字文字奖励。`;
-        }
-      }
-
-      function toggleReferralShareBox() {
-        const shell = document.getElementById('referralShareBox');
-        const toggle = document.getElementById('referralShareToggle');
-        if (!shell || !toggle || toggle.style.display === 'none') return;
-        const opening = String(shell.dataset.expanded || '0') !== '1';
-        shell.dataset.expanded = opening ? '1' : '0';
-        shell.style.display = opening ? '' : 'none';
-        toggle.classList.toggle('open', opening);
-      }
-
-      async function copyReferralLink() {
-        const input = document.getElementById('myReferralLink');
-        const value = String(input && input.value || '').trim();
-        if (!value) return show('当前还没有可复制的推荐短链');
-        try {
-          await navigator.clipboard.writeText(value);
-          show({ ok: true, detail: '推荐短链已复制，可直接发给好友注册使用。' });
-        } catch (_) {
-          if (input) {
-            input.focus();
-            input.select();
-          }
-          show({ ok: true, detail: '推荐短链已选中，请手动复制。' });
-        }
       }
 
       function updateFeatureGateUI() {
@@ -4420,33 +2151,6 @@
 
       function escAttr(s) {
         return escHtml(s);
-      }
-
-      function stripUserFacingAssetQualifier(name) {
-        const value = String(name || '').trim();
-        if (!value) return '';
-        return value.replace(/（(?:整体|直达)-(?:玄幻|言情|悬疑|科幻)）/g, '').trim();
-      }
-
-      function buildReadableAssetFileName(asset) {
-        const item = asset && typeof asset === 'object' ? asset : {};
-        const rawDisplay = String(item.file_display_name || item.file_name || '').trim();
-        const displayName = stripUserFacingAssetQualifier(String(item.display_name || item.label || '').trim());
-        const sourceLabel = String(item.source_label || '').trim();
-        if (!sourceLabel.includes('由用户更优推荐')) {
-          return stripUserFacingAssetQualifier(rawDisplay);
-        }
-        const suffixMatch = rawDisplay.match(/\.[a-z0-9]+$/i);
-        const suffix = suffixMatch ? suffixMatch[0] : '.mp3';
-        const prettyBase = displayName || stripUserFacingAssetQualifier(rawDisplay.replace(/\.[a-z0-9]+$/i, ''));
-        return prettyBase ? `${prettyBase}（由用户更优推荐）${suffix}` : rawDisplay;
-      }
-
-      function renderAssetSourceLabel(sourceLabel) {
-        const value = String(sourceLabel || '').trim();
-        if (!value) return '';
-        const klass = value.includes('由用户更优推荐') ? 'source-badge source-badge-user' : 'source-badge';
-        return `<div class="${klass}">${escHtml(value)}</div>`;
       }
 
       function describeFusionEvidenceChain(chain) {
@@ -4511,19 +2215,20 @@
         }, { requiresLogin: false });
       }
 
-      async function loginAccount() {
+      async function loginByCode() {
         const phone = normalizePhoneInput((document.getElementById('loginPhone').value || '').trim());
-        const password = (document.getElementById('loginPassword').value || '').trim();
+        const code = (document.getElementById('loginCode').value || '').trim();
         const invite_code = (document.getElementById('inviteCode').value || '').trim();
+        const uid = (document.getElementById('userUid').value || '').trim();
         const referral_code = (document.getElementById('referralCode').value || '').trim();
         document.getElementById('loginPhone').value = phone;
-        if (!phone || !password) return show('请输入手机号和密码');
+        if (!phone || !code) return show('请输入手机号和验证码');
         if (!isValidPhoneInput(phone)) return show('请输入有效的11位手机号');
-        await runAction('密码登录', async () => {
+        await runAction('手机号登录', async () => {
           const res = await apiFetch(`${apiBase()}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, password, invite_code, referral_code }),
+            body: JSON.stringify({ phone, code, invite_code, uid, referral_code }),
           });
           const data = await readApiResponse(res);
           authToken = data.token || '';
@@ -4533,94 +2238,6 @@
           localStorage.setItem('mfa_auth_phone', authPhone);
           updateLoginState();
           show(data);
-        }, { requiresLogin: false });
-      }
-
-      async function registerAccount() {
-        const phone = normalizePhoneInput((document.getElementById('loginPhone').value || '').trim());
-        const code = (document.getElementById('loginCode').value || '').trim() || '111111';
-        const password = (document.getElementById('loginPassword').value || '').trim();
-        const uid = normalizeUidInput((document.getElementById('userUid').value || '').trim());
-        const invite_code = (document.getElementById('inviteCode').value || '').trim();
-        const referral_code = (document.getElementById('referralCode').value || '').trim();
-        document.getElementById('loginPhone').value = phone;
-        document.getElementById('loginCode').value = code;
-        document.getElementById('userUid').value = uid;
-        if (!phone || !password || !uid) return show('注册需要填写手机号、UID 和密码');
-        if (!isValidPhoneInput(phone)) return show('请输入有效的11位手机号');
-        await runAction('注册账号', async () => {
-          const res = await apiFetch(`${apiBase()}/auth/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, code, password, uid, invite_code, referral_code }),
-          });
-          const data = await readApiResponse(res);
-          authToken = data.token || '';
-          authPhone = data.user?.phone || phone;
-          authUser = data.user || null;
-          localStorage.setItem('mfa_auth_token', authToken);
-          localStorage.setItem('mfa_auth_phone', authPhone);
-          updateLoginState();
-          show(data);
-        }, { requiresLogin: false });
-      }
-
-      async function resetPassword() {
-        const phone = normalizePhoneInput((document.getElementById('loginPhone').value || '').trim());
-        const code = (document.getElementById('loginCode').value || '').trim() || '111111';
-        const password = (document.getElementById('loginPassword').value || '').trim();
-        document.getElementById('loginPhone').value = phone;
-        document.getElementById('loginCode').value = code;
-        if (!phone || !password) return show('找回密码需要填写手机号和新密码');
-        if (!isValidPhoneInput(phone)) return show('请输入有效的11位手机号');
-        await runAction('找回密码', async () => {
-          const res = await apiFetch(`${apiBase()}/auth/reset-password`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, code, password }),
-          });
-          const data = await readApiResponse(res);
-          show(data);
-        }, { requiresLogin: false });
-      }
-
-      function normalizeUidInput(raw) {
-        return String(raw || '').replace(/\D/g, '').slice(0, 32);
-      }
-
-      function applyReferralCodeFromQuery() {
-        try {
-          const url = new URL(window.location.href);
-          const raw = url.searchParams.get('ru') || url.searchParams.get('ref_uid') || '';
-          const uid = normalizeUidInput(raw);
-          if (!uid) return;
-          const input = document.getElementById('referralCode');
-          if (input && !String(input.value || '').trim()) {
-            input.value = uid;
-          }
-        } catch (_) {}
-      }
-
-      async function changeUid() {
-        const phone = normalizePhoneInput((document.getElementById('loginPhone').value || '').trim());
-        const code = (document.getElementById('loginCode').value || '').trim() || '111111';
-        const uid = normalizeUidInput((document.getElementById('userUid').value || '').trim());
-        document.getElementById('loginPhone').value = phone;
-        document.getElementById('loginCode').value = code;
-        document.getElementById('userUid').value = uid;
-        if (!authToken) return show('请先登录后再修改 UID');
-        if (!phone || !uid) return show('修改 UID 需要填写当前登录手机号和新的 UID');
-        if (!isValidPhoneInput(phone)) return show('请输入有效的11位手机号');
-        await runAction('修改UID', async () => {
-          const res = await apiFetch(`${apiBase()}/auth/change-uid`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, code, uid }),
-          });
-          const data = await readApiResponse(res);
-          authUser = { ...(authUser || {}), ...(data.user || {}) };
-          show(data);
-          updateLoginState();
         }, { requiresLogin: false });
       }
 
@@ -4665,9 +2282,10 @@
         box.innerHTML = list.map((item) => `
           <div class="panel">
             <div style="font-weight:700;">${escHtml(item.title || '-')}</div>
-            <div class="hint" style="margin-top:4px;">${escHtml(item.genre || '')} ｜ ${escHtml(item.user_phone || '')}</div>
+            <div class="hint" style="margin-top:4px;">${escHtml(item.genre || '')} ｜ ${escHtml(item.role_label || '创作者')} ｜ ${escHtml(item.user_phone || '')}</div>
             <div style="margin-top:6px; line-height:1.7;">${escHtml(item.summary || '')}</div>
-            ${item.sample_file_name && item.sample_download_api ? `<div style="margin-top:8px;"><a href="${escHtml(item.sample_download_api)}" download style="display:inline-block; padding:7px 12px; border-radius:999px; background:#8d2b20; color:#fff; text-decoration:none; font-size:12px; font-weight:700;">下载作品文件</a><div class="hint" style="margin-top:6px;">文件：${escHtml(item.sample_file_name)}</div></div>` : ''}
+            <div style="margin-top:6px;">${(Array.isArray(item.skills) ? item.skills : []).map((skill) => `<span class="pill">${escHtml(skill)}</span>`).join('')}</div>
+            ${(item.sample_link || item.sample_file_name) ? `<div class="hint" style="margin-top:6px;">样片：${escHtml(item.sample_link || item.sample_file_name)}</div>` : ''}
           </div>
         `).join('');
       }
@@ -4860,7 +2478,7 @@
           document.getElementById('projectId').textContent = projectId;
           document.getElementById('projectGenreState').textContent = data.genre || genre || '-';
           show(data);
-        }, { showOverlay: false });
+        });
       }
 
       async function uploadAudio() {
@@ -4880,12 +2498,7 @@
       async function analyzeMusicMatch() {
         if (!projectId) return show('请先创建项目');
         await runAction('判断是否适合作品', async () => {
-          const llmProviderOverride = currentLlmProviderOverride();
-          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/music-match`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(llmProviderOverride ? { llm_provider_override: llmProviderOverride } : {}),
-          });
+          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/music-match`, { method: 'POST' });
           show(await readApiResponse(res));
         });
       }
@@ -5087,10 +2700,10 @@
 
       async function fetchReport() {
         if (!projectId) return show('请先创建项目');
-        await _download(
-          `${apiBase()}/analysis/${projectId}/export?type=action_asset_xlsx`,
-          `project_${projectId}_action_asset.xlsx`
-        );
+        await runAction('拉取完整报告', async () => {
+          const res = await apiFetch(`${apiBase()}/analysis/${projectId}/report`);
+          show(await readApiResponse(res));
+        });
       }
 
       async function _download(url, fallbackName) {
@@ -5309,9 +2922,6 @@
 
       updateFeatureGateUI();
       updateLeaderboardTabs();
-      applyReferralCodeFromQuery();
       syncAuthBootstrap();
       refreshSceneActionButtons();
-    </script>
-  </body>
-</html>
+    

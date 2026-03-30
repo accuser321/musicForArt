@@ -1,1369 +1,4 @@
-<!doctype html>
-<html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Music For Art · 后台管理</title>
-    <style>
-      :root {
-        --bg: #07101f;
-        --panel: #0f1d35;
-        --line: #22406d;
-        --ink: #e6f0ff;
-        --muted: #9eb5d8;
-        --accent: #1ec8ff;
-        --accent2: #00e7b6;
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
-        color: var(--ink);
-        background:
-          radial-gradient(1200px 500px at 90% -10%, #14365e 0%, transparent 60%),
-          radial-gradient(900px 380px at -20% 110%, #0a3f58 0%, transparent 55%),
-          var(--bg);
-      }
-      .wrap { max-width: 1280px; margin: 20px auto; padding: 0 14px; }
-      .top {
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        background: linear-gradient(120deg, #0b1a32, #11284a);
-        padding: 14px;
-        margin-bottom: 14px;
-      }
-      h1 { margin: 0 0 8px; font-size: 22px; letter-spacing: 1px; }
-      .muted { color: var(--muted); font-size: 12px; }
-      .row { display: flex; gap: 10px; flex-wrap: wrap; }
-      .cell { flex: 1 1 220px; }
-      input, button, select, textarea {
-        width: 100%;
-        border: 1px solid var(--line);
-        background: #0a1830;
-        color: var(--ink);
-        border-radius: 8px;
-        padding: 10px;
-      }
-      button {
-        cursor: pointer;
-        background: linear-gradient(90deg, var(--accent), var(--accent2));
-        color: #062235;
-        font-weight: 700;
-        border: none;
-      }
-      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-      .wide { grid-column: 1 / -1; }
-      .card {
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        background: rgba(14, 30, 56, 0.9);
-        padding: 12px;
-      }
-      .card h3 { margin: 0 0 10px; font-size: 15px; }
-      pre {
-        margin: 0;
-        padding: 10px;
-        background: #071325;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        min-height: 180px;
-        max-height: 540px;
-        overflow: auto;
-        white-space: pre-wrap;
-      }
-      table { width: 100%; border-collapse: collapse; font-size: 12px; }
-      th, td { border: 1px solid var(--line); padding: 8px; text-align: left; vertical-align: top; }
-      .tag { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; margin-right: 4px; color: var(--muted); }
-      .pill { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid var(--line); margin:2px 4px 2px 0; color:var(--ink); }
-      .supp-table-wrap { overflow:auto; max-height: 640px; border:1px solid var(--line); border-radius:8px; }
-      .supp-group { border:1px solid var(--line); border-radius:12px; padding:10px; background:#0b1730; margin-bottom:12px; }
-      .supp-group-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:10px; flex-wrap:wrap; }
-      .supp-group-title { font-size:15px; font-weight:700; }
-      .supp-group-meta { color:var(--muted); font-size:12px; }
-      .supp-actions { display:flex; gap:6px; flex-direction:column; min-width:220px; }
-      .term-block { border:1px solid var(--line); border-radius:8px; padding:8px; margin-bottom:8px; background:#0b1730; }
-      .term-title { font-weight:700; margin-bottom:6px; }
-      .muted-sm { color: var(--muted); font-size: 11px; }
-      .supp-actions input[type="file"] { padding:6px; }
-      .stats { display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap:10px; margin-top:10px; margin-bottom:10px; }
-      .stat { border:1px solid var(--line); border-radius:10px; padding:10px; background:#0a1830; }
-      .stat.clickable { cursor:pointer; transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; }
-      .stat.clickable:hover { transform: translateY(-1px); border-color: var(--accent); box-shadow: 0 0 0 1px rgba(30,200,255,.25); }
-      .stat .k { color:var(--muted); font-size:11px; margin-bottom:4px; }
-      .stat .v { font-size:22px; font-weight:700; }
-      .status-bar { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
-      .status-chip { border:1px solid var(--line); border-radius:999px; padding:4px 10px; color:var(--muted); font-size:12px; }
-      .layer-state-grid {
-        display:grid;
-        grid-template-columns: repeat(2, minmax(180px, 1fr));
-        gap:10px;
-        margin-top:8px;
-      }
-      .layer-state-card {
-        border:1px solid var(--line);
-        border-radius:12px;
-        padding:10px 12px;
-        background:#0b1730;
-      }
-      .layer-state-card .k {
-        color:var(--muted);
-        font-size:11px;
-        margin-bottom:6px;
-      }
-      .layer-state-card .v {
-        font-size:16px;
-        font-weight:700;
-      }
-      .layer-state-card.active {
-        border-color:#3db995;
-        background:linear-gradient(180deg, rgba(36,185,157,.18), rgba(11,23,48,.92));
-        box-shadow:0 0 0 1px rgba(36,185,157,.2);
-      }
-      .layer-state-card.inactive {
-        border-color:#8a6672;
-        background:linear-gradient(180deg, rgba(159,47,42,.12), rgba(11,23,48,.92));
-      }
-      .layer-state-card .state-tip {
-        margin-top:6px;
-        font-size:11px;
-        line-height:1.5;
-        color:var(--muted);
-      }
-      .term-state-list { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
-      .term-state {
-        display:inline-flex; align-items:center; gap:6px; padding:4px 10px;
-        border:1px solid var(--line); border-radius:999px; background:#0f213f; color:var(--ink); font-size:12px;
-      }
-      .term-state.pending { border-color:#90743b; background:#231c0c; }
-      .term-state.covered { border-color:#2f8f66; background:#0d2119; }
-      .term-icon {
-        width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center;
-        font-size:11px; font-weight:700;
-      }
-      .term-state.pending .term-icon { background:#624d1b; color:#fff3d8; }
-      .term-state.covered .term-icon { background:#196746; color:#e8fff5; }
-      .link-btn { width:auto; display:inline-block; padding:6px 10px; font-size:12px; border-radius:8px; cursor:pointer; background:#11284a; color:var(--ink); border:1px solid var(--line); }
-      .verb-cell strong { font-size:14px; }
-      .progress-box { min-width:140px; }
-      .progress-line { height:8px; background:#081223; border-radius:999px; border:1px solid var(--line); overflow:hidden; margin:6px 0; }
-      .progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); }
-      .supp-debug { min-height: 100px; max-height: 220px; }
-      .graph-detail { border:1px solid var(--line); border-radius:12px; padding:12px; background:#0a1830; margin-top:10px; }
-      .graph-detail h4 { margin:0 0 10px; font-size:15px; }
-      .graph-two-col { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:10px; }
-      .view-switch { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
-      .view-chip { width:auto; display:inline-block; padding:6px 12px; font-size:12px; border-radius:999px; cursor:pointer; background:#0b1730; color:var(--ink); border:1px solid var(--line); }
-      .view-chip.active { background:linear-gradient(90deg, rgba(30,200,255,.18), rgba(0,231,182,.18)); border-color:#4ddcff; }
-      .graph-browser {
-        margin-top:10px; border:1px solid var(--line); border-radius:12px; padding:14px;
-        background:
-          radial-gradient(500px 220px at 50% 10%, rgba(30,200,255,.08) 0%, transparent 70%),
-          #081425;
-      }
-      .graph-stage {
-        display:grid; grid-template-columns: 1fr minmax(220px, 280px) 1fr; gap:14px; align-items:start;
-      }
-      .graph-lane { border:1px solid rgba(34,64,109,.7); border-radius:12px; padding:10px; background:rgba(9,23,44,.78); min-height:180px; }
-      .graph-lane h5 { margin:0 0 8px; font-size:13px; color:var(--muted); }
-      .graph-center {
-        border:1px solid #3d78be; border-radius:16px; padding:14px; text-align:center;
-        background:linear-gradient(180deg, rgba(30,200,255,.12), rgba(0,231,182,.08));
-        box-shadow:0 0 0 1px rgba(30,200,255,.18), 0 12px 30px rgba(0,0,0,.18);
-      }
-      .graph-center .node-title { font-size:18px; font-weight:700; }
-      .graph-center .node-sub { color:var(--muted); font-size:12px; margin-top:6px; }
-      .graph-node {
-        border:1px solid var(--line); border-radius:12px; padding:8px 10px; background:#0b1730;
-        margin-bottom:8px;
-      }
-      .graph-node.direct { border-color:#2f7fd8; }
-      .graph-node.composite { border-color:#24b99d; }
-      .graph-node .node-name { font-weight:700; font-size:13px; }
-      .graph-node .node-meta { color:var(--muted); font-size:11px; margin-top:4px; }
-      .asset-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin-top:8px; }
-      .asset-card {
-        border:1px solid var(--line); border-radius:12px; padding:10px; background:#0b1730;
-      }
-      .asset-card .asset-name { font-weight:700; font-size:13px; }
-      .asset-card .asset-meta { color:var(--muted); font-size:11px; margin-top:4px; line-height:1.5; }
-      .asset-card .asset-badges { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
-      .asset-badge { border:1px solid var(--line); border-radius:999px; padding:2px 8px; font-size:11px; color:var(--muted); }
-      .section-box { border:1px solid var(--line); border-radius:12px; padding:10px; background:#0b1730; margin-top:10px; }
-      .section-box h5 { margin:0 0 8px; font-size:13px; color:var(--muted); }
-      .editor-group { border:1px solid rgba(34,64,109,.6); border-radius:10px; padding:10px; background:#091425; margin-top:8px; }
-      .editor-group h6 { margin:0 0 8px; font-size:12px; color:var(--muted); }
-      .term-chip-row { display:flex; flex-wrap:wrap; gap:8px; }
-      .term-chip {
-        display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--line);
-        border-radius:999px; background:#10203c; font-size:12px;
-      }
-      .term-chip button {
-        width:auto; min-width:22px; padding:2px 6px; border-radius:999px; font-size:11px;
-        background:#183154; color:var(--ink);
-      }
-      .mini-action-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
-      .mini-action-row input { flex:1 1 180px; }
-      .ghost-btn {
-        width:auto; display:inline-block; padding:6px 10px; font-size:12px; border-radius:8px; cursor:pointer;
-        background:#11284a; color:var(--ink); border:1px solid var(--line);
-      }
-      .suggestion-list { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-      .suggestion-pill {
-        display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px dashed var(--line);
-        border-radius:999px; background:#0d1a31; font-size:12px; color:var(--muted);
-      }
-      .ops-audit-note {
-        border:1px solid var(--line);
-        border-radius:10px;
-        padding:10px;
-        background:#0a1830;
-        color:var(--muted);
-        font-size:12px;
-        line-height:1.7;
-        margin-bottom:10px;
-      }
-      .ops-section {
-        border:1px solid var(--line);
-        border-radius:10px;
-        padding:10px;
-        background:#0a1830;
-        margin-bottom:10px;
-      }
-      .ops-section h4 {
-        margin:0 0 8px;
-        font-size:13px;
-        color:var(--muted);
-      }
-      .ops-timeline {
-        display:flex;
-        flex-direction:column;
-        gap:10px;
-      }
-      .ops-event-card {
-        border:1px solid var(--line);
-        border-radius:10px;
-        padding:10px;
-        background:#0c1c34;
-      }
-      .ops-event-head {
-        display:flex;
-        justify-content:space-between;
-        gap:10px;
-        flex-wrap:wrap;
-        margin-bottom:6px;
-      }
-      .ops-event-title {
-        font-weight:700;
-        font-size:13px;
-      }
-      .ops-event-meta {
-        color:var(--muted);
-        font-size:12px;
-      }
-      .title-help-wrap {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      .title-help {
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 18px;
-        height: 18px;
-        border-radius: 999px;
-        border: 1px solid rgba(121, 180, 255, 0.45);
-        background: linear-gradient(180deg, rgba(18, 48, 89, 0.92), rgba(9, 24, 48, 0.96));
-        color: #b9d9ff;
-        font-size: 12px;
-        font-weight: 700;
-        cursor: help;
-        box-shadow: 0 4px 14px rgba(7, 15, 28, 0.2);
-      }
-      .title-help-bubble {
-        position: absolute;
-        left: 50%;
-        top: calc(100% + 10px);
-        transform: translateX(-50%);
-        width: min(420px, 78vw);
-        padding: 12px 14px;
-        border-radius: 14px;
-        border: 1px solid rgba(84, 130, 193, 0.42);
-        background: linear-gradient(180deg, rgba(10, 24, 45, 0.98), rgba(8, 18, 35, 0.98));
-        color: #e5eefb;
-        font-size: 12px;
-        line-height: 1.8;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.32);
-        opacity: 0;
-        visibility: hidden;
-        pointer-events: none;
-        transition: opacity .15s ease;
-        z-index: 30;
-        white-space: normal;
-      }
-      .title-help-bubble::before {
-        content: "";
-        position: absolute;
-        left: 50%;
-        top: -8px;
-        transform: translateX(-50%) rotate(45deg);
-        width: 14px;
-        height: 14px;
-        background: rgba(10, 24, 45, 0.98);
-        border-left: 1px solid rgba(84, 130, 193, 0.42);
-        border-top: 1px solid rgba(84, 130, 193, 0.42);
-      }
-      .title-help:hover .title-help-bubble,
-      .title-help:focus-within .title-help-bubble {
-        opacity: 1;
-        visibility: visible;
-      }
-      .title-help-bubble strong {
-        color: #fff5e6;
-      }
-      .inline-help {
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-      }
-      .inline-help summary {
-        list-style: none;
-        width: 18px;
-        height: 18px;
-        border-radius: 999px;
-        border: 1px solid rgba(121, 180, 255, 0.45);
-        background: linear-gradient(180deg, rgba(18, 48, 89, 0.92), rgba(9, 24, 48, 0.96));
-        color: #b9d9ff;
-        font-size: 12px;
-        font-weight: 700;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 4px 14px rgba(7, 15, 28, 0.2);
-        user-select: none;
-      }
-      .inline-help summary::-webkit-details-marker {
-        display: none;
-      }
-      .inline-help-pop {
-        position: absolute;
-        left: 50%;
-        top: calc(100% + 10px);
-        transform: translateX(-50%);
-        width: min(420px, 78vw);
-        padding: 12px 14px;
-        border-radius: 14px;
-        border: 1px solid rgba(84, 130, 193, 0.42);
-        background: linear-gradient(180deg, rgba(10, 24, 45, 0.98), rgba(8, 18, 35, 0.98));
-        color: #e5eefb;
-        font-size: 12px;
-        line-height: 1.8;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.32);
-        z-index: 30;
-        white-space: normal;
-      }
-      .inline-help-pop::before {
-        content: "";
-        position: absolute;
-        left: 50%;
-        top: -8px;
-        transform: translateX(-50%) rotate(45deg);
-        width: 14px;
-        height: 14px;
-        background: rgba(10, 24, 45, 0.98);
-        border-left: 1px solid rgba(84, 130, 193, 0.42);
-        border-top: 1px solid rgba(84, 130, 193, 0.42);
-      }
-      .inline-help-pop strong {
-        color: #fff5e6;
-      }
-      .ops-event-summary {
-        font-size:12px;
-        line-height:1.7;
-      }
-      .fallback-monitor-grid {
-        display:grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap:12px;
-        margin-top:10px;
-      }
-      .fallback-monitor-card {
-        border:1px solid var(--line);
-        border-radius:12px;
-        padding:12px;
-        background:linear-gradient(180deg, rgba(13,28,49,.96), rgba(9,19,37,.98));
-      }
-      .fallback-monitor-head {
-        display:flex;
-        justify-content:space-between;
-        gap:8px;
-        flex-wrap:wrap;
-        align-items:flex-start;
-      }
-      .fallback-monitor-title {
-        font-size:15px;
-        font-weight:700;
-      }
-      .fallback-monitor-meta {
-        color:var(--muted);
-        font-size:11px;
-        line-height:1.7;
-      }
-      .fallback-monitor-card textarea {
-        min-height:76px;
-      }
-      .fallback-inline-feedback {
-        margin-top:8px;
-        padding:8px 10px;
-        border-radius:10px;
-        border:1px solid var(--line);
-        font-size:12px;
-        line-height:1.6;
-        background:#0c1c34;
-      }
-      .fallback-inline-feedback.success {
-        border-color:#2f8f66;
-        background:#0d2119;
-        color:#e8fff5;
-      }
-      .fallback-inline-feedback.error {
-        border-color:#9b4c4c;
-        background:#271314;
-        color:#ffe7e7;
-      }
-      .fallback-inline-feedback.info {
-        border-color:#2d4f80;
-        background:#0c1c34;
-        color:#d9ecff;
-      }
-      .field-disabled-note {
-        color:var(--muted);
-        font-size:11px;
-        margin-top:4px;
-      }
-      .fallback-rule-list {
-        display:flex;
-        flex-wrap:wrap;
-        gap:6px;
-      }
-      .fallback-rule-chip {
-        display:inline-flex;
-        align-items:center;
-        gap:6px;
-        padding:6px 10px;
-        border:1px dashed var(--line);
-        border-radius:999px;
-        background:#0d1a31;
-        color:var(--muted);
-        font-size:12px;
-      }
-      .fallback-rule-chip.safe {
-        border-color:#2f8f66;
-        background:rgba(13, 33, 25, 0.95);
-        color:#e8fff5;
-      }
-      .fallback-rule-chip.warn,
-      .fallback-rule-chip.danger {
-        border-color:#b56a6a;
-        background:rgba(47, 20, 22, 0.95);
-        color:#ffe6e6;
-      }
-      .risk-title {
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:10px;
-      }
-      .risk-badge {
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        width:24px;
-        height:24px;
-        border-radius:999px;
-        background:linear-gradient(135deg, #ffb84d, #ff6b57);
-        color:#fff8ef;
-        font-size:14px;
-        font-weight:800;
-        box-shadow:0 4px 14px rgba(255,107,87,.24);
-      }
-      .alert-banner {
-        border:1px solid #6c2b2b;
-        border-radius:12px;
-        background:linear-gradient(135deg, rgba(63, 16, 16, 0.96), rgba(26, 7, 7, 0.98));
-        padding:12px;
-        margin-bottom:14px;
-      }
-      .alert-banner.ok {
-        border-color:#24564c;
-        background:linear-gradient(135deg, rgba(11, 44, 39, 0.96), rgba(7, 22, 20, 0.98));
-      }
-      .alert-banner-head {
-        display:flex;
-        justify-content:space-between;
-        gap:10px;
-        flex-wrap:wrap;
-        align-items:center;
-      }
-      .alert-banner-title {
-        display:flex;
-        align-items:center;
-        gap:10px;
-        font-size:15px;
-        font-weight:700;
-      }
-      .alert-dot {
-        width:14px;
-        height:14px;
-        border-radius:999px;
-        background:#ff5f5f;
-        box-shadow:0 0 0 4px rgba(255,95,95,.16);
-      }
-      .alert-banner.ok .alert-dot {
-        background:#39d7a5;
-        box-shadow:0 0 0 4px rgba(57,215,165,.14);
-      }
-      .alert-banner-list {
-        display:grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap:8px;
-        margin-top:10px;
-      }
-      .alert-banner-item {
-        border:1px dashed rgba(255,255,255,.12);
-        border-radius:10px;
-        background:rgba(255,255,255,.03);
-        padding:10px;
-      }
-      .ops-kv-list {
-        display:grid;
-        grid-template-columns: 120px 1fr;
-        gap:6px 10px;
-        font-size:12px;
-      }
-      .ops-kv-list .k {
-        color:var(--muted);
-      }
-      .ops-bar-row {
-        display:flex;
-        align-items:center;
-        gap:10px;
-        margin:8px 0;
-      }
-      .ops-bar-label {
-        width:200px;
-        font-size:12px;
-        color:var(--ink);
-      }
-      .ops-bar-track {
-        flex:1;
-        height:10px;
-        border-radius:999px;
-        border:1px solid var(--line);
-        background:#081223;
-        overflow:hidden;
-      }
-      .ops-bar-fill {
-        height:100%;
-        background:linear-gradient(90deg, var(--accent), var(--accent2));
-      }
-      .ops-bar-value {
-        width:110px;
-        text-align:right;
-        font-size:12px;
-        color:var(--muted);
-      }
-      .ops-inline-detail {
-        margin-top:4px;
-        font-size:11px;
-        color:var(--muted);
-      }
-      .ops-pager {
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:10px;
-        flex-wrap:wrap;
-        margin-bottom:10px;
-      }
-      .creator-showcase-pager {
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:14px;
-        margin-top:12px;
-        padding-top:10px;
-        border-top:1px solid rgba(116, 143, 189, 0.18);
-      }
-      .creator-showcase-pager .ghost-btn {
-        min-width:108px;
-      }
-      .creator-showcase-pager .muted-sm {
-        flex:1 1 auto;
-        text-align:center;
-      }
-      .ops-pager-info {
-        color:var(--muted);
-        font-size:12px;
-      }
-      .review-card-approved {
-        border:1px solid rgba(70, 169, 106, 0.45);
-        background:linear-gradient(180deg, rgba(21, 55, 36, 0.96), rgba(15, 39, 27, 0.96));
-        box-shadow:inset 0 0 0 1px rgba(105, 201, 137, 0.08);
-      }
-      .review-card-rejected {
-        border:1px solid rgba(145, 153, 168, 0.4);
-        background:linear-gradient(180deg, rgba(45, 49, 58, 0.96), rgba(31, 34, 41, 0.96));
-        box-shadow:inset 0 0 0 1px rgba(171, 180, 196, 0.06);
-      }
-      .status-accent-approved {
-        color:#8ef0ad;
-      }
-      .status-accent-rejected {
-        color:#d3d8e3;
-      }
-      .leader-admin-box {
-        border:1px solid var(--line);
-        border-radius:10px;
-        background:#0a1830;
-        padding:10px;
-        margin-top:10px;
-      }
-      .leader-admin-board {
-        border:1px solid var(--line);
-        border-radius:10px;
-        background:#0c1c34;
-        padding:10px;
-        margin-top:10px;
-      }
-      .leader-admin-board h4 {
-        margin:0 0 8px;
-        font-size:13px;
-      }
-      .leader-admin-item {
-        border:1px solid #1f3557;
-        border-radius:10px;
-        padding:10px;
-        background:#0b1730;
-        margin-top:8px;
-      }
-      .leader-admin-item-head {
-        display:flex;
-        justify-content:space-between;
-        gap:10px;
-        flex-wrap:wrap;
-        margin-bottom:8px;
-        font-size:12px;
-      }
-      .leader-admin-rank {
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        width:24px;
-        height:24px;
-        border-radius:999px;
-        background:#123256;
-        color:#e6f0ff;
-        font-weight:700;
-      }
-      .priority-high { border-color:#2a8fcb; background:#0b2137; }
-      .priority-normal { border-color:#37506f; }
-      .result-banner {
-        border: 1px solid #2a8fcb;
-        background: rgba(18, 52, 86, 0.85);
-        color: var(--ink);
-        border-radius: 10px;
-        padding: 10px;
-        margin-top: 10px;
-      }
-      .note-prefix,
-      .result-banner,
-      .operator-tip {
-        position: relative;
-      }
-      .note-prefix::before,
-      .result-banner::before,
-      .operator-tip::before {
-        content: "▲!";
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 28px;
-        height: 20px;
-        margin-right: 8px;
-        border-radius: 999px;
-        font-size: 11px;
-        font-weight: 800;
-        letter-spacing: .2px;
-        color: #fff4d8;
-        background: linear-gradient(135deg, #ffb84d, #ff7a18);
-        box-shadow: 0 0 0 1px rgba(255, 190, 92, .25), 0 4px 12px rgba(255, 122, 24, .18);
-        vertical-align: middle;
-      }
-      .candidate-section-title {
-        margin: 10px 0 6px;
-        font-size: 12px;
-        color: var(--muted);
-      }
-      .explain-box {
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        background: #0b1730;
-        padding: 10px;
-        margin-top: 10px;
-      }
-      .explain-box h5 { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
-      .explain-highlight {
-        display:inline-flex; align-items:center; gap:8px; padding:8px 12px;
-        border-radius:999px; border:1px solid var(--line); font-size:13px; font-weight:700;
-      }
-      .explain-highlight.genre { border-color:#4ddcff; background:rgba(19, 63, 106, 0.9); color:#e8f8ff; }
-      .explain-highlight.common { border-color:#49c58e; background:rgba(15, 58, 39, 0.9); color:#e9fff4; }
-      .explain-highlight.hybrid { border-color:#ddb45a; background:rgba(73, 54, 16, 0.92); color:#fff6db; }
-      .explain-highlight.fallback { border-color:#c7884a; background:rgba(74, 42, 14, 0.92); color:#fff2df; }
-      .operator-tip {
-        margin-top:8px; padding:10px; border-radius:10px; border:1px dashed #46648b; background:rgba(9, 20, 37, 0.92);
-        color:var(--ink); font-size:13px; line-height:1.6;
-      }
-      .doc-anchor-list {
-        display:flex;
-        flex-direction:column;
-        gap:10px;
-      }
-      .doc-anchor-item {
-        border:1px solid var(--line);
-        border-radius:12px;
-        background:#0b1730;
-        padding:10px 12px;
-      }
-      .doc-anchor-path {
-        color:#baf2ff;
-        font-size:12px;
-        font-weight:700;
-        word-break:break-all;
-      }
-      .doc-anchor-name {
-        color:var(--ink);
-        font-size:13px;
-        font-weight:700;
-        margin-top:4px;
-      }
-      .doc-anchor-desc {
-        color:var(--muted);
-        font-size:12px;
-        line-height:1.7;
-        margin-top:4px;
-      }
-      .reason-list { margin: 0; padding-left: 18px; color: var(--ink); font-size: 13px; line-height: 1.6; }
-      .quick-nav {
-        display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-        gap: 8px;
-        margin-top: 10px;
-      }
-      .quick-nav button {
-        padding: 4px 10px;
-        border-radius: 999px;
-        border: 1px solid rgba(86, 119, 166, 0.72);
-        background: rgba(24, 38, 64, 0.58);
-        color: #cfe1ff;
-        font-size: 11px;
-        font-weight: 600;
-        line-height: 1.2;
-      }
-      .quick-nav button:hover {
-        border-color: #6cb6ff;
-        background: rgba(38, 63, 104, 0.72);
-        box-shadow: 0 0 0 1px rgba(108,182,255,.16);
-      }
-      @media (max-width: 980px) {
-        .quick-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      }
-      @media (max-width: 980px) {
-        .graph-stage { grid-template-columns: 1fr; }
-      }
-      @media (max-width: 900px) { .graph-two-col { grid-template-columns:1fr; } }
-      @media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } }
-      @media (max-width: 1200px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <section class="top">
-        <h1>Music For Art · 后台管理系统</h1>
-        <div class="muted">手机号登录 · 用户与测试期管理 · 运营审计与全流程数据下载</div>
-        <div style="margin-top:8px;">
-          <a href="/prompt_graph.html" style="color:#7de8ff; text-decoration:none; border:1px solid #2d4f80; border-radius:8px; padding:6px 10px; display:inline-block;">打开 Prompt 字段图谱</a>
-          <button class="ghost-btn" style="margin-left:8px;" onclick="scrollToFallbackMonitor()">跳到保底生成监控卡</button>
-        </div>
-      </section>
 
-      <section class="card" style="margin-bottom:14px;">
-        <h3>管理员登录</h3>
-        <div class="row">
-          <div class="cell"><input id="apiBase" value="http://127.0.0.1:8010/api" /></div>
-          <div class="cell"><input id="phone" placeholder="管理员手机号" /></div>
-          <div class="cell"><input id="code" placeholder="验证码" /></div>
-          <div class="cell"><button id="sendCodeBtn" onclick="sendCode()">发送验证码</button></div>
-          <div class="cell"><button onclick="login()">登录后台</button></div>
-        </div>
-        <div style="margin-top:8px;">
-          <span class="tag" id="loginState">未登录</span>
-        </div>
-        <div id="adminQuickNav" class="quick-nav">
-          <button onclick="scrollToAdminSection('graphMaintenanceSection')">结构维护：元数据与赛道分配</button>
-          <button onclick="scrollToAdminSection('actionSupplementSection')">动作补充单运营</button>
-          <button onclick="scrollToAdminSection('userSfxReviewSection')">用户音效投稿审核</button>
-          <button onclick="scrollToAdminSection('opsAuditSection')">运营行为审计</button>
-          <button onclick="scrollToAdminSection('userBetaManageSection')">用户与测试期管理</button>
-        </div>
-        <div id="adminAuthHint" class="muted" style="margin-top:8px;">当前为测试登录模式，发送验证码后会在本地直接返回验证码。</div>
-        <pre id="adminAuthOut" style="margin-top:10px;">等待登录操作...</pre>
-      </section>
-
-      <section id="adminRuntimeErrorBanner" class="card" style="display:none; margin-bottom:14px; border-color:#8d3434; background:linear-gradient(180deg, rgba(141,52,52,.18), rgba(34,13,13,.22));">
-        <h3 style="color:#ffd7d7;">管理端运行提示</h3>
-        <div id="adminRuntimeErrorText" class="muted" style="color:#ffd7d7;">等待错误信息...</div>
-      </section>
-
-      <section id="fallbackAlertBanner" class="alert-banner" style="display:none;">
-        <div class="alert-banner-head">
-          <div class="alert-banner-title">
-            <span class="alert-dot"></span>
-            <span id="fallbackAlertTitle">保底生成待办提醒</span>
-          </div>
-          <div class="row" style="margin:0; gap:8px;">
-            <div class="cell" style="flex:0 0 160px;"><button onclick="scrollToFallbackMonitor()">去处理保底生成</button></div>
-            <div class="cell" style="flex:0 0 140px;"><button class="ghost-btn" onclick="loadActionFallbackAlerts(true)">刷新提醒</button></div>
-          </div>
-        </div>
-        <div id="fallbackAlertSummary" class="muted" style="margin-top:8px;">等待登录后检查待办...</div>
-        <div id="fallbackAlertList" class="alert-banner-list"></div>
-      </section>
-
-      <section class="grid">
-        <div class="card">
-          <h3>分词增强预览</h3>
-          <div class="row">
-            <div class="cell"><input id="tokenizeText" value="躲闪不及，飞身后撤，衣料摩擦声骤起" placeholder="输入一个词或一句文本" /></div>
-            <div class="cell"><button onclick="previewTokenize()">预览分词</button></div>
-          </div>
-          <pre id="tokenizeOut">等待查询...</pre>
-        </div>
-
-        <div class="card">
-          <h3>动态优先级提醒区</h3>
-          <div id="graphSeedHint" class="muted-sm" style="margin-top:6px;">动态优先级提醒区待加载。</div>
-          <div id="graphSeedStats" style="margin-top:8px;"></div>
-          <div id="graphSeedActions" style="margin-top:8px;"></div>
-        </div>
-
-        <div id="graphMaintenanceSection" class="card wide">
-          <h3>节点工作台</h3>
-          <div class="muted" style="margin-top:8px;">
-            这里先做“找节点、看当前业务状态、决定下一步操作”。建议先按赛道和状态筛选，再进入节点详情判断是去补充、去通知，还是去图谱维护。
-          </div>
-          <div class="row" style="margin-top:10px;">
-            <div class="cell">
-              <select id="graphGenre">
-                <option value="">全部赛道</option>
-                <option value="玄幻">玄幻</option>
-                <option value="言情">言情</option>
-                <option value="悬疑">悬疑</option>
-                <option value="科幻">科幻</option>
-              </select>
-            </div>
-            <div class="cell"><input id="graphQuery" placeholder="按父节点或动作词搜索，如 躲闪" /></div>
-            <div class="cell"><input id="graphLimit" value="50" placeholder="数量" /></div>
-            <div class="cell">
-              <select id="graphOnlyGap">
-                <option value="0">全部父节点</option>
-                <option value="1">只看有缺口</option>
-              </select>
-            </div>
-            <div class="cell">
-              <select id="graphSortBy">
-                <option value="pending">待补优先</option>
-                <option value="notify">可通知优先</option>
-                <option value="recent">最近补充优先</option>
-                <option value="alpha">动作词顺序</option>
-              </select>
-            </div>
-            <div class="cell">
-              <select id="graphStatusFilter">
-                <option value="all">全部状态</option>
-                <option value="notify">只看可通知</option>
-                <option value="notified">只看已通知</option>
-                <option value="incomplete">只看待继续补齐</option>
-              </select>
-            </div>
-            <div class="cell"><button onclick="browseActionGraphNodes()">浏览父节点</button></div>
-          </div>
-          <div id="graphBrowser" style="margin-top:10px;"></div>
-          <div id="graphDetail" style="margin-top:10px;"></div>
-          <details style="margin-top:10px;">
-            <summary style="cursor:pointer; color:#9eb5d8;">高级图谱 / Neo4j 工具</summary>
-            <div class="row" style="margin-top:10px;">
-              <div class="cell"><button onclick="loadActionGraphNeo4jStatus()">图谱状态</button></div>
-              <div class="cell"><button onclick="syncActionGraphNeo4j()">同步到Neo4j</button></div>
-              <div class="cell"><input id="actionNodeKey" value="" placeholder="节点Key，如 玄幻::躲闪" /></div>
-              <div class="cell"><button onclick="queryActionGraphNode()">查询节点</button></div>
-            </div>
-            <pre id="actionNeo4jOut">等待查询...</pre>
-          </details>
-        </div>
-
-        <div id="actionSupplementSection" class="card wide">
-          <h3>
-            <span class="title-help-wrap">
-              <span>结构维护：元数据与赛道分配</span>
-              <span class="title-help" tabindex="0">?
-                <span class="title-help-bubble">
-                  <strong>这是用来维护：</strong><br />
-                  系统内部真正要长期沉淀的动作能力和音效能力。<br /><br />
-                  <strong>它解决的是：</strong><br />
-                  哪些词要进入通用元数据；<br />
-                  哪些词要进入某个赛道；<br />
-                  这个词下面有哪些核心扩展词 / 赛道扩展词；<br />
-                  这个词对应哪些直达音效 / 整体音效。<br /><br />
-                  <strong>所以这块的核心不是“识别结果整理”，而是：</strong><br />
-                  把词正式建设进系统图谱，变成长期能力。
-                </span>
-              </span>
-            </span>
-          </h3>
-          <div class="row">
-            <div class="cell">
-              <select id="graphManageGenre" onchange="onGraphManageGenreChange()">
-                <option value="">请选择赛道</option>
-              </select>
-            </div>
-            <div class="cell">
-              <select id="graphManageVerb" onchange="onGraphManageVerbChange()">
-                <option value="">请先选择赛道</option>
-              </select>
-            </div>
-            <div class="cell">
-              <input id="graphManageVerbQuery" placeholder="可选：搜索动作词，如 躲闪" oninput="onGraphManageVerbQueryChange()" />
-            </div>
-            <div class="cell">
-              <button class="ghost-btn" onclick="scrollToFallbackMonitor()">去保底生成监控卡</button>
-            </div>
-          </div>
-          <div class="muted" style="margin-top:8px;">
-            这里不再把它理解成“继承维护”，而是三步：先找到通用元数据节点，再决定当前赛道是否引用，最后再判断要不要做赛道特化。
-          </div>
-          <div class="section-box" style="margin-top:10px;">
-            <h5>来自问题词替代的候选展示词</h5>
-            <div class="muted-sm note-prefix">这里展示的是已经在“保底生成与收敛”里沉淀好的替代展示词候选。它们不会自动入库，但可以作为通用元数据或赛道动词的直接来源。</div>
-            <div class="row" style="margin-top:8px;">
-              <div class="cell"><button class="ghost-btn" onclick="loadGraphReplacementCandidates()">刷新候选来源</button></div>
-            </div>
-            <div id="graphReplacementCandidatesView" style="margin-top:10px;" class="muted">等待加载候选展示词...</div>
-          </div>
-          <div class="section-box" style="margin-top:10px;">
-            <h5>新增与删除动作词</h5>
-            <div class="muted-sm note-prefix">这里给运营直接处理“新增通用动词 / 新增赛道动词 / 删除通用动词 / 删除赛道动词”。赛道里的“删除”不是物理真删，而是进入可恢复的删除池，后续命中时还能复核恢复。</div>
-            <div class="row" style="margin-top:8px;">
-              <div class="cell"><input id="graphCreateCommonVerb" placeholder="输入新的通用动词，如 躲闪" /></div>
-              <div class="cell">
-                <div class="title-help-wrap" style="display:inline-flex; align-items:center; gap:6px;">
-                  <button onclick="openNewCommonNode()">新建·通用元数据</button>
-                  <details class="inline-help">
-                    <summary>?</summary>
-                    <div class="inline-help-pop"><strong>新建·通用元数据说明</strong><br>当运营主动新建一个通用动作词时，后续可以在 <strong>通用元数据层</strong> 补核心扩展词、直达音效、整体音效。只有这种“主动新建词”的场景，当前节点里才会额外出现 <strong>新建词素材入库</strong> 入口，方便你直接把素材补进去，不必再回动作补充单运营。</div>
-                  </details>
-                </div>
-              </div>
-              <div class="cell" id="graphCreateCommonFeedback"></div>
-            </div>
-            <div class="row" style="margin-top:8px;">
-              <div class="cell">
-                <select id="graphCreateVerbGenre">
-                  <option value="">请选择赛道</option>
-                </select>
-              </div>
-              <div class="cell"><input id="graphCreateVerb" placeholder="输入新的赛道动作词，如 结印" /></div>
-              <div class="cell">
-                <div class="title-help-wrap" style="display:inline-flex; align-items:center; gap:6px;">
-                  <button onclick="openNewGenreNode()">新建·赛道动作词</button>
-                  <details class="inline-help">
-                    <summary>?</summary>
-                    <div class="inline-help-pop"><strong>新建·赛道动作词说明</strong><br>当运营主动新建一个赛道动作词时，后续可以在 <strong>赛道特化维护区</strong> 补赛道扩展词、直达音效、整体音效。只有这种“主动新建词”的场景，当前节点里才会额外出现 <strong>新建词素材入库</strong> 入口，方便你直接补素材；其他缺口仍然继续通过动作补充单运营处理。</div>
-                  </details>
-                </div>
-              </div>
-              <div class="cell" id="graphCreateGenreFeedback"></div>
-            </div>
-          </div>
-          <div id="graphInheritanceDashboard" style="margin-top:10px;"></div>
-          <div id="graphManagePickerHint" class="muted-sm note-prefix" style="margin-top:6px;">正在加载维护目录...</div>
-          <details style="margin-top:8px;">
-            <summary class="muted-sm" style="cursor:pointer;">高级入口：直接输入节点Key</summary>
-            <div class="row" style="margin-top:8px;">
-              <div class="cell"><input id="graphManageNodeKey" value="" placeholder="节点Key，如 玄幻::躲闪" /></div>
-              <div class="cell"><button onclick="loadGraphMaintenance(document.getElementById('graphManageNodeKey').value)">按节点Key加载</button></div>
-            </div>
-          </details>
-          <div id="graphManageBox" style="margin-top:10px;"></div>
-          <details style="margin-top:10px;">
-            <summary style="cursor:pointer; color:#9eb5d8;">查看维护操作 JSON</summary>
-            <pre id="graphManageOut">等待加载...</pre>
-          </details>
-        </div>
-
-        <div id="fallbackMonitorCard" class="card wide">
-          <h3>
-            <span class="title-help-wrap">
-              <span>结构维护：保底生成与收敛</span>
-              <span class="title-help" tabindex="0">?
-                <span class="title-help-bubble">
-                  <strong>这是用来维护：</strong><br />
-                  用户端识别出来、但还不够理想的词。<br /><br />
-                  <strong>它解决的是：</strong><br />
-                  用户端这次分析出了什么词；<br />
-                  哪些词太碎、太长、太怪；<br />
-                  运营要不要把它替换成更适合展示给用户的词。<br /><br />
-                  <strong>比如：</strong><br />
-                  惊恐道 → 惊恐<br />
-                  暗杀背刺偷袭音效 → 背刺<br /><br />
-                  <strong>所以这块的核心是：</strong><br />
-                  把用户端识别结果，整理成更适合展示的词。
-                </span>
-              </span>
-            </span>
-          </h3>
-          <div class="row">
-            <div class="cell"><button onclick="loadActionFallbackMonitor()">加载保底生成监控</button></div>
-          </div>
-          <div class="muted" style="margin-top:8px;">
-            这里优先按最新用户需求排序。系统会先自动整理明显碎词，再把仍需运营判断的词组交给你确认标准展示词映射。
-          </div>
-        <div id="fallbackMonitorSummary" class="muted-sm note-prefix" style="margin-top:8px;">等待加载保底生成监控数据...</div>
-        <div id="fallbackMonitorRules" style="margin-top:10px;"></div>
-        <div id="fallbackMonitorView" style="margin-top:10px;"></div>
-        <details style="margin-top:10px;">
-          <summary style="cursor:pointer; color:#9eb5d8;">查看保底监控原始 JSON</summary>
-          <pre id="fallbackMonitorOut">等待加载...</pre>
-        </details>
-      </div>
-
-        <div class="card wide">
-          <h3>动作补充单运营</h3>
-        <div class="row">
-            <div class="cell"><input id="suppDays" value="30" placeholder="最近 N 天（默认 30）" title="查询最近多少天内创建的动作补充单，默认 30 天" /></div>
-            <div class="cell">
-              <select id="suppStatus">
-                <option value="">全部状态</option>
-                <option value="pending">pending：待合并</option>
-                <option value="partial">partial：部分补齐</option>
-                <option value="ready_to_notify">ready_to_notify：已补齐待通知</option>
-                <option value="merged">merged：已合并（全补齐）</option>
-                <option value="notified">notified：已通知用户（提醒状态）</option>
-              </select>
-            </div>
-            <div class="cell"><button onclick="loadSupplements()">加载补充单</button></div>
-          </div>
-          <div class="muted note-prefix" id="suppStatusHint" style="margin-top:8px;">
-            左侧数字表示查询最近多少天内创建的动作补充单，默认 30 天。`pending` 表示这条补充单还没开始合并素材；上传成功后，状态会进入 `partial` 或 `ready_to_notify`。
-          </div>
-          <div class="row" style="margin-top:8px;">
-            <div class="cell">
-              <select id="notifyTarget">
-                <option value="">请选择手机号与单条补充单</option>
-              </select>
-            </div>
-            <div class="cell"><button onclick="notifySupplements()">触发用户提醒（单条/批量）</button></div>
-          </div>
-          <div class="muted note-prefix" style="margin-top:6px;">
-            下拉框用于单条精准通知；如需批量通知，请勾选下方补充单后点击同一个按钮。
-          </div>
-          <div id="suppSummary" style="margin-top:10px;"></div>
-          <div id="suppTable" style="margin-top:10px;"></div>
-          <pre id="suppOut" class="supp-debug">等待查询...</pre>
-        </div>
-
-        <div class="card wide">
-          <details>
-            <summary style="cursor:pointer; color:#9eb5d8; font-weight:700;">前台排行榜管理（按需展开）</summary>
-            <div class="muted-sm note-prefix" style="margin-top:8px;">这部分数据来自前台真实下载统计，运营通常不需要频繁修改。只有在需要调整前台展示名、排序或显隐时，再展开处理即可。</div>
-            <div class="row" style="margin-top:10px;">
-              <div class="cell">
-                <select id="leaderboardWindow">
-                  <option value="1d">过去1天</option>
-                  <option value="10d" selected>过去10天</option>
-                  <option value="30d">过去30天</option>
-                  <option value="90d">过去3个月</option>
-                </select>
-              </div>
-              <div class="cell"><button onclick="loadAssetFeedback()">加载动作榜配置</button></div>
-            </div>
-            <div id="leaderboardAdminView" class="leader-admin-box" style="margin-top:10px;">当前默认收起；需要时再加载前台排行榜管理数据。</div>
-            <details style="margin-top:10px;">
-              <summary style="cursor:pointer; color:#9eb5d8;">查看排行榜原始 JSON</summary>
-              <pre id="assetFeedbackOut">等待查询...</pre>
-            </details>
-          </details>
-        </div>
-
-        <div class="card wide">
-          <h3>平台业务发布与审核</h3>
-          <div class="grid">
-            <div id="userSfxReviewSection" class="card">
-              <h3>作品审核</h3>
-            <div class="row">
-                <div class="cell">
-                  <select id="creatorShowcaseStatus">
-                    <option value="">全部状态</option>
-                    <option value="pending">待审核</option>
-                    <option value="approved">已通过</option>
-                    <option value="hidden">已隐藏</option>
-                    <option value="rejected">已驳回</option>
-                  </select>
-                </div>
-                <div class="cell"><input id="creatorShowcaseQuery" placeholder="手机号 / 标题" /></div>
-                <div class="cell"><button onclick="loadCreatorShowcases()">加载作品</button></div>
-              </div>
-              <div id="creatorShowcasesView" style="margin-top:10px;" class="muted">等待加载作品...</div>
-              <div class="creator-showcase-pager">
-                <button class="ghost-btn" onclick="changeCreatorShowcasePage(-1)">上一页</button>
-                <div id="creatorShowcasePagerInfo" class="muted-sm">第 1 / 1 页</div>
-                <button class="ghost-btn" onclick="changeCreatorShowcasePage(1)">下一页</button>
-              </div>
-            </div>
-            <div class="card">
-              <h3>书单管理</h3>
-              <div class="row">
-                <div class="cell"><input id="copyrightTitle" placeholder="广告标题" /></div>
-                <div class="cell">
-                  <select id="copyrightGenre">
-                    <option value="玄幻">玄幻</option>
-                    <option value="言情">言情</option>
-                    <option value="悬疑">悬疑</option>
-                    <option value="科幻">科幻</option>
-                  </select>
-                </div>
-              </div>
-              <label>广告描述</label>
-              <textarea id="copyrightDescription" rows="4" placeholder="填写版权书合作说明、题材、合作方式"></textarea>
-              <div class="row" style="margin-top:8px;">
-                <div class="cell"><input id="copyrightBudget" placeholder="预算说明" /></div>
-                <div class="cell"><input id="copyrightDeposit" type="number" min="0" step="0.01" placeholder="发布保证金" /></div>
-                <div class="cell"><input id="copyrightContact" placeholder="联系说明" /></div>
-              </div>
-              <div class="row" style="margin-top:8px;">
-                <div class="cell">
-                  <select id="copyrightStatus">
-                    <option value="active">发布中</option>
-                    <option value="draft">草稿</option>
-                    <option value="closed">关闭</option>
-                  </select>
-                </div>
-                <div class="cell"><button onclick="saveCopyrightAd()">保存书单</button></div>
-                <div class="cell"><button onclick="loadCopyrightAdsAdmin()">刷新书单</button></div>
-              </div>
-              <div id="copyrightAdsAdminView" style="margin-top:10px;" class="muted">等待加载书单...</div>
-            </div>
-            <div class="card">
-              <h3>充值订单审核</h3>
-              <div class="row">
-                <div class="cell">
-                  <select id="rechargeOrderStatus">
-                    <option value="">全部状态</option>
-                    <option value="pending">待审核</option>
-                    <option value="approved">已通过</option>
-                    <option value="rejected">已驳回</option>
-                  </select>
-                </div>
-                <div class="cell"><input id="rechargeOrderQuery" placeholder="手机号 / 套餐名" /></div>
-                <div class="cell"><button onclick="loadRechargeOrders()">加载充值订单</button></div>
-              </div>
-              <div id="rechargeOrdersView" style="margin-top:10px;" class="muted">等待加载充值订单...</div>
-            </div>
-            <div class="card">
-              <h3>用户音效投稿审核</h3>
-              <div class="row">
-                <div class="cell">
-                  <select id="sfxSubmissionStatus">
-                    <option value="active" selected>未驳回</option>
-                    <option value="pending">待审核</option>
-                    <option value="approved">已通过</option>
-                    <option value="rejected">已驳回</option>
-                  </select>
-                </div>
-                <div class="cell"><input id="sfxSubmissionQuery" placeholder="手机号 / 动作词 / 展示词" /></div>
-                <div class="cell"><button onclick="loadUserSfxSubmissions()">加载投稿</button></div>
-              </div>
-              <div class="muted-sm note-prefix" style="margin-top:8px;">审核通过后，系统会给投稿用户永久增加 3 次音效下载次数；驳回则删除这条投稿文件，不影响用户端继续使用。</div>
-              <div id="userSfxSubmissionsOut" class="muted-sm" style="margin-top:8px;"></div>
-              <div id="userSfxSubmissionsView" style="margin-top:10px;" class="muted">等待加载音效投稿...</div>
-              <div id="userSfxSubmissionsPager" class="row" style="margin-top:8px;"></div>
-            </div>
-          </div>
-        </div>
-
-        <div id="userBetaManageSection" class="card">
-          <h3>用户与测试期管理</h3>
-          <div class="row" style="margin-bottom:10px;">
-            <div class="cell">
-              <button onclick="loadBetaAccess()">查看测试期开关</button>
-            </div>
-            <div class="cell">
-              <select id="betaInviteOnly">
-                <option value="1">测试期：启用邀请码</option>
-                <option value="0">正式期：关闭邀请码</option>
-              </select>
-            </div>
-            <div class="cell">
-              <button onclick="saveBetaAccess()">保存测试期开关</button>
-            </div>
-            <div class="cell">
-              <button onclick="loadInviteCodes()">查看邀请码池</button>
-            </div>
-          </div>
-          <div class="row">
-            <div class="cell"><input id="uPhone" placeholder="用户手机号" /></div>
-            <div class="cell"><input id="uUid" placeholder="UID（可选）" /></div>
-            <div class="cell">
-              <select id="uRole">
-                <option value="33">33 普通用户</option>
-                <option value="22">22 种子用户</option>
-                <option value="11">11 管理员</option>
-                <option value="00">00 超级管理员</option>
-              </select>
-            </div>
-            <div class="cell">
-              <select id="uTier">
-                <option value="22">22 种子用户</option>
-                <option value="33">33 普通用户</option>
-              </select>
-            </div>
-            <div class="cell">
-              <select id="uAuth">
-                <option value="1">授权用户（不限次）</option>
-                <option value="0">未授权用户（日限3次）</option>
-              </select>
-            </div>
-            <div class="cell">
-              <select id="uAdmin">
-                <option value="0">普通用户</option>
-                <option value="1">管理员</option>
-              </select>
-            </div>
-            <div class="cell"><input id="uTextCharLimit" value="5000" placeholder="每日文本字符额度" /></div>
-            <div class="cell"><input id="uSfxDownloadLimit" value="100" placeholder="每日音效下载额度" /></div>
-            <div class="cell"><input id="uLimit" value="3" /></div>
-            <div class="cell"><button onclick="applyTierQuotaPreset()">按级别回填默认额度</button></div>
-            <div class="cell"><button onclick="saveUser()">保存用户策略</button></div>
-          </div>
-          <div class="row" style="margin-top:8px;">
-            <div class="cell"><input id="usageResetPhone" placeholder="重置手机号" /></div>
-            <div class="cell"><input id="usageResetDate" placeholder="重置日期 YYYY-MM-DD，默认今天" /></div>
-            <div class="cell"><button onclick="resetUserUsage()">手动重置当日用量</button></div>
-          </div>
-          <div style="margin-top:8px;" class="row">
-            <div class="cell"><input id="usageViewDate" placeholder="查看用量日期 YYYY-MM-DD，默认今天" /></div>
-            <div class="cell"><button onclick="loadUsers()">刷新用户列表</button></div>
-          </div>
-          <div class="ops-section" style="margin-top:12px;">
-            <h4 style="margin-bottom:8px;">推荐奖励设置</h4>
-            <div class="row">
-              <div class="cell"><input id="refRewardSfx" value="15" placeholder="每成功推荐 1 人奖励音效下载次数" /></div>
-              <div class="cell"><input id="refRewardText" value="5000" placeholder="每成功推荐 1 人奖励文字数量" /></div>
-              <div class="cell"><button onclick="loadReferralRewardSettings()">读取奖励配置</button></div>
-              <div class="cell"><button onclick="saveReferralRewardSettings()">保存奖励配置</button></div>
-            </div>
-            <div id="referralRewardHint" class="muted" style="margin-top:8px;">等待加载推荐奖励配置...</div>
-            <pre id="referralRewardOut">等待加载推荐奖励配置...</pre>
-          </div>
-          <div class="ops-section" style="margin-top:12px;">
-            <h4 style="margin-bottom:8px;">前端安全设置</h4>
-            <div class="row">
-              <div class="cell">
-                <select id="frontendDebugExpose">
-                  <option value="1">测试期：允许展开调试 JSON</option>
-                  <option value="0">正式期：关闭调试 JSON 暴露</option>
-                </select>
-              </div>
-              <div class="cell">
-                <select id="homeLeaderboardsVisible">
-                  <option value="0">首页隐藏热门榜</option>
-                  <option value="1">首页展示热门榜</option>
-                </select>
-              </div>
-              <div class="cell"><button onclick="loadFrontendSecurity()">读取当前安全配置</button></div>
-              <div class="cell"><button onclick="saveFrontendSecurity()">保存前端安全设置</button></div>
-            </div>
-            <div id="frontendSecurityHint" class="muted" style="margin-top:8px;">等待读取前端安全配置...</div>
-            <pre id="frontendSecurityOut">等待加载前端安全配置...</pre>
-          </div>
-          <pre id="betaAccessOut">等待加载测试期开关...</pre>
-          <pre id="inviteCodesOut">等待加载邀请码池...</pre>
-          <pre id="usageResetOut">等待重置操作...</pre>
-          <div class="ops-section" style="margin-top:12px;">
-            <h4 style="margin-bottom:8px;">用户增长统计</h4>
-            <div id="usersGrowthChartOut" class="muted">等待加载用户增长统计...</div>
-          </div>
-          <div id="usersSummaryOut" class="muted" style="margin:8px 0;">等待加载用户额度概览...</div>
-          <div id="usersPaginationOut" class="row" style="margin:8px 0;"></div>
-          <div id="usersTableOut" style="margin:8px 0;"></div>
-          <pre id="usersOut">等待加载...</pre>
-        </div>
-
-        <div id="opsAuditSection" class="card">
-          <h3>运营行为审计</h3>
-          <div class="row">
-            <div class="cell"><input id="qPhone" placeholder="按手机号筛选" /></div>
-            <div class="cell"><input id="qProject" placeholder="按项目ID筛选" /></div>
-            <div class="cell"><input id="qAction" placeholder="按动作筛选" /></div>
-            <div class="cell"><input id="qLimit" value="100" /></div>
-          </div>
-          <div class="row" style="margin-top:8px;">
-            <div class="cell"><button onclick="loadEvents()">查询行为日志</button></div>
-            <div class="cell"><button onclick="loadFunnel()">运营漏斗</button></div>
-            <div class="cell"><button onclick="loadRecommendations()">优化建议</button></div>
-          </div>
-          <div id="opsAuditNote" class="ops-audit-note">等待加载行为说明...</div>
-          <div id="opsAuditView">请先点击上方按钮加载数据。</div>
-          <details style="margin-top:10px;">
-            <summary style="cursor:pointer; color:#9eb5d8;">查看原始 JSON</summary>
-            <pre id="eventsOut">等待查询...</pre>
-          </details>
-        </div>
-
-        <div class="card">
-          <h3>本地文档锚点</h3>
-          <div id="actionDocsOut" class="doc-anchor-list"></div>
-        </div>
-
-        <div class="card">
-          <h3>项目全流程数据包</h3>
-          <div class="muted-sm note-prefix" style="margin-bottom:8px;">当前作为内部归档与排障入口保留，后续等核心功能全部稳定后再继续优化。</div>
-          <div class="row">
-            <div class="cell"><input id="bundlePid" placeholder="项目ID" /></div>
-            <div class="cell"><button onclick="loadBundle()">加载项目全流</button></div>
-          </div>
-          <pre id="bundleOut">等待加载...</pre>
-        </div>
-
-        <div class="card">
-          <h3>文件下载（本地归档）</h3>
-          <div class="muted-sm note-prefix" style="margin-bottom:8px;">作为内部文件取回工具暂存保留，后续等核心功能全部稳定后再继续优化。</div>
-          <div class="row">
-            <div class="cell"><textarea id="filePath" rows="4" placeholder="填入flow-bundle返回的绝对路径"></textarea></div>
-          </div>
-          <div class="row">
-            <div class="cell"><button onclick="downloadFile()">下载文件</button></div>
-          </div>
-          <pre id="fileOut">等待下载...</pre>
-        </div>
-      </section>
-    </div>
-
-    <script>
       if ('scrollRestoration' in history) {
         history.scrollRestoration = 'manual';
       }
@@ -1371,7 +6,6 @@
       let token = localStorage.getItem('mfa_admin_token') || '';
       let loginPhone = localStorage.getItem('mfa_admin_phone') || '';
       let latestSupplements = [];
-      let supplementMaintenanceRedirectState = {};
       let graphMaintenanceState = null;
       let graphMaintenanceCatalogState = { genres: [], selectedGenreKey: '', selectedNodeKey: '', verbQuery: '' };
       let inheritanceDashboardState = { blocked_pool: { items: [], count: 0 }, review_pool: { items: [], count: 0, days: 30 } };
@@ -1418,57 +52,6 @@
       ];
 
       function base() { return document.getElementById('apiBase').value.replace(/\/$/, ''); }
-      function setAdminAuthStatus(message, level = 'info') {
-        const box = document.getElementById('adminAuthOut');
-        if (!box) return;
-        const text = String(message || '').trim() || '等待登录操作...';
-        const styles = {
-          info: { color: '#d9e7ff', bg: 'rgba(47,88,154,.14)', border: '#315f9f' },
-          success: { color: '#d6ffe8', bg: 'rgba(28,112,66,.18)', border: '#2d8b59' },
-          error: { color: '#ffd7d7', bg: 'rgba(143,48,48,.18)', border: '#8d3434' },
-          warning: { color: '#ffe8b8', bg: 'rgba(128,94,19,.18)', border: '#8c6b21' },
-        };
-        const tone = styles[level] || styles.info;
-        box.textContent = text;
-        box.style.color = tone.color;
-        box.style.background = tone.bg;
-        box.style.border = `1px solid ${tone.border}`;
-        box.style.borderRadius = '10px';
-        box.style.padding = '10px 12px';
-        box.style.whiteSpace = 'pre-wrap';
-      }
-      function updateAdminAuthMode() {
-        const phoneInput = document.getElementById('phone');
-        const codeInput = document.getElementById('code');
-        const sendBtn = document.getElementById('sendCodeBtn');
-        const hint = document.getElementById('adminAuthHint');
-        const phone = normalizePhoneInput((phoneInput?.value || '').trim());
-        const isBootstrapAdmin = phone === '15914141177';
-        if (sendBtn) {
-          sendBtn.style.display = isBootstrapAdmin ? 'none' : '';
-        }
-        if (hint) {
-          hint.textContent = isBootstrapAdmin
-            ? '超级管理员测试直通模式：当前手机号可直接使用固定验证码 111111 登录后台。'
-            : '当前为测试登录模式，发送验证码后会在本地直接返回验证码。';
-        }
-        if (isBootstrapAdmin && codeInput && !String(codeInput.value || '').trim()) {
-          codeInput.value = '111111';
-        }
-      }
-      function reportAdminRuntimeError(message) {
-        const banner = document.getElementById('adminRuntimeErrorBanner');
-        const text = document.getElementById('adminRuntimeErrorText');
-        const msg = String(message || '').trim() || '管理端发生未识别错误。';
-        if (text) text.textContent = msg;
-        if (banner) banner.style.display = 'block';
-      }
-      function clearAdminRuntimeError() {
-        const banner = document.getElementById('adminRuntimeErrorBanner');
-        const text = document.getElementById('adminRuntimeErrorText');
-        if (text) text.textContent = '等待错误信息...';
-        if (banner) banner.style.display = 'none';
-      }
       function h(extra = {}) {
         const x = { ...(extra || {}) };
         if (token) x.Authorization = `Bearer ${token}`;
@@ -1482,32 +65,7 @@
         try { return JSON.parse(t); } catch { return t; }
       }
       function show(id, data) {
-        const node = document.getElementById(id);
-        if (!node) {
-          reportAdminRuntimeError(`页面输出区域缺失：${id}`);
-          return;
-        }
-        node.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-      }
-
-      window.addEventListener('error', (event) => {
-        const msg = event?.error?.message || event?.message || '管理端脚本运行异常';
-        reportAdminRuntimeError(`页面脚本异常：${msg}`);
-      });
-      window.addEventListener('unhandledrejection', (event) => {
-        const reason = event?.reason;
-        const msg = typeof reason === 'string'
-          ? reason
-          : (reason?.message || '未处理的异步异常');
-        reportAdminRuntimeError(`请求或异步任务失败：${msg}`);
-      });
-      if (!window.__mfaAdminFetchWrapped) {
-        const _origFetch = window.fetch.bind(window);
-        window.fetch = (...args) => _origFetch(...args).catch((err) => {
-          reportAdminRuntimeError(`接口请求失败：${err?.message || String(err || 'unknown error')}`);
-          throw err;
-        });
-        window.__mfaAdminFetchWrapped = true;
+        document.getElementById(id).textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
       }
 
       const USERS_PAGE_SIZE = 6;
@@ -1532,8 +90,6 @@
         days: 30,
         items: [],
         rules: [],
-        page: 1,
-        pageSize: 6,
       };
       let fallbackAlertState = {
         pendingCount: 0,
@@ -1541,11 +97,6 @@
         latestAt: '',
       };
       let fallbackAlertTimer = null;
-      let graphReplacementCandidateState = {
-        items: [],
-        page: 1,
-        pageSize: 6,
-      };
       let fallbackRiskTermState = [];
       let fallbackRiskTermPagerState = {
         page: 1,
@@ -1556,11 +107,6 @@
         query: '',
         page: 1,
         pageSize: 8,
-      };
-      let userSfxSubmissionState = {
-        items: [],
-        page: 1,
-        pageSize: 4,
       };
       const GENRE_OPTIONS = ['玄幻', '言情', '悬疑', '科幻'];
       const DEFAULT_SINGLE_CHAR_RISK_TERMS = new Set(['走', '看', '听', '说', '道', '向', '来', '去', '上', '下', '进', '出', '拿', '放', '推', '拉', '打', '撞', '叫', '喊', '望']);
@@ -1593,23 +139,11 @@
         return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
       }
 
-      function formatDurationReadable(msValue) {
-        const ms = Number(msValue || 0);
-        if (!Number.isFinite(ms) || ms <= 0) return '未记录耗时';
-        const totalSeconds = Math.max(1, Math.round(ms / 1000));
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        if (minutes <= 0) return `${totalSeconds} 秒`;
-        if (seconds === 0) return `${minutes} 分钟`;
-        return `${minutes} 分 ${seconds} 秒`;
-      }
-
       function actionDisplayName(action) {
         const key = String(action || '').trim();
         return ({
           'create_project': '创建项目',
           'audio_analysis': '音乐分析',
-          'music_match': '判断是否适合作品',
           'text_analysis': '文本分析',
           'action_verb_analysis': '动作提取',
           'action_sfx_graph': '动作图谱推荐',
@@ -1642,11 +176,9 @@
         const box = document.getElementById('usersTableOut');
         const summary = document.getElementById('usersSummaryOut');
         const pager = document.getElementById('usersPaginationOut');
-        const growthBox = document.getElementById('usersGrowthChartOut');
         if (!box || !summary || !pager) return;
         const items = Array.isArray(data && data.items) ? data.items : [];
         const ymd = String((data && data.ymd) || '').trim() || '今日';
-        renderUserGrowthChart((data && data.growth_chart) || {});
         if (!items.length) {
           summary.textContent = `${ymd} 暂无用户数据。`;
           pager.innerHTML = '';
@@ -1661,38 +193,6 @@
         const totalSfxUsed = items.reduce((sum, item) => sum + Number((((item || {}).quota || {}).sfx_download_used) || 0), 0);
         summary.textContent = `${ymd} 共 ${items.length} 个用户，文本已用 ${totalTextUsed} 字，音效下载已用 ${totalSfxUsed} 次。下方按每页 6 个用户分页展示。`;
         renderUsersPage();
-      }
-
-      function renderUserGrowthChart(growthChart) {
-        const box = document.getElementById('usersGrowthChartOut');
-        if (!box) return;
-        const points = Array.isArray(growthChart?.points) ? growthChart.points : [];
-        const summary = (growthChart && typeof growthChart === 'object' && growthChart.summary) ? growthChart.summary : {};
-        if (!points.length) {
-          box.innerHTML = '<div class="muted">最近暂无新增用户统计数据。</div>';
-          return;
-        }
-        const maxCount = Math.max(...points.map(item => Number(item?.count || 0)), 1);
-        const peakDay = summary?.peak_day || null;
-        box.innerHTML = `
-          <div class="muted" style="margin-bottom:8px;">最近 ${escHtml(summary?.days || points.length)} 天新增用户 ${escHtml(summary?.total_new_users || 0)} 个。${peakDay ? `峰值日期：${escHtml(String(peakDay.ymd || '').slice(5))}，新增 ${escHtml(peakDay.count || 0)} 个。` : ''}</div>
-          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); gap:10px; align-items:end;">
-            ${points.map(item => {
-              const count = Number(item?.count || 0);
-              const height = Math.max(10, Math.round((count / maxCount) * 96));
-              const label = String(item?.ymd || '').slice(5) || '-';
-              return `
-                <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
-                  <div style="font-size:11px; color:#9eb5d8;">${escHtml(count)}</div>
-                  <div style="width:100%; max-width:42px; height:96px; display:flex; align-items:flex-end;">
-                    <div style="width:100%; height:${height}px; border-radius:10px 10px 4px 4px; background:linear-gradient(180deg, rgba(30,200,255,.95), rgba(0,231,182,.72)); border:1px solid rgba(77,220,255,.35);"></div>
-                  </div>
-                  <div style="font-size:11px; color:#9eb5d8;">${escHtml(label)}</div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        `;
       }
 
       function changeUsersPage(delta) {
@@ -1798,224 +298,49 @@
         return ({
           'pending': '待审核',
           'approved': '已通过',
-          'hidden': '已隐藏',
           'rejected': '已驳回',
           'active': '发布中',
           'draft': '草稿',
           'closed': '关闭',
         })[String(status || '').trim()] || String(status || '-');
       }
-      let creatorShowcaseState = { page: 1, pageSize: 6, total: 0 };
       async function loadCreatorShowcases() {
         const status = (document.getElementById('creatorShowcaseStatus')?.value || '').trim();
         const q = (document.getElementById('creatorShowcaseQuery')?.value || '').trim();
         const qs = new URLSearchParams();
         if (status) qs.set('status', status);
         if (q) qs.set('q', q);
-        qs.set('page', String(creatorShowcaseState.page || 1));
-        qs.set('page_size', String(creatorShowcaseState.pageSize || 6));
         const res = await fetch(`${base()}/admin/creator-showcases?${qs.toString()}`, { headers: h() });
         const data = await read(res);
         const box = document.getElementById('creatorShowcasesView');
-        const pagerInfo = document.getElementById('creatorShowcasePagerInfo');
         if (!box) return;
         if (!res.ok) {
           box.innerHTML = `<div class="muted">${escHtml(data?.detail || '加载失败')}</div>`;
           return;
         }
-        creatorShowcaseState.total = Number(data.total || 0);
-        creatorShowcaseState.page = Number(data.page || creatorShowcaseState.page || 1);
-        creatorShowcaseState.pageSize = Number(data.page_size || creatorShowcaseState.pageSize || 6);
-        const totalPages = Math.max(1, Math.ceil((creatorShowcaseState.total || 0) / (creatorShowcaseState.pageSize || 6)));
-        if (pagerInfo) pagerInfo.textContent = `第 ${creatorShowcaseState.page} / ${totalPages} 页，共 ${creatorShowcaseState.total} 条`;
         const items = Array.isArray(data.items) ? data.items : [];
-        box.innerHTML = items.length ? `<div style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;">${items.map((item) => `
-          <div class="panel" style="margin-bottom:0;">
+        box.innerHTML = items.length ? items.map((item) => `
+          <div class="panel" style="margin-bottom:8px;">
             <div style="font-weight:700;">${escHtml(item.title || '-')}</div>
             <div class="muted-sm" style="margin-top:4px;">${escHtml(item.user_phone || '')} ｜ ${escHtml(item.genre || '')} ｜ ${escHtml(reviewStatusLabel(item.status))}</div>
-            <div style="margin-top:6px; line-height:1.7;">${escHtml(clipText(item.summary || '', 10))}</div>
-            ${item.sample_file_name && item.sample_download_api ? `
-              <div style="margin-top:8px;">
-                <a class="ghost-btn" href="${escHtml(item.sample_download_api)}" download style="display:inline-block; text-decoration:none;">下载试听作品</a>
-                <div class="muted-sm" style="margin-top:6px;">文件：${escHtml(item.sample_file_name)}</div>
-              </div>
-            ` : '<div class="muted-sm" style="margin-top:8px;">当前没有可下载作品文件</div>'}
-            ${String(item.status || '') === 'approved'
-              ? `
-                <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
-                  <span class="ghost-btn" style="opacity:.55; pointer-events:none;">已上架</span>
-                  <button class="ghost-btn" onclick="reviewCreatorShowcase(${Number(item.id || 0)}, 'hidden')">隐藏</button>
-                </div>
-              `
-              : String(item.status || '') === 'hidden'
-                ? `
-                  <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
-                    <span class="ghost-btn" style="opacity:.55; pointer-events:none;">已隐藏</span>
-                    <button class="ghost-btn" onclick="reviewCreatorShowcase(${Number(item.id || 0)}, 'approved')">重新上架</button>
-                  </div>
-                `
-              : String(item.status || '') === 'rejected'
-                ? '<div style="margin-top:8px;"><span class="ghost-btn" style="opacity:.55; pointer-events:none;">已驳回</span></div>'
-                : `
-                  <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
-                    <button class="ghost-btn" onclick="reviewCreatorShowcase(${Number(item.id || 0)}, 'approved')">通过</button>
-                    <button class="ghost-btn" onclick="reviewCreatorShowcase(${Number(item.id || 0)}, 'rejected')">驳回</button>
-                  </div>
-                `
-            }
-          </div>
-        `).join('')}</div>` : '<div class="muted">当前没有作品数据。</div>';
-      }
-      function changeCreatorShowcasePage(delta) {
-        const totalPages = Math.max(1, Math.ceil((creatorShowcaseState.total || 0) / (creatorShowcaseState.pageSize || 6)));
-        creatorShowcaseState.page = Math.max(1, Math.min(totalPages, (creatorShowcaseState.page || 1) + delta));
-        loadCreatorShowcases();
-      }
-      async function reviewCreatorShowcase(id, decision) {
-        const res = await fetch(`${base()}/admin/creator-showcases/review`, {
-          method: 'POST',
-          headers: h({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({ id, decision, note: '' }),
-        });
-        const data = await read(res);
-        if (res.ok) {
-          if (decision === 'approved') {
-            const smsText = data?.sms_sent
-              ? '已向用户发送作品上架短信提醒。'
-              : (data?.sms_message || '当前环境未接入短信网关，已完成作品上架审核。');
-            show('eventsOut', `作品已审核通过并上架。${smsText}`);
-          } else if (decision === 'hidden') {
-            show('eventsOut', '作品已隐藏。用户端排行榜与作品展示中将不再显示，但文件仍保留，可随时重新上架。');
-          } else {
-            show('eventsOut', '作品已驳回。当前仅保留后台审核状态，不向用户反馈驳回原因。');
-          }
-        } else {
-          show('eventsOut', data);
-        }
-        await loadCreatorShowcases();
-      }
-      async function loadUserSfxSubmissions() {
-        const status = (document.getElementById('sfxSubmissionStatus')?.value || '').trim();
-        const q = (document.getElementById('sfxSubmissionQuery')?.value || '').trim();
-        const qs = new URLSearchParams();
-        if (status) qs.set('status', status);
-        if (q) qs.set('q', q);
-        const res = await fetch(`${base()}/admin/sfx-submissions?${qs.toString()}`, { headers: h() });
-        const data = await read(res);
-        const box = document.getElementById('userSfxSubmissionsView');
-        const pager = document.getElementById('userSfxSubmissionsPager');
-        if (!box) return;
-        if (!res.ok) {
-          box.innerHTML = `<div class="muted">${escHtml(data?.detail || '加载失败')}</div>`;
-          if (pager) pager.innerHTML = '';
-          return;
-        }
-        const items = Array.isArray(data.items) ? data.items : [];
-        userSfxSubmissionState.items = items;
-        userSfxSubmissionState.page = 1;
-        renderUserSfxSubmissions();
-      }
-      function renderUserSfxSubmissions() {
-        const box = document.getElementById('userSfxSubmissionsView');
-        const pager = document.getElementById('userSfxSubmissionsPager');
-        if (!box || !pager) return;
-        const items = Array.isArray(userSfxSubmissionState.items) ? userSfxSubmissionState.items : [];
-        const pageSize = Math.max(1, Number(userSfxSubmissionState.pageSize || 6));
-        const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
-        userSfxSubmissionState.page = Math.max(1, Math.min(totalPages, Number(userSfxSubmissionState.page || 1)));
-        const start = (userSfxSubmissionState.page - 1) * pageSize;
-        const pageItems = items.slice(start, start + pageSize);
-        const pageStart = items.length ? start + 1 : 0;
-        const pageEnd = items.length ? start + pageItems.length : 0;
-        box.innerHTML = pageItems.length ? pageItems.map((item) => `
-          <div class="panel ${item.status === 'approved' ? 'review-card-approved' : (item.status === 'rejected' ? 'review-card-rejected' : '')}" style="margin-bottom:8px;">
-            <div style="font-weight:700;">${escHtml(item.display_term || item.verb || '-')}</div>
-            <div class="muted-sm" style="margin-top:4px;">${escHtml(item.user_phone || '')} ｜ ${escHtml(item.genre || '')} ｜ 动作词 ${escHtml(item.verb || '')} ｜ <span class="${item.status === 'approved' ? 'status-accent-approved' : (item.status === 'rejected' ? 'status-accent-rejected' : '')}">${escHtml(reviewStatusLabel(item.status))}</span></div>
-            ${item.sentence_excerpt ? `<div class="muted-sm" style="margin-top:6px;">示例片段：${escHtml(item.sentence_excerpt)}</div>` : ''}
-            ${item.project_text_excerpt ? `<div class="muted-sm" style="margin-top:6px;">对应文本：${escHtml(item.project_text_excerpt.slice(0, 120))}${item.project_text_excerpt.length > 120 ? '...' : ''}</div>` : ''}
-            ${item.note ? `<div class="muted-sm" style="margin-top:6px;">投稿说明：${escHtml(item.note)}</div>` : ''}
-            <div class="muted-sm" style="margin-top:6px;">文件：${escHtml(item.file_name || '未记录')}</div>
-            ${item.file_path_display ? `<div class="muted-sm" style="margin-top:6px; word-break:break-all;">原始投稿路径：${escHtml(item.file_path_display)}</div>` : ''}
-            ${item.adopted_file_name ? `<div class="muted-sm" style="margin-top:6px;">已纳入素材池：${escHtml(item.adopted_source_label || '由用户更优推荐')} ｜ ${escHtml(item.adopted_file_name)}</div>` : ''}
-            ${item.adopted_file_path_display ? `<div class="muted-sm" style="margin-top:6px; word-break:break-all;">采纳后路径：${escHtml(item.adopted_file_path_display)}</div>` : ''}
-            ${item.review_note ? `<div class="muted-sm" style="margin-top:6px;">内部备注：${escHtml(item.review_note)}</div>` : ''}
+            <div style="margin-top:6px; line-height:1.7;">${escHtml(item.summary || '')}</div>
             <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
-              ${item.download_api ? `<a class="ghost-btn" href="${escAttr(item.download_api)}">下载试听</a>` : '<span class="ghost-btn" style="opacity:.45; pointer-events:none;">无试听文件</span>'}
-              ${item.status === 'approved'
-                ? `
-                  <span class="ghost-btn" style="opacity:.55; pointer-events:none;">已通过</span>
-                  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                    <span class="muted-sm">被下载 ${escHtml(item.adopted_download_count || 0)} 次</span>
-                    <input id="sfxSubmissionDownloadCount_${Number(item.id || 0)}" type="number" min="0" step="1" value="${escAttr(item.adopted_download_count || 0)}" style="width:110px; min-width:110px;" />
-                    <button class="ghost-btn" onclick="updateUserSfxSubmissionDownloadCount(${Number(item.id || 0)})">更新下载次数</button>
-                  </div>
-                `
-                : item.status === 'rejected'
-                ? '<span class="ghost-btn" style="opacity:.55; pointer-events:none;">已驳回</span>'
-                : `
-                  <button class="ghost-btn" onclick="reviewUserSfxSubmission(${Number(item.id || 0)}, 'approved')">审核通过并奖励+3</button>
-                  <button class="ghost-btn" onclick="reviewUserSfxSubmission(${Number(item.id || 0)}, 'rejected')">驳回并删除投稿</button>
-                `}
+              <button class="ghost-btn" onclick="reviewCreatorShowcase(${Number(item.id || 0)}, 'approved')">通过</button>
+              <button class="ghost-btn" onclick="reviewCreatorShowcase(${Number(item.id || 0)}, 'rejected')">驳回</button>
             </div>
           </div>
-        `).join('') : '<div class="muted">当前没有用户音效投稿。</div>';
-        pager.innerHTML = items.length ? `
-          <div class="cell" style="flex:0 0 120px;"><button ${userSfxSubmissionState.page <= 1 ? 'disabled' : ''} onclick="changeUserSfxSubmissionPage(-1)">上一页</button></div>
-          <div class="cell" style="flex:1 1 280px; align-self:center; color:#9fb5d8;">第 ${userSfxSubmissionState.page} / ${totalPages} 页，当前显示 ${pageStart}-${pageEnd} / ${items.length}</div>
-          <div class="cell" style="flex:0 0 120px;"><button ${userSfxSubmissionState.page >= totalPages ? 'disabled' : ''} onclick="changeUserSfxSubmissionPage(1)">下一页</button></div>
-        ` : '';
+        `).join('') : '<div class="muted">当前没有作品数据。</div>';
       }
-      function changeUserSfxSubmissionPage(delta) {
-        const items = Array.isArray(userSfxSubmissionState.items) ? userSfxSubmissionState.items : [];
-        const totalPages = Math.max(1, Math.ceil(items.length / Math.max(1, Number(userSfxSubmissionState.pageSize || 6))));
-        const next = Math.max(1, Math.min(totalPages, Number(userSfxSubmissionState.page || 1) + delta));
-        if (next === Number(userSfxSubmissionState.page || 1)) return;
-        userSfxSubmissionState.page = next;
-        renderUserSfxSubmissions();
-      }
-      async function reviewUserSfxSubmission(id, decision) {
-        const note = '';
-        show('userSfxSubmissionsOut', {
-          ok: true,
-          message: decision === 'approved' ? '正在审核通过并发放 +3 永久下载次数...' : '正在驳回并删除投稿...',
-        });
-        const res = await fetch(`${base()}/admin/sfx-submissions/review`, {
+      async function reviewCreatorShowcase(id, decision) {
+        const note = window.prompt(decision === 'approved' ? '审核备注（可选）' : '驳回原因（可选）', '') || '';
+        const res = await fetch(`${base()}/admin/creator-showcases/review`, {
           method: 'POST',
           headers: h({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ id, decision, note }),
         });
         const data = await read(res);
-        if (res.ok && decision === 'approved') {
-          const reward = Number(data?.item?.reward_download_delta || data?.reward_download_delta || 3);
-          const balance = Number(data?.balances?.sfx_download_pack_balance || 0);
-          const smsText = data?.sms_sent
-            ? '已向用户发送短信提醒。'
-            : (data?.sms_message || '当前环境未接入短信网关，本次已完成审核和奖励发放。');
-          const adoptText = data?.item?.adopted_file_name
-            ? `该音效已纳入“由用户更优推荐”素材池，后续推荐会优先参与排序。`
-            : '当前未纳入素材池。';
-          show('userSfxSubmissionsOut', `审核通过。已为用户永久增加 ${reward} 次下载次数，当前下载次数：${balance}。${adoptText}${smsText}`);
-        } else if (res.ok && decision === 'rejected') {
-          show('userSfxSubmissionsOut', '投稿已驳回并删除文件，当前仅保留后台审核记录。');
-        } else {
-          const detail = typeof data === 'string' ? data : (data?.detail || data?.message || '操作失败');
-          show('userSfxSubmissionsOut', detail);
-        }
-        await loadUserSfxSubmissions();
-      }
-      async function updateUserSfxSubmissionDownloadCount(id) {
-        const input = document.getElementById(`sfxSubmissionDownloadCount_${id}`);
-        const downloadCount = Math.max(0, Number(input?.value || 0));
-        show('userSfxSubmissionsOut', { ok: true, message: '正在更新贡献音效下载次数...' });
-        const res = await fetch(`${base()}/admin/sfx-submissions/download-count`, {
-          method: 'POST',
-          headers: h({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({ id, download_count: downloadCount }),
-        });
-        const data = await read(res);
-        if (res.ok) show('userSfxSubmissionsOut', data.message || '贡献音效下载次数已更新。');
-        else show('userSfxSubmissionsOut', typeof data === 'string' ? data : (data?.detail || '更新失败'));
-        await loadUserSfxSubmissions();
+        show('eventsOut', data);
+        await loadCreatorShowcases();
       }
       async function loadCopyrightAdsAdmin() {
         const res = await fetch(`${base()}/admin/copyright-ads`, { headers: h() });
@@ -2243,6 +568,9 @@
       function currentFallbackMonitorDays() {
         return 30;
       }
+      function fallbackScopeDefault(item) {
+        return String(item?.genre || '').trim() ? 'genre' : 'common';
+      }
       function renderGenreSelectOptions(selectedValue = '') {
         const selected = String(selectedValue || '').trim();
         return [
@@ -2250,14 +578,14 @@
           ...GENRE_OPTIONS.map(genre => `<option value="${escAttr(genre)}" ${genre === selected ? 'selected' : ''}>${escHtml(genre)}</option>`),
         ].join('');
       }
-      function classifyFallbackRisk(term, sourceTerm = '') {
+      function classifyFallbackRisk(term, formalHead = '') {
         const value = String(term || '').trim();
-        const source = String(sourceTerm || '').trim();
+        const head = String(formalHead || '').trim();
         const matchedRule = (Array.isArray(fallbackRiskTermState) ? fallbackRiskTermState : []).find(item => {
           return Boolean(item?.enabled) && String(item?.term || '').trim() === value;
         });
         if (!value) return { level: 'safe', label: '可归并', hint: '当前词可作为普通归并项处理。' };
-        if (value === source) return { level: 'source', label: '原始问题词', hint: '这是前台传来的原始问题词。如果你判断它本身就是可直接展示的动作词，可以直接保存，无需额外替代。' };
+        if (value === head) return { level: 'safe', label: '标准展示词', hint: '这是当前准备保留的标准展示词。' };
         if (matchedRule) {
           return {
             level: String(matchedRule.risk_level || 'warn').trim() === 'danger' ? 'danger' : 'warn',
@@ -2283,7 +611,7 @@
         const value = String(term || '').trim();
         if (!value) return 0;
         return (Array.isArray(fallbackRuleState.items) ? fallbackRuleState.items : []).filter(item => {
-          return String(item?.source_term || '').trim() === value || (Array.isArray(item?.replacement_terms) ? item.replacement_terms : []).includes(value);
+          return String(item?.alias_term || '').trim() === value || String(item?.formal_head || '').trim() === value;
         }).length;
       }
       function focusFallbackRulesForTerm(term) {
@@ -2297,59 +625,68 @@
         const box = document.getElementById('fallbackMonitorRules');
         if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-      function renderFallbackRiskPills(terms, sourceTerm = '') {
+      function renderFallbackRiskPills(terms, formalHead = '') {
         const arr = Array.isArray(terms) ? terms.filter(Boolean) : [];
         if (!arr.length) return '<span class="muted">当前没有待归并碎词。</span>';
         return arr.map(term => {
-          const risk = classifyFallbackRisk(term, sourceTerm);
+          const risk = classifyFallbackRisk(term, formalHead);
           const tone = risk.level === 'danger' ? 'danger' : (risk.level === 'warn' ? 'warn' : 'safe');
-          const canAddRisk = String(term || '').trim() && String(term || '').trim() !== String(sourceTerm || '').trim() && !hasFallbackRiskRule(term);
+          const canAddRisk = String(term || '').trim() && String(term || '').trim() !== String(formalHead || '').trim() && !hasFallbackRiskRule(term);
           return `<span class="fallback-rule-chip ${tone}" title="${escAttr(risk.hint)}">${escHtml(term)}<span class="pill">${escHtml(risk.label)}</span>${canAddRisk ? `<button class="ghost-btn" style="padding:2px 8px;" onclick="addFallbackRiskTermFromMonitor('${escAttr(term)}','${escAttr(risk.level)}')">加入高风险词表</button>` : ''}</span>`;
         }).join('');
       }
-      function renderFallbackReplacementChecklist(replacementTerms, sourceTerm = '', idx = 0) {
-        let arr = Array.isArray(replacementTerms) ? replacementTerms.filter(Boolean) : [];
-        const source = String(sourceTerm || '').trim();
-        if (!arr.length && source) arr = [source];
-        if (!arr.length) return '<div class="muted-sm note-prefix">当前没有系统建议的替代展示词，请先在下方手动增加后再保存。</div>';
-        return `<div class="fallback-alias-list">${arr.map(term => {
-          const risk = classifyFallbackRisk(term, sourceTerm);
+      function renderFallbackAliasChecklist(aliasTerms, formalHead = '', idx = 0) {
+        const arr = Array.isArray(aliasTerms) ? aliasTerms.filter(Boolean) : [];
+        const formalBlock = formalHead ? `<div class="fallback-rule-chip safe" style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+          <span>${escHtml(formalHead)}</span>
+          <span class="pill">标准展示词</span>
+        </div>` : '';
+        if (!arr.length) return `${formalBlock}<div class="muted-sm note-prefix">当前没有可收敛的碎词候选。</div>`;
+        return `${formalBlock}<div class="fallback-alias-list">${arr.map(term => {
+          const risk = classifyFallbackRisk(term, formalHead);
           const tone = risk.level === 'danger' ? 'danger' : (risk.level === 'warn' ? 'warn' : 'safe');
-          const checked = term === source ? true : risk.level === 'safe';
+          const checked = risk.level === 'safe';
           return `<label class="fallback-rule-chip ${tone}" style="display:flex; align-items:center; gap:8px;">
-            <input type="checkbox" class="fallback-replacement-check" data-idx="${idx}" value="${escAttr(term)}" ${checked ? 'checked' : ''} />
+            <input type="checkbox" class="fallback-alias-check" data-idx="${idx}" value="${escAttr(term)}" ${checked ? 'checked' : ''} />
             <span>${escHtml(term)}</span>
-            <span class="pill">${escHtml(term === source ? '原始问题词' : (risk.label === '建议归并' ? '建议替代' : risk.label))}</span>
+            <span class="pill">${escHtml(risk.label)}</span>
           </label>`;
         }).join('')}</div>`;
       }
       function captureFallbackMonitorDraftState() {
         const items = Array.isArray(actionFallbackMonitorState?.items) ? actionFallbackMonitorState.items : [];
         items.forEach((item, idx) => {
-          item.__selected_replacements = getSelectedFallbackReplacements(idx);
-          item.__source_term = String(document.getElementById(`fallbackSource_${idx}`)?.value || item?.source_term || '').trim();
+          item.__selected_aliases = getSelectedFallbackAliases(idx);
+          item.__formal_head = String(document.getElementById(`fallbackFormal_${idx}`)?.value || '').trim();
+          item.__scope = String(document.getElementById(`fallbackScope_${idx}`)?.value || fallbackScopeDefault(item)).trim();
+          item.__genre = String(document.getElementById(`fallbackGenre_${idx}`)?.value || item?.genre || '').trim();
         });
       }
-      function getSelectedFallbackReplacements(idx) {
-        return Array.from(document.querySelectorAll(`.fallback-replacement-check[data-idx="${idx}"]:checked`))
+      function getSelectedFallbackAliases(idx) {
+        return Array.from(document.querySelectorAll(`.fallback-alias-check[data-idx="${idx}"]:checked`))
           .map(input => String(input.value || '').trim())
           .filter(Boolean);
       }
-      function applySuggestedFallbackSource(idx, suggested) {
-        const input = document.getElementById(`fallbackSource_${idx}`);
+      function setFallbackAliasChecks(idx, checked) {
+        document.querySelectorAll(`.fallback-alias-check[data-idx="${idx}"]`).forEach(input => {
+          input.checked = !!checked;
+        });
+      }
+      function applySuggestedFallbackFormal(idx, suggested) {
+        const input = document.getElementById(`fallbackFormal_${idx}`);
         if (!input) return;
         input.value = String(suggested || '').trim();
       }
-      function addFallbackReplacementManual(idx) {
-        const input = document.getElementById(`fallbackReplacementManual_${idx}`);
+      function addFallbackAliasManual(idx) {
+        const input = document.getElementById(`fallbackAliasManual_${idx}`);
         const value = String(input?.value || '').trim();
         if (!value) return;
         captureFallbackMonitorDraftState();
         const item = (actionFallbackMonitorState?.items || [])[idx];
         if (!item) return;
-        const manual = Array.isArray(item.__manual_replacements) ? item.__manual_replacements.slice() : [];
+        const manual = Array.isArray(item.__manual_aliases) ? item.__manual_aliases.slice() : [];
         if (!manual.includes(value)) manual.push(value);
-        item.__manual_replacements = manual;
+        item.__manual_aliases = manual;
         if (input) input.value = '';
         renderActionFallbackMonitor({
           ...actionFallbackMonitorState,
@@ -2358,35 +695,55 @@
           risk_terms: fallbackRiskTermState,
         });
       }
+      function syncFallbackScopeUi(idx) {
+        const scope = String(document.getElementById(`fallbackScope_${idx}`)?.value || 'common').trim();
+        const genreSelect = document.getElementById(`fallbackGenre_${idx}`);
+        const note = document.getElementById(`fallbackGenreNote_${idx}`);
+        if (!genreSelect || !note) return;
+        const isGenre = scope === 'genre';
+        genreSelect.disabled = !isGenre;
+        if (!isGenre) genreSelect.value = '';
+        note.textContent = '';
+      }
       function renderActionFallbackRules(rules) {
         const box = document.getElementById('fallbackMonitorRules');
         if (!box) return;
         fallbackRuleState.items = Array.isArray(rules) ? rules : [];
-        const filtered = filterFallbackRulesByQuery(fallbackRuleState.items, fallbackRuleState.query);
+        const query = String(fallbackRuleState.query || '').trim().toLowerCase();
+        const filtered = fallbackRuleState.items.filter(item => {
+          if (!query) return true;
+          const hay = [
+            item?.alias_term,
+            item?.formal_head,
+            item?.genre,
+            item?.scope,
+          ].map(v => String(v || '').toLowerCase()).join(' ');
+          return hay.includes(query);
+        });
         const totalPages = Math.max(1, Math.ceil(filtered.length / fallbackRuleState.pageSize));
         fallbackRuleState.page = Math.min(fallbackRuleState.page, totalPages);
         const start = (fallbackRuleState.page - 1) * fallbackRuleState.pageSize;
         const pageItems = filtered.slice(start, start + fallbackRuleState.pageSize);
         if (!fallbackRuleState.items.length) {
-          box.innerHTML = '<div class="section-box"><h5>现有问题词替代规则</h5><div class="muted-sm note-prefix">当前还没有已保存的问题词替代规则。</div></div>';
+          box.innerHTML = '<div class="section-box"><h5>现有标准展示词收敛规则</h5><div class="muted-sm note-prefix">当前还没有已保存的保底归并规则。</div></div>';
           return;
         }
         box.innerHTML = `
           <div class="section-box">
-            <h5>现有问题词替代规则</h5>
+            <h5>现有标准展示词收敛规则</h5>
             <div class="row" style="margin-top:8px;">
-              <div class="cell"><input id="fallbackRuleSearch" placeholder="搜索问题词 / 替代展示词 / 赛道" value="${escAttr(fallbackRuleState.query || '')}" onkeydown="handleFallbackRuleSearchEnter(event)" /></div>
-              <div class="cell" style="max-width:160px;"><button type="button" onclick="submitFallbackRuleSearch()">搜索</button></div>
+              <div class="cell"><input id="fallbackRuleSearch" placeholder="搜索 alias / 标准展示词 / 赛道" value="${escAttr(fallbackRuleState.query || '')}" oninput="updateFallbackRuleSearch(this.value)" /></div>
             </div>
             <div class="muted-sm note-prefix" style="margin-top:6px;">共 ${filtered.length} 条匹配结果；当前第 ${fallbackRuleState.page} / ${totalPages} 页。</div>
             <div class="fallback-rule-list">
-              ${pageItems.length ? pageItems.map(item => `
+              ${pageItems.map(item => `
                 <span class="fallback-rule-chip">
-                  ${escHtml(item.source_term || '')} → ${escHtml((Array.isArray(item.replacement_terms) ? item.replacement_terms : []).join(' / ') || '—')}
-                  <span class="pill">${escHtml(item.genre ? `赛道·${item.genre}` : '通用')}</span>
-                  <button class="ghost-btn" style="padding:2px 8px;" onclick="releaseActionFallbackRule('${escAttr(item.source_term || '')}','${escAttr(item.genre || '')}')">释放</button>
+                  ${escHtml(item.alias_term || '')} → ${escHtml(item.formal_head || '')}
+                  <span class="pill">${escHtml(String(item.scope || '') === 'genre' ? `赛道层${item.genre ? `·${item.genre}` : ''}` : '通用层')}</span>
+                  <button class="ghost-btn" style="padding:2px 8px;" onclick="releaseActionFallbackRule('${escAttr(item.alias_term || '')}','${escAttr(item.scope || 'common')}','${escAttr(item.genre || '')}')">释放</button>
+                  <button class="ghost-btn" style="padding:2px 8px;" onclick="releaseActionFallbackRule('${escAttr(item.alias_term || '')}','${escAttr(item.scope || 'common')}','${escAttr(item.genre || '')}', true)">释放并加入高风险词表</button>
                 </span>
-              `).join('') : '<div class="muted-sm note-prefix">当前没有匹配的问题词替代规则。</div>'}
+              `).join('')}
             </div>
             <div class="ops-pager" style="margin-top:10px;">
               <button style="width:auto; min-width:120px;" ${fallbackRuleState.page <= 1 ? 'disabled' : ''} onclick="changeFallbackRulePage(-1)">上一页</button>
@@ -2401,40 +758,18 @@
         fallbackRuleState.page = 1;
         renderActionFallbackRules(fallbackRuleState.items);
       }
-      function submitFallbackRuleSearch() {
-        const input = document.getElementById('fallbackRuleSearch');
-        updateFallbackRuleSearch(input?.value || '');
-      }
-      function handleFallbackRuleSearchEnter(event) {
-        if (!event) return;
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          submitFallbackRuleSearch();
-        }
-      }
-      function normalizeFallbackRuleSearchText(value) {
-        return String(value || '')
-          .trim()
-          .toLowerCase()
-          .replace(/[·•、，,。；;：:\/|]+/g, '')
-          .replace(/\s+/g, '');
-      }
-      function filterFallbackRulesByQuery(items, query) {
-        const list = Array.isArray(items) ? items : [];
-        const normalizedQuery = normalizeFallbackRuleSearchText(query);
-        if (!normalizedQuery) return list;
-        return list.filter(item => {
-          const hay = normalizeFallbackRuleSearchText([
-            item?.source_term,
-            ...(Array.isArray(item?.replacement_terms) ? item.replacement_terms : []),
+      function changeFallbackRulePage(delta) {
+        const query = String(fallbackRuleState.query || '').trim().toLowerCase();
+        const filteredCount = (fallbackRuleState.items || []).filter(item => {
+          if (!query) return true;
+          const hay = [
+            item?.alias_term,
+            item?.formal_head,
             item?.genre,
             item?.scope,
-          ].join(' '));
-          return hay.includes(normalizedQuery);
-        });
-      }
-      function changeFallbackRulePage(delta) {
-        const filteredCount = filterFallbackRulesByQuery(fallbackRuleState.items || [], fallbackRuleState.query).length;
+          ].map(v => String(v || '').toLowerCase()).join(' ');
+          return hay.includes(query);
+        }).length;
         const totalPages = Math.max(1, Math.ceil(filteredCount / fallbackRuleState.pageSize));
         const next = Math.max(1, Math.min(totalPages, fallbackRuleState.page + delta));
         if (next === fallbackRuleState.page) return;
@@ -2520,20 +855,10 @@
           ? data.pending_items
           : (Array.isArray(data?.items) ? data.items : []);
         const rules = Array.isArray(data?.rules) ? data.rules : [];
-        const nextPageSize = Math.max(1, Number(data?.pageSize || actionFallbackMonitorState?.pageSize || 6));
-        const totalPages = Math.max(1, Math.ceil(items.length / nextPageSize));
-        const requestedPage = Number(
-          data?.page
-          || actionFallbackMonitorState?.page
-          || 1
-        );
-        const currentPage = Math.max(1, Math.min(totalPages, requestedPage));
         actionFallbackMonitorState = {
           days: Number(data?.days || currentFallbackMonitorDays() || 30),
           items,
           rules,
-          page: currentPage,
-          pageSize: nextPageSize,
         };
         fallbackRiskTermState = Array.isArray(data?.risk_terms) ? data.risk_terms : [];
         renderActionFallbackRules(rules);
@@ -2545,33 +870,26 @@
           return;
         }
         const totalHits = items.reduce((sum, item) => sum + Number(item?.hit_count || 0), 0);
-        const start = (currentPage - 1) * nextPageSize;
-        const pageItems = items.slice(start, start + nextPageSize);
-        summary.textContent = `当前共有 ${items.length} 组待确认词集，累计命中 ${totalHits} 次；已按最新命中时间优先排序。当前第 ${currentPage} / ${totalPages} 页。`;
+        summary.textContent = `当前共有 ${items.length} 组待确认词集，累计命中 ${totalHits} 次；已按最新命中时间优先排序。`;
         box.innerHTML = `
-          <div class="ops-pager" style="margin-bottom:10px;">
-            <button style="width:auto; min-width:120px;" ${currentPage <= 1 ? 'disabled' : ''} onclick="changeActionFallbackMonitorPage(-1)">上一页</button>
-            <div class="ops-pager-info">当前显示 ${pageItems.length ? `${start + 1}-${Math.min(start + pageItems.length, items.length)}` : '0'} / ${items.length}</div>
-            <button style="width:auto; min-width:120px;" ${currentPage >= totalPages ? 'disabled' : ''} onclick="changeActionFallbackMonitorPage(1)">下一页</button>
-          </div>
           <div class="fallback-monitor-grid">
-            ${pageItems.map((item, pageIdx) => {
-              const idx = start + pageIdx;
-              const sourceTerm = String(item?.__source_term || item?.source_term || '').trim();
+            ${items.map((item, idx) => {
+              const suggested = String(item?.suggested_formal_term || '').trim();
+              const currentFormal = String(item?.__formal_head || '').trim();
               const fallbackTerms = Array.isArray(item?.fallback_terms) ? item.fallback_terms.filter(Boolean) : [];
-              const manualReplacements = Array.isArray(item?.__manual_replacements) ? item.__manual_replacements.filter(Boolean) : [];
-              const suggestedReplacements = Array.isArray(item?.candidate_replacement_terms) ? item.candidate_replacement_terms.filter(Boolean) : [];
+              const manualAliases = Array.isArray(item?.__manual_aliases) ? item.__manual_aliases.filter(Boolean) : [];
+              const suggestedAliases = Array.isArray(item?.candidate_alias_terms) ? item.candidate_alias_terms.filter(Boolean) : [];
               const autoFilteredTerms = Array.isArray(item?.auto_filtered_terms) ? item.auto_filtered_terms.filter(Boolean) : [];
-              const defaultReplacements = mergeUniqueTerms([
-                ...suggestedReplacements.filter(term => String(term || '').trim() && String(term || '').trim() !== sourceTerm),
-                ...manualReplacements,
+              const defaultAliases = mergeUniqueTerms([
+                ...suggestedAliases.filter(term => String(term || '').trim() && String(term || '').trim() !== currentFormal),
+                ...manualAliases,
               ]);
-              const genre = String(item?.genre || '').trim();
+              const scope = String(item?.__scope || fallbackScopeDefault(item)).trim() || fallbackScopeDefault(item);
+              const genre = String(item?.__genre || item?.genre || '').trim();
               const latestAt = formatReadableTime(item?.latest_at);
               const parentHeads = Array.isArray(item?.parent_heads) ? item.parent_heads.slice(0, 6) : [];
               const rawVerbs = Array.isArray(item?.raw_verbs) ? item.raw_verbs.slice(0, 6) : [];
               const examples = Array.isArray(item?.examples) ? item.examples.slice(0, 2) : [];
-              const reopened = Boolean(item?.reopened_from_rule);
               return `
                 <div class="fallback-monitor-card">
                   <div class="fallback-monitor-head">
@@ -2581,7 +899,6 @@
                     <div class="status-bar" style="margin-top:0;">
                       <span class="status-chip">命中 ${escHtml(item?.hit_count || 0)} 次</span>
                       <span class="status-chip">${escHtml(genre || '通用候选')}</span>
-                      ${reopened ? `<span class="status-chip">已释放回流</span>` : ''}
                     </div>
                   </div>
                   <div class="section-box" style="margin-top:10px;">
@@ -2603,28 +920,40 @@
                     <div class="muted-sm note-prefix" style="margin-top:4px;">示例片段：${examples.length ? escHtml(examples.join(' / ')) : '暂无示例片段'}</div>
                   </div>
                   <div class="editor-group">
-                    <h6>问题词替代设置</h6>
-                    <div class="muted-sm note-prefix" style="margin-bottom:6px;">系统识别问题词可手动改成更适合长期维护的治理词；保存后，原始长问题词不会继续留在待运营确认里。</div>
+                    <h6>标准展示词映射确认</h6>
                     <div class="row">
                       <div class="cell">
-                        <input id="fallbackSource_${idx}" value="${escHtml(sourceTerm)}" placeholder="原始问题词，如 惊恐道" />
+                        <input id="fallbackFormal_${idx}" value="${escHtml(currentFormal)}" placeholder="${escAttr(suggested ? `标准展示词，如 ${suggested}` : '标准展示词，如 惊叹')}" />
+                      </div>
+                      <div class="cell">
+                        <select id="fallbackScope_${idx}">
+                          <option value="common" ${scope === 'common' ? 'selected' : ''}>提升到通用层</option>
+                          <option value="genre" ${scope === 'genre' ? 'selected' : ''}>提升到赛道层</option>
+                        </select>
                       </div>
                     </div>
-                    ${sourceTerm ? `
+                    ${suggested ? `
                     <div class="mini-action-row" style="margin-top:6px;">
-                      <button type="button" class="ghost-btn" onclick="applySuggestedFallbackSource(${idx}, '${escAttr(sourceTerm)}')">使用原始问题词：${escHtml(sourceTerm)}</button>
+                      <button type="button" class="ghost-btn" onclick="applySuggestedFallbackFormal(${idx}, '${escAttr(suggested)}')">使用系统建议词：${escHtml(suggested)}</button>
                     </div>
                     ` : ''}
-                    ${autoFilteredTerms.length ? `<div class="muted-sm note-prefix" style="margin-top:8px;">系统已自动过滤明显碎词：${escHtml(autoFilteredTerms.join(' / '))}</div>` : ''}
-                    ${renderFallbackReplacementChecklist(defaultReplacements, sourceTerm, idx)}
-                    <div class="mini-action-row" style="margin-top:8px;">
-                      <input id="fallbackReplacementManual_${idx}" placeholder="手动增加替代展示词，如 惊恐 / 受着" />
-                      <button type="button" class="ghost-btn" onclick="addFallbackReplacementManual(${idx})">增加</button>
+                    <div class="row" style="margin-top:8px;">
+                      <div class="cell">
+                        <select id="fallbackGenre_${idx}">
+                          ${renderGenreSelectOptions(genre)}
+                        </select>
+                        <div id="fallbackGenreNote_${idx}" class="field-disabled-note"></div>
+                      </div>
                     </div>
-                    <div id="fallbackFeedback_${idx}" class="fallback-inline-feedback info">保存后，前台下次再命中这个问题词时，系统会优先展示你勾选的替代词，不再把原词直接推荐给用户。</div>
+                    ${autoFilteredTerms.length ? `<div class="muted-sm note-prefix" style="margin-top:8px;">系统已自动过滤明显碎词：${escHtml(autoFilteredTerms.join(' / '))}</div>` : ''}
+                    ${renderFallbackAliasChecklist(defaultAliases, currentFormal, idx)}
+                    <div class="mini-action-row" style="margin-top:8px;">
+                      <input id="fallbackAliasManual_${idx}" placeholder="手动增加碎词，如 惊恐道" />
+                      <button type="button" class="ghost-btn" onclick="addFallbackAliasManual(${idx})">增加</button>
+                    </div>
+                    <div id="fallbackFeedback_${idx}" class="fallback-inline-feedback info">保存后，系统会优先把这些词映射到标准展示词，前台不再继续把碎词直接推荐给用户。</div>
                     <div class="mini-action-row">
-                      <button id="fallbackSaveBtn_${idx}" onclick="applyActionFallbackResolution(${idx})">保存问题词替代设置</button>
-                      <button class="ghost-btn" onclick="ignoreActionFallbackResolution(${idx})">忽略此问题词</button>
+                      <button id="fallbackSaveBtn_${idx}" onclick="applyActionFallbackResolution(${idx})">保存为标准展示词</button>
                       <button class="ghost-btn" onclick="openFallbackGraphMaintenance(${idx})">去图谱维护</button>
                     </div>
                   </div>
@@ -2633,19 +962,12 @@
             }).join('')}
           </div>
         `;
-      }
-      function changeActionFallbackMonitorPage(delta) {
-        const totalPages = Math.max(1, Math.ceil((actionFallbackMonitorState.items || []).length / Math.max(1, Number(actionFallbackMonitorState.pageSize || 6))));
-        const next = Math.max(1, Math.min(totalPages, Number(actionFallbackMonitorState.page || 1) + delta));
-        if (next === Number(actionFallbackMonitorState.page || 1)) return;
-        actionFallbackMonitorState.page = next;
-        renderActionFallbackMonitor({
-          days: actionFallbackMonitorState.days,
-          pending_items: actionFallbackMonitorState.items,
-          rules: actionFallbackMonitorState.rules,
-          risk_terms: fallbackRiskTermState,
-          page: next,
-          pageSize: actionFallbackMonitorState.pageSize,
+        items.forEach((_, idx) => syncFallbackScopeUi(idx));
+        items.forEach((_, idx) => {
+          const scopeSelect = document.getElementById(`fallbackScope_${idx}`);
+          if (scopeSelect) {
+            scopeSelect.onchange = () => syncFallbackScopeUi(idx);
+          }
         });
       }
       function renderActionFallbackAlerts(data) {
@@ -2662,10 +984,10 @@
         banner.classList.toggle('ok', pendingCount <= 0);
         if (pendingCount > 0) {
           title.textContent = `保底生成待办提醒 · ${pendingCount} 组待处理`;
-          summary.textContent = `系统已自动识别到仍未完成问题词替代设置的词组。它们来自前台用户真实触发的“动作图谱推荐”，现在可以直接交给运营处理。${latestAt && latestAt !== '-' ? ` 最近一组命中时间：${latestAt}。` : ''}`;
+          summary.textContent = `系统已自动识别到仍未完成标准展示词映射的保底词组。它们来自前台用户真实触发的“动作图谱推荐”，现在可以直接交给运营处理。${latestAt && latestAt !== '-' ? ` 最近一组命中时间：${latestAt}。` : ''}`;
           list.innerHTML = items.map(item => `
             <div class="alert-banner-item">
-              <div style="font-weight:700; font-size:13px;">${escHtml(item?.source_term || '待确认问题词')}</div>
+              <div style="font-weight:700; font-size:13px;">${escHtml(item?.suggested_formal_term || '待确认标准展示词')}</div>
               <div class="muted-sm" style="margin-top:4px;">保底词集：${escHtml((item?.fallback_terms || []).join(' / ') || '暂无')}</div>
               <div class="muted-sm" style="margin-top:4px;">赛道：${escHtml(item?.genre || '通用候选')} ｜ 命中 ${escHtml(item?.hit_count || 0)} 次</div>
               <div class="muted-sm" style="margin-top:4px;">最近命中：${escHtml(formatReadableTime(item?.latest_at))}</div>
@@ -2701,20 +1023,12 @@
           card.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       }
-      function scrollToAdminSection(id) {
-        const section = document.getElementById(id);
-        if (section) {
-          section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }
       async function openFallbackGraphMaintenance(idx) {
-        const selected = getSelectedFallbackReplacements(idx);
-        const sourceTerm = String(document.getElementById(`fallbackSource_${idx}`)?.value || '').trim();
-        const item = (actionFallbackMonitorState?.items || [])[idx] || {};
-        const genre = String(item?.genre || '').trim();
-        const targetHead = String(selected[0] || sourceTerm || '').trim();
-        if (!targetHead) return show('graphManageOut', '请先勾选或填写替代展示词，再进入图谱维护');
-        const nodeKey = genre ? `${genre}::${targetHead}` : targetHead;
+        const formalHead = String(document.getElementById(`fallbackFormal_${idx}`)?.value || '').trim();
+        const scope = String(document.getElementById(`fallbackScope_${idx}`)?.value || 'common').trim();
+        const genre = String(document.getElementById(`fallbackGenre_${idx}`)?.value || '').trim();
+        if (!formalHead) return show('graphManageOut', '请先填写标准展示词，再进入图谱维护');
+        const nodeKey = scope === 'genre' && genre ? `${genre}::${formalHead}` : formalHead;
         const maintenanceCard = document.getElementById('graphManageBox')?.closest('.card');
         if (maintenanceCard) {
           maintenanceCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2725,11 +1039,7 @@
         const url = `${base()}/action-graph/fallback-monitor?_ts=${Date.now()}`;
         const res = await fetch(url, { headers: h(), cache: 'no-store' });
         const data = await read(res);
-        renderActionFallbackMonitor({
-          ...data,
-          page: 1,
-          pageSize: actionFallbackMonitorState.pageSize || 6,
-        });
+        renderActionFallbackMonitor(data);
         show('fallbackMonitorOut', data);
       }
       async function applyActionFallbackResolution(idx) {
@@ -2737,53 +1047,42 @@
         if (!item) return;
         const feedback = document.getElementById(`fallbackFeedback_${idx}`);
         const button = document.getElementById(`fallbackSaveBtn_${idx}`);
-        const originalSourceTerm = String(item?.source_term || '').trim();
-        const editedTerm = String(document.getElementById(`fallbackSource_${idx}`)?.value || originalSourceTerm || '').trim();
-        const genre = String(item?.genre || '').trim();
+        const suggested = String(item?.suggested_formal_term || '').trim();
+        const formalHead = String(document.getElementById(`fallbackFormal_${idx}`)?.value || '').trim();
+        const scope = String(document.getElementById(`fallbackScope_${idx}`)?.value || 'common').trim();
+        const genre = String(document.getElementById(`fallbackGenre_${idx}`)?.value || '').trim();
         const fallbackTerms = Array.isArray(item?.fallback_terms) ? item.fallback_terms.map(x => String(x || '').trim()).filter(Boolean) : [];
-        let replacementTerms = mergeUniqueTerms(getSelectedFallbackReplacements(idx))
-          .filter(term => String(term || '').trim());
-        if (!editedTerm) {
+        const aliasTerms = mergeUniqueTerms(getSelectedFallbackAliases(idx))
+          .filter(term => String(term || '').trim() && String(term || '').trim() !== formalHead);
+        const ignoredTerms = mergeUniqueTerms(
+          fallbackTerms.filter(term => term && term !== formalHead && !aliasTerms.includes(term))
+        );
+        if (!formalHead) {
           if (feedback) {
             feedback.className = 'fallback-inline-feedback error';
-            feedback.textContent = '请先确认原始问题词。';
+            feedback.textContent = suggested ? `请先填写标准展示词；如果你认同系统建议，可直接点“使用系统建议词：${suggested}”。` : '请先填写标准展示词。';
           }
-          return show('fallbackMonitorOut', '请先确认原始问题词');
+          return show('fallbackMonitorOut', suggested ? `请先填写标准展示词，或使用系统建议词：${suggested}` : '请先填写标准展示词');
         }
-        const sourceTerm = originalSourceTerm || editedTerm;
-        const replacementHead = editedTerm !== sourceTerm ? editedTerm : sourceTerm;
-        if (!replacementTerms.length) {
-          replacementTerms = [replacementHead];
-        }
-        if (replacementHead && !replacementTerms.includes(replacementHead)) {
-          replacementTerms.unshift(replacementHead);
-        }
-        const ignoredTerms = mergeUniqueTerms([
-          ...fallbackTerms.filter(term => term && term !== sourceTerm && !replacementTerms.includes(term)),
-        ]);
-        if (!replacementTerms.length) {
+        if (scope === 'genre' && !genre) {
           if (feedback) {
             feedback.className = 'fallback-inline-feedback error';
-            feedback.textContent = '请先勾选或手动增加替代展示词。';
+            feedback.textContent = '选择“提升到赛道层”时，请填写赛道。';
           }
-          return show('fallbackMonitorOut', '请先勾选或手动增加替代展示词');
+          return show('fallbackMonitorOut', '选择“提升到赛道层”时，请填写赛道');
         }
-        const highRiskAliases = replacementTerms.map(term => ({ term, risk: classifyFallbackRisk(term, sourceTerm) }))
+        const highRiskAliases = aliasTerms.map(term => ({ term, risk: classifyFallbackRisk(term, formalHead) }))
           .filter(item => item.risk.level === 'danger' || item.risk.level === 'warn');
         if (highRiskAliases.length) {
           const riskText = highRiskAliases.map(item => `${item.term}（${item.risk.label}）`).join('、');
-          const confirmed = window.confirm(`这组替代词里包含高风险词：${riskText}。\n继续保存后，原始问题词“${sourceTerm}”会被替换成这些词展示给用户。\n如果这些词很泛，可能误伤其他语义。是否继续保存？`);
+          const confirmed = window.confirm(`这组收敛里包含高风险碎词：${riskText}。\n继续保存后，这些词会直接归并到“${formalHead}”。\n如果这些词很泛，可能误伤其他语义。是否继续保存？`);
           if (!confirmed) {
             if (feedback) {
               feedback.className = 'fallback-inline-feedback warning';
-              feedback.textContent = `已取消保存。当前包含高风险词：${riskText}。建议先观察或改成更完整的替代展示词。`;
+              feedback.textContent = `已取消保存。当前包含高风险碎词：${riskText}。建议先释放、观察，或加入高风险词表。`;
             }
             return show('fallbackMonitorOut', `已取消保存，高风险碎词：${riskText}`);
           }
-        }
-        if (feedback && replacementTerms.length === 1 && replacementTerms[0] === sourceTerm) {
-          feedback.className = 'fallback-inline-feedback info';
-          feedback.textContent = '当前保存的是原始问题词本身。系统会保留这个词作为展示结果，不额外做替代扩展。';
         }
         if (button) {
           button.disabled = true;
@@ -2791,18 +1090,18 @@
         }
         if (feedback) {
           feedback.className = 'fallback-inline-feedback info';
-          feedback.textContent = '正在保存问题词替代设置，并同步刷新图谱维护视图...';
+          feedback.textContent = '正在保存标准展示词收敛规则，并同步刷新图谱维护视图...';
         }
         try {
           const res = await fetch(`${base()}/action-graph/fallback-monitor/resolve`, {
             method: 'POST',
             headers: h({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({
-              source_term: sourceTerm,
-              original_source_term: originalSourceTerm,
-              replacement_terms: replacementTerms,
+              formal_head: formalHead,
+              alias_terms: aliasTerms,
               ignored_terms: ignoredTerms,
-              genre: '',
+              scope,
+              genre,
             }),
           });
           const data = await read(res);
@@ -2816,7 +1115,9 @@
           }
           if (feedback) {
             feedback.className = 'fallback-inline-feedback success';
-            feedback.textContent = `保存成功：已将问题词 ${originalSourceTerm || sourceTerm} 按 ${replacementTerms.join('、')} 进行替代展示。下次前台再命中这组问题词时，系统会优先展示这些替代词。`;
+            feedback.textContent = aliasTerms.length
+              ? `保存成功：已将 ${aliasTerms.join('、')} 归并到标准展示词 ${formalHead}。下次前台再命中这些碎词时，系统会优先推荐标准展示词。`
+              : `保存成功：已将标准展示词 ${formalHead} 记入系统。后续同类词组会优先参考这条映射能力。`;
           }
           if (Array.isArray(actionFallbackMonitorState?.items)) {
             actionFallbackMonitorState.items = actionFallbackMonitorState.items.filter((_, itemIdx) => itemIdx !== idx);
@@ -2829,11 +1130,8 @@
           }
           await loadActionFallbackMonitor();
           await loadActionFallbackAlerts(true);
-          const graphTarget = String(replacementTerms[0] || sourceTerm || '').trim();
-          if (graphTarget) {
-            await loadGraphMaintenanceCatalog(graphTarget);
-            await loadGraphMaintenance(graphTarget);
-          }
+          await loadGraphMaintenanceCatalog(scope === 'common' ? formalHead : `${genre}::${formalHead}`);
+          await loadGraphMaintenance(scope === 'common' ? formalHead : `${genre}::${formalHead}`);
         } catch (err) {
           const message = String(err?.message || err || 'unknown error');
           show('fallbackMonitorOut', { ok: false, detail: message });
@@ -2844,78 +1142,40 @@
         } finally {
           if (button) {
             button.disabled = false;
-            button.textContent = '保存问题词替代设置';
+            button.textContent = '保存为标准展示词';
           }
         }
       }
-      async function ignoreActionFallbackResolution(idx) {
-        const item = (actionFallbackMonitorState?.items || [])[idx];
-        if (!item) return;
-        const originalSourceTerm = String(item?.source_term || '').trim();
-        const fallbackTerms = Array.isArray(item?.fallback_terms) ? item.fallback_terms.map(x => String(x || '').trim()).filter(Boolean) : [];
-        const feedback = document.getElementById(`fallbackFeedback_${idx}`);
-        if (feedback) {
-          feedback.className = 'fallback-inline-feedback info';
-          feedback.textContent = '正在忽略这个问题词，并同步刷新待确认列表...';
-        }
-        try {
-          const res = await fetch(`${base()}/action-graph/fallback-monitor/resolve`, {
-            method: 'POST',
-            headers: h({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({
-              source_term: originalSourceTerm,
-              original_source_term: originalSourceTerm,
-              replacement_terms: [],
-              ignored_terms: mergeUniqueTerms(fallbackTerms.length ? fallbackTerms : [originalSourceTerm]),
-              genre: '',
-            }),
-          });
-          const data = await read(res);
-          show('fallbackMonitorOut', data);
-          if (!res.ok) {
-            if (feedback) {
-              feedback.className = 'fallback-inline-feedback error';
-              feedback.textContent = `忽略失败：${data?.detail || data?.message || '请稍后重试。'}`;
-            }
-            return;
-          }
-          if (feedback) {
-            feedback.className = 'fallback-inline-feedback success';
-            feedback.textContent = `已忽略问题词：${originalSourceTerm || '当前词组'}。它不会继续出现在待运营确认里。`;
-          }
-          if (Array.isArray(actionFallbackMonitorState?.items)) {
-            actionFallbackMonitorState.items = actionFallbackMonitorState.items.filter((_, itemIdx) => itemIdx !== idx);
-            renderActionFallbackMonitor({
-              ...actionFallbackMonitorState,
-              pending_items: actionFallbackMonitorState.items,
-              rules: actionFallbackMonitorState.rules,
-              risk_terms: fallbackRiskTermState,
-            });
-          }
-          await loadActionFallbackMonitor();
-          await loadActionFallbackAlerts(true);
-        } catch (err) {
-          const message = String(err?.message || err || 'unknown error');
-          show('fallbackMonitorOut', { ok: false, detail: message });
-          if (feedback) {
-            feedback.className = 'fallback-inline-feedback error';
-            feedback.textContent = `忽略失败：${message}`;
-          }
-        }
-      }
-      async function releaseActionFallbackRule(sourceTerm, genre) {
-        const sourceValue = String(sourceTerm || '').trim();
+      async function releaseActionFallbackRule(aliasTerm, scope, genre, addToRisk = false) {
+        const aliasValue = String(aliasTerm || '').trim();
         const res = await fetch(`${base()}/action-graph/fallback-monitor/release`, {
           method: 'POST',
           headers: h({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
-            source_term: sourceValue,
+            alias_term: aliasValue,
+            scope: String(scope || 'common').trim(),
             genre: String(genre || '').trim(),
           }),
         });
         const data = await read(res);
         show('fallbackMonitorOut', data);
         if (!res.ok) return;
+        if (addToRisk && aliasValue) {
+          const risk = classifyFallbackRisk(aliasValue);
+          const riskLevel = risk.level === 'danger' ? 'danger' : 'warn';
+          const note = '从标准展示词收敛规则释放后，已加入高风险碎词词表，避免再次被轻易收敛。';
+          const riskRes = await fetch(`${base()}/action-graph/fallback-risk-terms`, {
+            method: 'POST',
+            headers: h({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ term: aliasValue, risk_level: riskLevel, note, enabled: true }),
+          });
+          const riskData = await read(riskRes);
+          show('fallbackMonitorOut', riskData);
+          if (riskRes.ok) {
+            fallbackRiskTermState = Array.isArray(riskData?.items) ? riskData.items : [];
+            renderActionFallbackRiskTermsAdmin(fallbackRiskTermState);
+          }
+        }
         await loadActionFallbackMonitor();
         await loadActionFallbackAlerts(true);
       }
@@ -3075,7 +1335,7 @@
           .slice(0, 5)
           .map(item => ({
             kind: 'fallback',
-            title: String(item?.source_term || '待确认问题词').trim(),
+            title: String(item?.suggested_formal_term || '待确认标准展示词').trim(),
             subtitle: `${String(item?.genre || '通用候选').trim() || '通用候选'} ｜ 命中 ${Number(item?.hit_count || 0)} 次`,
             extra: `保底词：${(item?.fallback_terms || []).join(' / ') || '暂无'}`,
             latest_at: formatReadableTime(item?.latest_at),
@@ -3084,7 +1344,7 @@
           }));
         const supplementMissing = [];
         for (const item of fallbackItems) {
-          const suggested = String(item?.source_term || '').trim();
+          const suggested = String(item?.suggested_formal_term || '').trim();
           const genre = String(item?.genre || '').trim();
           const nodeKey = genre ? `${genre}::${suggested}` : suggested;
           if (!suggested || !nodeKey || groupMap.has(nodeKey)) continue;
@@ -3343,50 +1603,6 @@
         }
         return '图谱维护操作已完成。';
       }
-      function buildDraftGraphNodeData(nodeKey, genreValue, verbValue, layer = 'genre') {
-        const isCommon = layer === 'common';
-        return {
-          ok: true,
-          node_key: nodeKey,
-          genre: isCommon ? '' : genreValue,
-          compare_genre: isCommon ? '' : genreValue,
-          verb_head: verbValue,
-          genre_assigned: false,
-          inheritance_blocked: false,
-          common_layer: {
-            exists: false,
-            semantic_terms: [],
-            direct_sfx_terms: [],
-            composite_sfx_terms: [],
-          },
-          genre_layer: {
-            exists: false,
-            semantic_terms: [],
-            direct_sfx_terms: [],
-            composite_sfx_terms: [],
-          },
-          merged: {
-            semantic_terms: [],
-            semantic_term_items: [],
-            sfx_terms: [],
-            sfx_term_items: [],
-            direct_sfx_terms: [],
-            direct_sfx_term_items: [],
-            composite_sfx_terms: [],
-            composite_sfx_term_items: [],
-            summary: {
-              semantic_count: 0,
-              sfx_count: 0,
-              direct_sfx_count: 0,
-              composite_sfx_count: 0,
-            },
-            has_fallback_terms: false,
-          },
-          migration_candidates: { semantic_terms: [], sfx_terms: [] },
-          demotion_candidates: { semantic_terms: [], sfx_terms: [] },
-          overlap_candidates: { semantic_terms: [], sfx_terms: [] },
-        };
-      }
       function setGraphMaintenanceUiState(patch = {}) {
         graphMaintenanceState = graphMaintenanceState || {};
         graphMaintenanceState.ui = {
@@ -3411,7 +1627,6 @@
             genreSaveFeedbackText: '',
             nodeKeepOtherFeedbackText: '',
             nodeDeleteFeedbackText: '',
-            newNodeContext: null,
           }),
           ...(patch || {}),
         };
@@ -3574,55 +1789,36 @@
       async function sendCode() {
         const phone = normalizePhoneInput((document.getElementById('phone').value || '').trim());
         document.getElementById('phone').value = phone;
-        clearAdminRuntimeError();
-        if (!phone) return setAdminAuthStatus('请输入手机号', 'warning');
-        if (!isValidPhoneInput(phone)) return setAdminAuthStatus('请输入有效的11位手机号', 'warning');
-        setAdminAuthStatus(`正在向 ${phone} 发送验证码...`, 'info');
-        try {
-          const res = await fetch(`${base()}/auth/request-code`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone }),
-          });
-          const data = await read(res);
-          if (!res.ok) {
-            setAdminAuthStatus(data?.detail || data?.message || '发送验证码失败', 'error');
-            return;
-          }
-          if (data && data.code) document.getElementById('code').value = data.code;
-          setAdminAuthStatus(`验证码发送成功。\n手机号：${phone}\n验证码已${data?.code ? '自动填入' : '返回'}。\n有效期：${Number(data?.ttl_sec || 0)} 秒`, 'success');
-        } catch (err) {
-          setAdminAuthStatus(`发送验证码失败：${err?.message || String(err || 'unknown error')}`, 'error');
-        }
+        if (!phone) return show('usersOut', '请输入手机号');
+        if (!isValidPhoneInput(phone)) return show('usersOut', '请输入有效的11位手机号');
+        const res = await fetch(`${base()}/auth/request-code`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone }),
+        });
+        const data = await read(res);
+        if (data && data.code) document.getElementById('code').value = data.code;
+        show('usersOut', data);
       }
 
       async function login() {
         const phone = normalizePhoneInput((document.getElementById('phone').value || '').trim());
         const code = (document.getElementById('code').value || '').trim();
         document.getElementById('phone').value = phone;
-        clearAdminRuntimeError();
-        if (!isValidPhoneInput(phone)) return setAdminAuthStatus('请输入有效的11位手机号', 'warning');
-        if (!code) return setAdminAuthStatus('请输入验证码', 'warning');
-        setAdminAuthStatus(`正在登录后台：${phone} ...`, 'info');
-        try {
-          const res = await fetch(`${base()}/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, code }),
-          });
-          const data = await read(res);
-          if (!res.ok || !data?.token) {
-            setAdminAuthStatus(data?.detail || data?.message || '登录失败', 'error');
-            return;
-          }
+        if (!isValidPhoneInput(phone)) return show('usersOut', '请输入有效的11位手机号');
+        const res = await fetch(`${base()}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, code }),
+        });
+        const data = await read(res);
+        if (res.ok && data.token) {
           token = data.token;
           loginPhone = data.user.phone;
           localStorage.setItem('mfa_admin_token', token);
           localStorage.setItem('mfa_admin_phone', loginPhone);
           setState();
-          setAdminAuthStatus(`后台登录成功。\n手机号：${loginPhone}\n当前已进入管理员操作态。`, 'success');
           loadBetaAccess();
-          loadReferralRewardSettings();
           loadFrontendSecurity();
           loadInviteCodes();
           loadUsers();
@@ -3633,11 +1829,9 @@
           loadCreatorShowcases();
           loadCopyrightAdsAdmin();
           loadRechargeOrders();
-          loadUserSfxSubmissions();
           startFallbackAlertPolling();
-        } catch (err) {
-          setAdminAuthStatus(`登录失败：${err?.message || String(err || 'unknown error')}`, 'error');
         }
+        show('usersOut', data);
       }
 
       async function loadUsers() {
@@ -3693,41 +1887,6 @@
         const data = await read(res);
         renderFrontendSecurityState(data);
         show('frontendSecurityOut', data);
-      }
-
-      function renderReferralRewardSettings(data) {
-        const hint = document.getElementById('referralRewardHint');
-        if (!data || typeof data !== 'object') {
-          if (hint) hint.textContent = '当前没有可展示的推荐奖励配置。';
-          return;
-        }
-        const sfx = Number(data.sfx_download_pack_reward || 0);
-        const text = Number(data.text_char_pack_reward || 0);
-        const sfxInput = document.getElementById('refRewardSfx');
-        const textInput = document.getElementById('refRewardText');
-        if (sfxInput) sfxInput.value = String(sfx);
-        if (textInput) textInput.value = String(text);
-        if (hint) hint.textContent = `当前配置：每成功推荐 1 位新用户，奖励 ${sfx} 次音效下载次数和 ${text} 字文字数量。`;
-      }
-
-      async function loadReferralRewardSettings() {
-        const res = await fetch(`${base()}/admin/referral-reward-settings`, { headers: h() });
-        const data = await read(res);
-        renderReferralRewardSettings(data);
-        show('referralRewardOut', data);
-      }
-
-      async function saveReferralRewardSettings() {
-        const sfx_download_pack_reward = Number(document.getElementById('refRewardSfx').value || 0);
-        const text_char_pack_reward = Number(document.getElementById('refRewardText').value || 0);
-        const res = await fetch(`${base()}/admin/referral-reward-settings`, {
-          method: 'POST',
-          headers: h({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({ sfx_download_pack_reward, text_char_pack_reward }),
-        });
-        const data = await read(res);
-        renderReferralRewardSettings(data);
-        show('referralRewardOut', data);
       }
 
       async function saveFrontendSecurity() {
@@ -3831,7 +1990,6 @@
         const output = (item && item.output) || {};
         if (action === 'create_project') return `创建项目：${input.title || output.project_id || '未命名'}。`;
         if (action === 'audio_analysis') return `完成音乐分析，识别 ${Number(output.marker_count || 0)} 个音乐锚点。`;
-        if (action === 'music_match') return `完成音乐匹配判断，综合评分 ${Number(output.score || 0)} 分，结论：${output.verdict || '未判定'}。`;
         if (action === 'text_analysis') return `完成文本分析，输入 ${Number(input.text_len || 0)} 字，输出 ${Number(output.scene_count || 0)} 个场景。`;
         if (action === 'action_verb_analysis') return `完成动作提取，输入 ${Number(input.text_len || 0)} 字，识别 ${Number(output.qualified_count || 0)} 个需做动作音效的动词。`;
         if (action === 'action_sfx_graph') return `完成动作图谱推荐，产出 ${Number(output.graph_item_count || 0)} 条动作图谱结果。`;
@@ -3842,71 +2000,6 @@
         if (action === 'action_sfx_asset_download') return `下载单个音效：${input.file_name || input.label || '未标注音效'}。`;
         if (action === 'scene_sfx_asset_download') return `下载场景音效：${input.file_name || input.label || '未标注音效'}。`;
         return `记录到行为：${action || '未标注动作'}。`;
-      }
-
-      function formatLlmAuditSummary(audit) {
-        const data = (audit && typeof audit === 'object') ? audit : {};
-        const calls = Number(data.llm_calls || 0);
-        const overall = Number(data.overall_duration_ms || 0);
-        const models = Array.isArray(data.models) ? data.models.filter(Boolean) : [];
-        const qualityRetryCount = (Array.isArray(data.calls) ? data.calls : []).filter(row => row && row.quality_valid === false).length;
-        if (!calls && !overall && !models.length) return '未调用 LLM';
-        const parts = [];
-        if (overall) parts.push(`总耗时 ${formatDurationReadable(overall)}`);
-        if (calls) parts.push(`调用 ${calls} 次`);
-        if (models.length) parts.push(`模型：${models.join('、')}`);
-        if (qualityRetryCount) parts.push(`质量重试 ${qualityRetryCount} 次`);
-        return parts.join(' ｜ ');
-      }
-
-      function formatRuntimeSummary(item) {
-        const output = (item && item.output && typeof item.output === 'object') ? item.output : {};
-        const audit = (item && item.llm_audit && typeof item.llm_audit === 'object') ? item.llm_audit : {};
-        const direct = Number(output.duration_ms || 0);
-        const overall = Number(audit.overall_duration_ms || 0);
-        const duration = direct || overall;
-        if (!duration) return '未记录';
-        return formatDurationReadable(duration);
-      }
-
-      function formatDownloadUsageSummary(item) {
-        const output = (item && item.output && typeof item.output === 'object') ? item.output : {};
-        const snap = (output && output.download_usage_snapshot && typeof output.download_usage_snapshot === 'object')
-          ? output.download_usage_snapshot
-          : null;
-        if (!snap) return '未记录';
-        return `已下载 ${Number(snap.sfx_download_used || 0)} / ${Number(snap.sfx_download_limit || 0)}，剩余 ${Number(snap.sfx_download_remaining || 0)}，下载包 ${Number(snap.sfx_download_pack_balance || 0)}`;
-      }
-
-      function renderLlmAuditDetails(audit) {
-        const data = (audit && typeof audit === 'object') ? audit : {};
-        const calls = Array.isArray(data.calls) ? data.calls : [];
-        if (!calls.length) return '未记录到单次 LLM 调用。';
-        return calls.map((row, idx) => {
-          const model = [row.provider || '', row.model || ''].filter(Boolean).join(' / ') || '未标注模型';
-          const elapsed = formatDurationReadable(row.elapsed_ms);
-          const prompt = row.prompt_file || '未标注提示词';
-          const status = row.status || '未标注状态';
-          const extras = [];
-          if (row.contract_valid === false) extras.push('结构校验未通过');
-          else if (row.contract_valid === true) extras.push('结构校验通过');
-          if (row.quality_valid === false) {
-            extras.push(`质量重试：${row.quality_reason || '质量不足'}`);
-          } else if (row.quality_valid === true) {
-            extras.push('质量校验通过');
-          }
-          return `${idx + 1}. ${model} ｜ ${elapsed} ｜ ${status} ｜ ${prompt}${extras.length ? ' ｜ ' + extras.join(' ｜ ') : ''}`;
-        }).join('\n');
-      }
-
-      function canRedirectSupplementMaintenance(item) {
-        const status = String((item && item.status) || '').trim();
-        const notificationStatus = String((item && item.notification_status) || '').trim();
-        if (notificationStatus === '已通知') return false;
-        if (status === 'partial') return false;
-        if (status === 'ready_to_notify') return false;
-        if (item && item.is_merged) return false;
-        return true;
       }
 
       function renderOpsEvents(data) {
@@ -4008,14 +2101,10 @@
                     <div class="k">项目 ID</div><div>${escHtml(item.project_id || '-')}</div>
                     <div class="k">动作码</div><div>${escHtml(item.action || '-')}</div>
                     <div class="k">行为摘要</div><div>${escHtml(summarizeEvent(item))}</div>
-                    <div class="k">执行耗时</div><div>${escHtml(formatRuntimeSummary(item))}</div>
-                    <div class="k">下载次数</div><div>${escHtml(formatDownloadUsageSummary(item))}</div>
-                    <div class="k">LLM 摘要</div><div>${escHtml(formatLlmAuditSummary(item.llm_audit || {}))}</div>
                   </div>
                   <details style="margin-top:8px;">
                     <summary style="cursor:pointer; color:#9eb5d8;">展开详情</summary>
                     <div class="ops-event-summary" style="margin-top:8px;">
-                      LLM 明细：${escHtml(renderLlmAuditDetails(item.llm_audit || {}))}<br/>
                       输入摘要：${escHtml(JSON.stringify(item.input || {}, null, 2))}<br/>
                       输出摘要：${escHtml(JSON.stringify(item.output || {}, null, 2))}<br/>
                       文件引用：${escHtml(JSON.stringify(item.file_refs || [], null, 2))}
@@ -4402,48 +2491,10 @@
             ${escHtml(section.label || section.genre_key || '')}（${escHtml(section.node_count || 0)}）
           </option>
         `).join('');
-        const createGenreSel = document.getElementById('graphCreateVerbGenre');
-        if (createGenreSel) {
-          const currentCreateGenre = String(createGenreSel.value || '').trim();
-          const availableCreateGenres = sections
-            .map(section => String(section.genre || '').trim())
-            .filter(Boolean);
-          const createSelected = availableCreateGenres.includes(currentCreateGenre)
-            ? currentCreateGenre
-            : (selectedGenreKey !== 'common' ? selectedGenreKey : '');
-          createGenreSel.innerHTML = [
-            '<option value="">请选择赛道</option>',
-            ...availableCreateGenres.map(genre => `<option value="${escHtml(genre)}" ${createSelected === genre ? 'selected' : ''}>${escHtml(genre)}</option>`),
-          ].join('');
-        }
         const section = findGraphManageSection(selectedGenreKey);
         const items = Array.isArray(section?.items) ? section.items : [];
         const query = String(graphMaintenanceCatalogState.verbQuery || '').trim().toLowerCase();
-        let filteredItems = items.filter(item => !query || String(item.verb_head || '').toLowerCase().includes(query));
-        const preferredParts = splitGraphManageNodeKey(preferredNodeKey);
-        const preferredHead = String(preferredParts.verbHead || '').trim();
-        const preferredGenreKey = String(preferredParts.genreKey || '').trim() || (selectedGenreKey === 'common' ? 'common' : '');
-        const shouldInjectDraft =
-          preferredNodeKey &&
-          preferredHead &&
-          (
-            (selectedGenreKey === 'common' && preferredGenreKey === 'common') ||
-            (selectedGenreKey !== 'common' && preferredGenreKey === selectedGenreKey)
-          ) &&
-          !filteredItems.some(item => String(item.node_key || '') === String(preferredNodeKey || '')) &&
-          (!query || preferredHead.toLowerCase().includes(query));
-        if (shouldInjectDraft) {
-          filteredItems = [
-            {
-              verb_head: preferredHead,
-              node_key: String(preferredNodeKey || ''),
-              common_exists: false,
-              genre_exists: false,
-              is_draft: true,
-            },
-            ...filteredItems,
-          ];
-        }
+        const filteredItems = items.filter(item => !query || String(item.verb_head || '').toLowerCase().includes(query));
         if (!filteredItems.length) {
           graphMaintenanceCatalogState.selectedNodeKey = '';
           verbSel.innerHTML = `<option value="">${query ? '没有匹配当前搜索条件的动作词' : '当前赛道暂无动作词'}</option>`;
@@ -4456,24 +2507,18 @@
             ? String(preferredNodeKey || '')
             : graphMaintenanceCatalogState.selectedNodeKey && filteredItems.some(item => String(item.node_key || '') === String(graphMaintenanceCatalogState.selectedNodeKey || ''))
               ? String(graphMaintenanceCatalogState.selectedNodeKey || '')
-              : ''
+              : String(filteredItems[0].node_key || '')
         );
         graphMaintenanceCatalogState.selectedNodeKey = selectedNodeKey;
-        verbSel.innerHTML = `
-          <option value="" ${selectedNodeKey ? '' : 'selected'}>请选择动作词</option>
-        ` + filteredItems.map(item => `
+        verbSel.innerHTML = filteredItems.map(item => `
           <option value="${escHtml(item.node_key || '')}" ${String(item.node_key || '') === selectedNodeKey ? 'selected' : ''}>
-            ${escHtml(item.verb_head || '')}${item.is_draft ? '（未保存）' : ''}
+            ${escHtml(item.verb_head || '')}
           </option>
         `).join('');
         syncGraphManageNodeInput(selectedNodeKey);
-        const current = filteredItems.find(item => String(item.node_key || '') === selectedNodeKey) || null;
-        if (hint) {
-          hint.textContent = current
-            ? (current.is_draft
-              ? `当前正在编辑未保存的${selectedGenreKey === 'common' ? '通用元数据' : '赛道动词'}草稿：${current.verb_head}。请在下方补充内容后点击保存。`
-              : `当前已筛出 ${filteredItems.length}/${items.length} 个动作词，请继续查看下方维护详情。`)
-            : `当前已筛出 ${filteredItems.length}/${items.length} 个动作词，请先在右侧选择要查看的动作词。`;
+        const current = filteredItems.find(item => String(item.node_key || '') === selectedNodeKey) || filteredItems[0];
+        if (hint && current) {
+          hint.textContent = `当前已筛出 ${filteredItems.length}/${items.length} 个动作词，请继续查看下方维护详情。`;
         }
       }
 
@@ -4484,7 +2529,6 @@
           show('graphManageOut', data);
           graphMaintenanceCatalogState = { genres: [], selectedGenreKey: '', selectedNodeKey: '' };
           renderGraphMaintenancePicker('');
-          renderGraphMaintenance(null);
           return;
         }
         graphMaintenanceCatalogState = {
@@ -4494,174 +2538,6 @@
           verbQuery: graphMaintenanceCatalogState.verbQuery || '',
         };
         renderGraphMaintenancePicker(preferredNodeKey);
-        await loadGraphReplacementCandidates();
-        const selectedNodeKey = String(graphMaintenanceCatalogState.selectedNodeKey || '').trim();
-        const currentLoadedNodeKey = String(graphMaintenanceState?.rawData?.node_key || '').trim();
-        if (!preferredNodeKey) {
-          renderGraphMaintenance(null);
-          return;
-        }
-        if (selectedNodeKey && selectedNodeKey !== currentLoadedNodeKey) {
-          await loadGraphMaintenance(selectedNodeKey);
-        }
-      }
-
-      async function loadGraphReplacementCandidates() {
-        const targetGenre = String(document.getElementById('graphManageGenre')?.value || '').trim();
-        const qs = new URLSearchParams();
-        if (targetGenre && targetGenre !== 'common') qs.set('genre', targetGenre);
-        const res = await fetch(`${base()}/action-graph/replacement-candidates?${qs.toString()}`, { headers: h() });
-        const data = await read(res);
-        const box = document.getElementById('graphReplacementCandidatesView');
-        if (!box) return;
-        if (!res.ok) {
-          box.innerHTML = `<div class="muted">${escHtml(data?.detail || '加载失败')}</div>`;
-          return;
-        }
-        graphReplacementCandidateState.items = Array.isArray(data.items) ? data.items : [];
-        graphReplacementCandidateState.page = 1;
-        if (!graphReplacementCandidateState.items.length) {
-          box.innerHTML = '<div class="muted">当前没有可直接纳入元数据与赛道分配的候选展示词。</div>';
-          return;
-        }
-        renderGraphReplacementCandidates();
-      }
-
-      function changeGraphReplacementCandidatePage(delta) {
-        const items = Array.isArray(graphReplacementCandidateState.items) ? graphReplacementCandidateState.items : [];
-        const totalPages = Math.max(1, Math.ceil(items.length / graphReplacementCandidateState.pageSize));
-        const next = Math.max(1, Math.min(totalPages, graphReplacementCandidateState.page + delta));
-        if (next === graphReplacementCandidateState.page) return;
-        graphReplacementCandidateState.page = next;
-        renderGraphReplacementCandidates();
-      }
-
-      function renderGraphReplacementCandidates() {
-        const box = document.getElementById('graphReplacementCandidatesView');
-        if (!box) return;
-        const items = Array.isArray(graphReplacementCandidateState.items) ? graphReplacementCandidateState.items : [];
-        if (!items.length) {
-          box.innerHTML = '<div class="muted">当前没有可直接纳入元数据与赛道分配的候选展示词。</div>';
-          return;
-        }
-        const pageSize = Math.max(1, Number(graphReplacementCandidateState.pageSize || 6));
-        const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
-        graphReplacementCandidateState.page = Math.max(1, Math.min(totalPages, graphReplacementCandidateState.page || 1));
-        const start = (graphReplacementCandidateState.page - 1) * pageSize;
-        const pageItems = items.slice(start, start + pageSize);
-        const pageStart = items.length ? start + 1 : 0;
-        const pageEnd = start + pageItems.length;
-        const genreOptions = [
-          { value: '玄幻', label: '玄幻' },
-          { value: '言情', label: '言情' },
-          { value: '悬疑', label: '悬疑' },
-          { value: '科幻', label: '科幻' },
-        ];
-        const cards = pageItems.map((item, idx) => {
-          const commonDone = !!item.common_exists;
-          const genreDone = !!item.genre_exists;
-          const hasTargetGenre = !!String(item.target_genre || '').trim();
-          const selectId = `graphCandidateGenre_${start + idx}`;
-          const selectedGenre = String(item.target_genre || '').trim();
-          const optionsHtml = ['<option value="">选择赛道</option>']
-            .concat(
-              genreOptions.map((genre) => `<option value="${escAttr(genre.value)}" ${genre.value === selectedGenre ? 'selected' : ''}>${escHtml(genre.label)}</option>`)
-            )
-            .join('');
-          return `
-            <div class="panel" style="margin:0; padding:10px 12px; min-height:148px;">
-              <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
-                <div style="font-weight:700;">${escHtml(item.term || '-')}</div>
-                <div class="muted-sm">来源 ${escHtml(item.source_count || 0)} 组</div>
-              </div>
-              <div class="muted-sm" style="margin-top:4px; line-height:1.55;">问题词：${escHtml((Array.isArray(item.source_terms) ? item.source_terms : []).join(' / ') || '无')}</div>
-              <div class="muted-sm" style="margin-top:6px;">通用元数据：${escHtml(commonDone ? '已存在' : '未进入')}</div>
-              <div class="muted-sm" style="margin-top:2px;">当前赛道：${escHtml(hasTargetGenre ? (genreDone ? '已存在' : '未进入') : '未选择赛道')}</div>
-              <div style="margin-top:8px;">
-                <select id="${escAttr(selectId)}" style="width:100%;">
-                  ${optionsHtml}
-                </select>
-              </div>
-              <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
-                <button class="ghost-btn" onclick="seedReplacementCandidateToCommon('${escAttr(item.term || '')}')" ${commonDone ? 'disabled' : ''}>补入通用元数据</button>
-                <button class="ghost-btn" onclick="seedReplacementCandidateToGenre('${escAttr(item.term || '')}', '${escAttr(selectId)}')" ${genreDone ? 'disabled' : ''}>去创建赛道动词</button>
-              </div>
-            </div>
-          `;
-        }).join('');
-        box.innerHTML = `
-          <div class="row" style="margin-bottom:8px;">
-            <div class="cell" style="flex:0 0 120px;"><button ${graphReplacementCandidateState.page <= 1 ? 'disabled' : ''} onclick="changeGraphReplacementCandidatePage(-1)">上一页</button></div>
-            <div class="cell" style="flex:1 1 280px; align-self:center; color:#9fb5d8;">第 ${graphReplacementCandidateState.page} / ${totalPages} 页，当前显示 ${pageStart}-${pageEnd} / ${items.length}</div>
-            <div class="cell" style="flex:0 0 120px;"><button ${graphReplacementCandidateState.page >= totalPages ? 'disabled' : ''} onclick="changeGraphReplacementCandidatePage(1)">下一页</button></div>
-          </div>
-          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:10px;">${cards}</div>
-        `;
-      }
-
-      function seedReplacementCandidateToCommon(term) {
-        const value = String(term || '').trim();
-        if (!value) return;
-        const input = document.getElementById('graphCreateCommonVerb');
-        if (input) input.value = value;
-        openNewCommonNode();
-      }
-
-      async function seedReplacementCandidateToGenre(term, genreSelectId = '') {
-        const value = String(term || '').trim();
-        const genreValue = String(document.getElementById(String(genreSelectId || '').trim())?.value || '').trim();
-        if (!value) return;
-        if (!genreValue) {
-          return show('graphManageOut', '请先为这条候选展示词选择要进入的赛道。');
-        }
-        const nodeKey = `${genreValue}::${value}`;
-        const genreSel = document.getElementById('graphManageGenre');
-        const input = document.getElementById('graphCreateVerb');
-        if (input) input.value = value;
-        const hint = document.getElementById('graphManagePickerHint');
-        if (hint) hint.textContent = `正在创建赛道动词：${nodeKey}`;
-        show('graphManageOut', { ok: true, message: '正在创建赛道动词', node_key: nodeKey });
-        if (genreValue && genreSel && genreSel.value !== genreValue) {
-          genreSel.value = genreValue;
-          graphMaintenanceCatalogState.selectedGenreKey = genreValue;
-          graphMaintenanceCatalogState.selectedNodeKey = '';
-          await onGraphManageGenreChange();
-        }
-        try {
-          const res = await fetch(`${base()}/action-graph/node-layer`, {
-            method: 'POST',
-            headers: h({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({
-              node_key: nodeKey,
-              layer: 'genre',
-              semantic_terms: [value],
-              sfx_terms: [],
-            }),
-          });
-          const data = await read(res);
-          show('graphManageOut', data);
-          if (!res.ok) {
-            if (hint) hint.textContent = data?.detail || data?.message || `创建赛道动词失败：${nodeKey}`;
-            return;
-          }
-          graphMaintenanceCatalogState.selectedGenreKey = genreValue;
-          graphMaintenanceCatalogState.selectedNodeKey = nodeKey;
-          syncGraphManageNodeInput(nodeKey);
-          await loadGraphMaintenanceCatalog(nodeKey);
-          await loadGraphMaintenance(nodeKey);
-          setGraphMaintenanceUiState({
-            feedbackText: `已创建赛道动词：${nodeKey}。你现在可以继续在“赛道特化维护区”补充或调整内容。`,
-            feedbackLevel: 'success',
-            genreSaveFeedbackText: '赛道动词已创建',
-          });
-          renderGraphMaintenance(graphMaintenanceState?.rawData || {});
-          const box = document.getElementById('graphManageBox');
-          if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-          const message = err && err.message ? err.message : String(err || 'unknown error');
-          if (hint) hint.textContent = `创建赛道动词失败：${message}`;
-          show('graphManageOut', { ok: false, detail: `创建赛道动词失败：${message}`, node_key: nodeKey });
-        }
       }
 
       async function loadInheritanceDashboard() {
@@ -4760,7 +2636,6 @@
         inheritanceBlockedPageState.currentPage = 1;
         renderInheritanceDashboard();
         renderGraphMaintenancePicker('');
-        await loadGraphReplacementCandidates();
         const nodeKey = graphMaintenanceCatalogState.selectedNodeKey || '';
         if (nodeKey) await loadGraphMaintenance(nodeKey);
       }
@@ -4781,219 +2656,56 @@
       }
 
       async function openNewGenreNode() {
-        const createGenreSel = document.getElementById('graphCreateVerbGenre');
         const genreSel = document.getElementById('graphManageGenre');
-        const verbSel = document.getElementById('graphManageVerb');
-        const queryInput = document.getElementById('graphManageVerbQuery');
         const input = document.getElementById('graphCreateVerb');
-        const genreValue = String(createGenreSel?.value || genreSel?.value || '').trim();
+        const genreValue = String(genreSel?.value || '').trim();
         const verbValue = String(input?.value || '').trim();
         if (!genreValue) {
           const msg = '请先选择要创建节点的赛道。';
           const hint = document.getElementById('graphManagePickerHint');
           if (hint) hint.textContent = msg;
-          setGraphCreateFeedback('genre', msg, 'warning');
           return show('graphManageOut', msg);
         }
         if (!verbValue) {
           const msg = '请先输入新的赛道动作词。';
           const hint = document.getElementById('graphManagePickerHint');
           if (hint) hint.textContent = msg;
-          setGraphCreateFeedback('genre', msg, 'warning');
           return show('graphManageOut', msg);
         }
         const nodeKey = `${genreValue}::${verbValue}`;
-        graphMaintenanceCatalogState.selectedGenreKey = genreValue;
         graphMaintenanceCatalogState.selectedNodeKey = nodeKey;
-        if (genreSel) genreSel.value = genreValue;
-        if (createGenreSel) createGenreSel.value = genreValue;
-        graphMaintenanceCatalogState.verbQuery = '';
-        if (queryInput) queryInput.value = '';
         syncGraphManageNodeInput(nodeKey);
+        await loadGraphMaintenance(nodeKey);
         setGraphMaintenanceUiState({
-          busyAction: 'create-genre-node',
-          feedbackText: `正在创建赛道动词：${nodeKey}...`,
+          feedbackText: `已打开新的赛道动作词节点：${nodeKey}。请在下方“赛道特化维护区”补充语义词和音效词后保存。`,
           feedbackLevel: 'info',
-          genreSaveFeedbackText: '正在创建赛道动词...',
         });
-        setGraphCreateFeedback('genre', `正在创建：${nodeKey}`, 'info');
-        if (graphMaintenanceState?.rawData) renderGraphMaintenance(graphMaintenanceState.rawData || {});
-        try {
-          const res = await fetch(`${base()}/action-graph/node-layer`, {
-            method: 'POST',
-            headers: h({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({
-              node_key: nodeKey,
-              layer: 'genre',
-              semantic_terms: [verbValue],
-              sfx_terms: [],
-            }),
-          });
-          const data = await read(res);
-          show('graphManageOut', data);
-          if (!res.ok) {
-            setGraphMaintenanceUiState({
-              busyAction: '',
-              feedbackText: data?.detail || data?.message || `创建赛道动词失败：${nodeKey}`,
-              feedbackLevel: 'error',
-              genreSaveFeedbackText: '创建赛道动词失败',
-            });
-            setGraphCreateFeedback('genre', data?.detail || data?.message || `创建失败：${nodeKey}`, 'error');
-            if (graphMaintenanceState?.rawData) renderGraphMaintenance(graphMaintenanceState.rawData || {});
-            return;
-          }
-          await loadGraphMaintenanceCatalog(nodeKey);
-          if (verbSel) verbSel.value = nodeKey;
-          await loadGraphMaintenance(nodeKey);
-          setGraphMaintenanceUiState({
-            busyAction: '',
-            feedbackText: `已创建赛道动词：${nodeKey}。你现在可以继续在“赛道特化维护区”补充或调整内容。`,
-            feedbackLevel: 'success',
-            genreSaveFeedbackText: '赛道动词已创建',
-            newNodeContext: { layer: 'genre', node_key: nodeKey },
-          });
-          setGraphCreateFeedback('genre', `已创建：${nodeKey}`, 'success');
-          renderGraphMaintenance(graphMaintenanceState?.rawData || {});
-          const box = document.getElementById('graphManageBox');
-          if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-          const message = err && err.message ? err.message : String(err || 'unknown error');
-          setGraphMaintenanceUiState({
-            busyAction: '',
-            feedbackText: `创建赛道动词失败：${message}`,
-            feedbackLevel: 'error',
-            genreSaveFeedbackText: '创建赛道动词失败',
-          });
-          setGraphCreateFeedback('genre', `创建失败：${message}`, 'error');
-          if (graphMaintenanceState?.rawData) renderGraphMaintenance(graphMaintenanceState.rawData || {});
-          show('graphManageOut', { ok: false, detail: `创建赛道动词失败：${message}`, node_key: nodeKey });
-        }
+        renderGraphMaintenance(graphMaintenanceState?.rawData || {});
+        const box = document.getElementById('graphManageBox');
+        if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
 
       async function openNewCommonNode() {
         const input = document.getElementById('graphCreateCommonVerb');
-        const genreSel = document.getElementById('graphManageGenre');
-        const verbSel = document.getElementById('graphManageVerb');
-        const queryInput = document.getElementById('graphManageVerbQuery');
         const verbValue = String(input?.value || '').trim();
         if (!verbValue) {
           const msg = '请先输入新的通用动词。';
           const hint = document.getElementById('graphManagePickerHint');
           if (hint) hint.textContent = msg;
-          setGraphCreateFeedback('common', msg, 'warning');
           return show('graphManageOut', msg);
         }
         const nodeKey = `${verbValue}`;
         graphMaintenanceCatalogState.selectedGenreKey = 'common';
         graphMaintenanceCatalogState.selectedNodeKey = nodeKey;
-        if (genreSel) genreSel.value = 'common';
-        graphMaintenanceCatalogState.verbQuery = '';
-        if (queryInput) queryInput.value = '';
         syncGraphManageNodeInput(nodeKey);
+        await loadGraphMaintenance(nodeKey);
         setGraphMaintenanceUiState({
-          busyAction: 'create-common-node',
-          feedbackText: `正在创建通用元数据：${nodeKey}...`,
+          feedbackText: `已打开新的通用动词节点：${nodeKey}。请在下方“通用元数据层”补充语义词和音效词后保存。`,
           feedbackLevel: 'info',
-          commonSaveFeedbackText: '正在创建通用元数据...',
         });
-        setGraphCreateFeedback('common', `正在创建：${nodeKey}`, 'info');
-        if (graphMaintenanceState?.rawData) renderGraphMaintenance(graphMaintenanceState.rawData || {});
-        try {
-          const res = await fetch(`${base()}/action-graph/node-layer`, {
-            method: 'POST',
-            headers: h({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({
-              node_key: nodeKey,
-              layer: 'common',
-              semantic_terms: [verbValue],
-              sfx_terms: [],
-            }),
-          });
-          const data = await read(res);
-          show('graphManageOut', data);
-          if (!res.ok) {
-            setGraphMaintenanceUiState({
-              busyAction: '',
-              feedbackText: data?.detail || data?.message || `创建通用元数据失败：${nodeKey}`,
-              feedbackLevel: 'error',
-              commonSaveFeedbackText: '创建通用元数据失败',
-            });
-            setGraphCreateFeedback('common', data?.detail || data?.message || `创建失败：${nodeKey}`, 'error');
-            if (graphMaintenanceState?.rawData) renderGraphMaintenance(graphMaintenanceState.rawData || {});
-            return;
-          }
-          await loadGraphMaintenanceCatalog(nodeKey);
-          if (verbSel) verbSel.value = nodeKey;
-          await loadGraphMaintenance(nodeKey);
-          setGraphMaintenanceUiState({
-            busyAction: '',
-            feedbackText: `已创建通用元数据：${nodeKey}。你现在可以继续在“通用元数据层”补充或调整内容。`,
-            feedbackLevel: 'success',
-            commonSaveFeedbackText: '通用元数据已创建',
-            newNodeContext: { layer: 'common', node_key: nodeKey },
-          });
-          setGraphCreateFeedback('common', `已创建：${nodeKey}`, 'success');
-          renderGraphMaintenance(graphMaintenanceState?.rawData || {});
-          const box = document.getElementById('graphManageBox');
-          if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-          const message = err && err.message ? err.message : String(err || 'unknown error');
-          setGraphMaintenanceUiState({
-            busyAction: '',
-            feedbackText: `创建通用元数据失败：${message}`,
-            feedbackLevel: 'error',
-            commonSaveFeedbackText: '创建通用元数据失败',
-          });
-          setGraphCreateFeedback('common', `创建失败：${message}`, 'error');
-          if (graphMaintenanceState?.rawData) renderGraphMaintenance(graphMaintenanceState.rawData || {});
-          show('graphManageOut', { ok: false, detail: `创建通用元数据失败：${message}`, node_key: nodeKey });
-        }
-      }
-
-      function setGraphCreateFeedback(kind, text, level = 'info') {
-        const box = document.getElementById(kind === 'genre' ? 'graphCreateGenreFeedback' : 'graphCreateCommonFeedback');
-        if (!box) return;
-        box.innerHTML = text ? inlineActionFeedback(text, level) : '';
-      }
-
-      function setNewNodeAssetFeedback(layer, idx, text, level = 'info') {
-        const box = document.getElementById(`newNodeAssetFeedback_${layer}_${idx}`);
-        if (!box) return;
-        box.innerHTML = text ? inlineActionFeedback(text, level) : '';
-      }
-
-      async function uploadNewNodeAsset(layer, nodeKey, assetLabel, idx) {
-        const fileInput = document.getElementById(`newNodeAssetFile_${layer}_${idx}`);
-        const file = fileInput?.files?.[0];
-        if (!file) {
-          setNewNodeAssetFeedback(layer, idx, '请先选择音效文件', 'warning');
-          return;
-        }
-        setNewNodeAssetFeedback(layer, idx, '上传中...', 'info');
-        const form = new FormData();
-        form.append('node_key', String(nodeKey || '').trim());
-        form.append('layer', String(layer || '').trim());
-        form.append('asset_label', String(assetLabel || '').trim());
-        form.append('file', file);
-        try {
-          const res = await fetch(`${base()}/action-graph/node-asset-upload`, {
-            method: 'POST',
-            headers: h(),
-            body: form,
-          });
-          const data = await read(res);
-          if (!res.ok) {
-            setNewNodeAssetFeedback(layer, idx, data?.detail || data?.message || '上传失败', 'error');
-            return show('graphManageOut', data);
-          }
-          setNewNodeAssetFeedback(layer, idx, `已上传：${data.display_name || assetLabel}`, 'success');
-          show('graphManageOut', data);
-          if (fileInput) fileInput.value = '';
-        } catch (err) {
-          const message = err && err.message ? err.message : String(err || 'unknown error');
-          setNewNodeAssetFeedback(layer, idx, `上传失败：${message}`, 'error');
-          show('graphManageOut', { ok: false, detail: `上传失败：${message}` });
-        }
+        renderGraphMaintenance(graphMaintenanceState?.rawData || {});
+        const box = document.getElementById('graphManageBox');
+        if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
 
       async function jumpToSupplementGroup(nodeKey, status = '') {
@@ -5229,8 +2941,8 @@
             <div class="status-bar">
               <span class="status-chip">赛道：${escHtml(data.genre || '')}</span>
               <span class="status-chip">动作词：${escHtml(data.verb_head || '')}</span>
-              <span class="status-chip">语义扩展词：${escHtml(summary.semantic_count || 0)}</span>
-              <span class="status-chip">音效词：${escHtml(summary.sfx_count || 0)}</span>
+              <span class="status-chip">语义子级：${escHtml(summary.semantic_count || 0)}</span>
+              <span class="status-chip">音效子级：${escHtml(summary.sfx_count || 0)}</span>
               <span class="status-chip">直达音效：${escHtml(summary.direct_sfx_count || 0)}</span>
               <span class="status-chip">整体音效：${escHtml(summary.composite_sfx_count || 0)}</span>
               <span class="status-chip">补充单：${escHtml(supp.item_count || 0)}</span>
@@ -5244,7 +2956,7 @@
               ${Array.isArray(merged.semantic_term_items) || Array.isArray(merged.sfx_term_items) ? `
                 <div class="section-box">
                   <h5>图谱来源归属</h5>
-                  <div class="muted-sm note-prefix">语义扩展推荐</div>
+                  <div class="muted-sm note-prefix">语义扩展词</div>
                   <div>${renderTermItems(merged.semantic_term_items || [])}</div>
                   <div class="muted-sm note-prefix" style="margin-top:8px;">直达音效来源(可下载)</div>
                   <div>${renderTermItems(merged.direct_sfx_term_items || [])}</div>
@@ -5254,7 +2966,7 @@
                 </div>
               ` : ''}
               <div style="margin-top:10px;">
-                <div class="muted-sm note-prefix">语义扩展推荐</div>
+                <div class="muted-sm note-prefix">语义子级</div>
                 <div>${renderPills(semanticTerms)}</div>
               </div>
               <div class="graph-two-col" style="margin-top:10px;">
@@ -5406,17 +3118,8 @@
         if (termType === 'composite_sfx_terms') {
           (current.semantic_terms || []).forEach(term => selected.add(String(term || '').trim()));
         }
-        const sourceMap = new Map();
-        (Array.isArray(sourceItems) ? sourceItems : []).forEach(item => {
-          const term = String(item && item.term || '').trim();
-          if (!term || selected.has(term) || sourceMap.has(term)) return;
-          sourceMap.set(term, {
-            term,
-            sourceLabel: String(item?.source_label || '').trim(),
-            originLabel: String(item?.source || '').trim() === 'suggested' ? String(item?.origin_label || '').trim() : '',
-          });
-        });
-        const available = filterSuggestionTerms(Array.from(sourceMap.keys()), getLayerSearch(layer)?.[searchField] || '');
+        const uniqueTerms = mergeUniqueTerms((Array.isArray(sourceItems) ? sourceItems : []).map(item => item && item.term));
+        const available = filterSuggestionTerms(uniqueTerms.filter(term => !selected.has(term)), getLayerSearch(layer)?.[searchField] || '');
         const searchInputId = `search-${layer}-${searchField}`;
         const searchValue = getLayerSearch(layer)?.[searchField] || '';
         const controls = `
@@ -5425,32 +3128,23 @@
           </div>
         `;
         if (!available.length) return `${controls}<div class="muted">当前没有可直接加入的现成词</div>`;
-        return `${controls}<div class="suggestion-list">${available.map(term => {
-          const meta = sourceMap.get(term) || {};
-          return `
-          <button type="button" class="ghost-btn" onclick="addLayerTerm('${escHtml(layer)}','${escHtml(termType)}','${escHtml(term)}')">
-            <span>${escHtml(term)}${suffix}</span>
-            ${(meta.sourceLabel || meta.originLabel) ? `<span class="muted-sm">${escHtml([meta.sourceLabel, meta.originLabel].filter(Boolean).join(' / '))}</span>` : ''}
-          </button>
-        `;
-        }).join('')}</div>`;
+        return `${controls}<div class="suggestion-list">${available.map(term => `
+          <button type="button" class="ghost-btn" onclick="addLayerTerm('${escHtml(layer)}','${escHtml(termType)}','${escHtml(term)}')">${escHtml(term)}${suffix}</button>
+        `).join('')}</div>`;
       }
 
       function renderLayerEditor(layer, editorState, pools) {
         const semanticInputId = `custom-${layer}-semantic`;
         const directInputId = `custom-${layer}-direct`;
         const compositeInputId = `custom-${layer}-composite`;
-        const semanticTitle = layer === 'common' ? '核心扩展词' : '赛道扩展词';
-        const semanticQuickText = layer === 'common' ? '从现有结果快速加入核心扩展词' : '从现有结果快速加入赛道扩展词';
-        const semanticPlaceholder = layer === 'common' ? '新增自定义核心扩展词' : '新增自定义赛道扩展词';
         return `
           <div class="editor-group">
-            <h6>${semanticTitle}</h6>
+            <h6>语义子级</h6>
             ${renderEditableTermChips(layer, 'semantic_terms', editorState.semantic_terms || [])}
-            <div class="muted-sm" style="margin-top:8px;">${semanticQuickText}</div>
+            <div class="muted-sm" style="margin-top:8px;">从现有合并结果快速加入</div>
             ${renderSuggestionPills(layer, 'semantic', 'semantic_terms', pools.mergedSemanticItems || [], editorState.semantic_terms || [])}
             <div class="mini-action-row">
-              <input id="${semanticInputId}" placeholder="${semanticPlaceholder}" />
+              <input id="${semanticInputId}" placeholder="新增自定义语义词" />
               <button type="button" class="ghost-btn" onclick="addCustomLayerTerm('${escHtml(layer)}','semantic_terms','${semanticInputId}')">新增</button>
             </div>
           </div>
@@ -5477,65 +3171,19 @@
         `;
       }
 
-      function isNewNodeUploadContext(layer, data) {
-        const ctx = graphMaintenanceState?.ui?.newNodeContext || null;
-        const nodeKey = String(data?.node_key || '').trim();
-        if (!ctx || !nodeKey) return false;
-        return String(ctx.layer || '').trim() === String(layer || '').trim() && String(ctx.node_key || '').trim() === nodeKey;
-      }
-
-      function renderNewNodeAssetUploadSection(layer, data, editorState) {
-        if (!isNewNodeUploadContext(layer, data)) return '';
-        const nodeKey = String(data?.node_key || '').trim();
-        const terms = [
-          ...((editorState && editorState.direct_sfx_terms) || []),
-          ...((editorState && editorState.composite_sfx_terms) || []),
-        ].map(x => String(x || '').trim()).filter(Boolean);
-        const uniqueTerms = Array.from(new Set(terms));
-        const title = layer === 'common' ? '新建词素材入库（通用）' : '新建词素材入库（赛道）';
-        if (!uniqueTerms.length) {
-          return `
-            <div class="section-box" style="margin-top:10px;">
-              <h5>${title}</h5>
-              <div class="muted-sm note-prefix">当前是新建词场景。请先在这一层至少保存一个直达音效或整体音效词，再回来上传真实素材。</div>
-            </div>
-          `;
-        }
-        return `
-          <div class="section-box" style="margin-top:10px;">
-            <h5>${title}</h5>
-            <div class="muted-sm note-prefix">这里只有通过“新建”入口创建出来的节点才会显示。上传后的文件会按当前音效词保存到素材库里，后续用户端可以直接命中。</div>
-            ${uniqueTerms.map((term, idx) => `
-              <div class="term-block">
-                <div class="term-title">${escHtml(term)}</div>
-                <div class="status-bar" style="margin-top:6px;">
-                  <span class="status-chip">${escHtml(layer === 'common' ? '通用元数据' : '赛道特化')}</span>
-                  <span class="status-chip">${escHtml(layer === 'common' ? '通用版素材' : '赛道版素材')}</span>
-                </div>
-                <input id="newNodeAssetFile_${layer}_${idx}" type="file" style="margin-top:6px;" />
-                <div class="row" style="margin-top:6px;">
-                  <div class="cell"><button class="ghost-btn" onclick="uploadNewNodeAsset('${escAttr(layer)}','${escAttr(nodeKey)}','${escAttr(term)}',${idx})">上传当前音效素材</button></div>
-                  <div class="cell" id="newNodeAssetFeedback_${layer}_${idx}"></div>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        `;
-      }
-
       function buildGraphMaintenanceExplanation(data) {
         const commonLayer = data.common_layer || {};
         const genreLayer = data.genre_layer || {};
         const merged = data.merged || {};
         const nodeLabel = String(data.node_key || data.verb_head || '').trim();
         const commonExists = Boolean(commonLayer.exists);
-        const genreExists = Boolean(genreLayer.exists || data.genre_layer_any_exists);
+        const genreExists = Boolean(genreLayer.exists);
         const hasFallbackTerms = Boolean(merged.has_fallback_terms);
         let sourceType = '未标注';
         let sourceTone = 'fallback';
         let summary = '当前节点的出现原因还不够明确，建议先核对图谱来源后再上传素材。';
-        let guidance = '';
-        let operatorTip = '';
+        let guidance = '上传前先确认该词是跨赛道复用，还是当前赛道特化，避免把素材传错层。';
+        let operatorTip = '给运营的提示：请先核对来源类型，再决定素材应该按通用复用思路处理，还是按当前赛道特化处理。';
 
         if (commonExists && genreExists) {
           sourceType = '通用元数据 + 赛道特化';
@@ -5547,8 +3195,8 @@
           sourceType = '赛道特化';
           sourceTone = 'genre';
           summary = `${nodeLabel} 当前是赛道特化节点，说明它在本赛道下被单独维护，不是单纯引用通用元数据得到的公共节点。`;
-          guidance = '';
-          operatorTip = '';
+          guidance = '运营上传时应优先按当前赛道语境理解，补充更贴近该赛道表达的素材。';
+          operatorTip = '给运营的提示：来源类型为“赛道特化”时，请优先按当前赛道理解这条词，不要直接当成通用复用词上传。';
         } else if (commonExists) {
           sourceType = '通用元数据';
           sourceTone = 'common';
@@ -5564,7 +3212,7 @@
         }
 
         if (hasFallbackTerms && (commonExists || genreExists)) {
-          guidance += '';
+          guidance += ' 同时，当前节点里还有部分保底词，说明前台已在使用，但元数据或赛道特化维护还未完全补齐。';
         }
 
         return {
@@ -5594,15 +3242,11 @@
             ? (graphMaintenanceState.candidateSearch || { semantic: '', sfx: '' })
             : { semantic: '', sfx: '' },
           ui: graphMaintenanceState?.rawData?.node_key === data.node_key
-            ? (graphMaintenanceState.ui || { busyAction: '', feedbackText: '', feedbackLevel: 'info', promoteFeedbackText: '', demoteFeedbackText: '', demoteTargetGenre: '', inheritTargetGenre: '', overlapTargetGenre: '', nodeDeleteTargetGenre: '', promoteSelection: { semantic: [], sfx: [] }, demoteSelection: { semantic: [], sfx: [] }, overlapGenreSelection: { semantic: [], sfx: [] }, overlapCommonSelection: { semantic: [], sfx: [] }, overlapGenreFeedbackText: '', overlapCommonFeedbackText: '', commonSaveFeedbackText: '', genreSaveFeedbackText: '', nodeKeepOtherFeedbackText: '', nodeDeleteFeedbackText: '', newNodeContext: null })
-            : { busyAction: '', feedbackText: '', feedbackLevel: 'info', inheritFeedbackText: '', promoteFeedbackText: '', demoteFeedbackText: '', demoteTargetGenre: '', inheritTargetGenre: '', overlapTargetGenre: '', nodeDeleteTargetGenre: '', promoteSelection: { semantic: [], sfx: [] }, demoteSelection: { semantic: [], sfx: [] }, overlapGenreSelection: { semantic: [], sfx: [] }, overlapCommonSelection: { semantic: [], sfx: [] }, overlapGenreFeedbackText: '', overlapCommonFeedbackText: '', commonSaveFeedbackText: '', genreSaveFeedbackText: '', nodeKeepOtherFeedbackText: '', nodeDeleteFeedbackText: '', newNodeContext: null },
+            ? (graphMaintenanceState.ui || { busyAction: '', feedbackText: '', feedbackLevel: 'info', promoteFeedbackText: '', demoteFeedbackText: '', demoteTargetGenre: '', inheritTargetGenre: '', overlapTargetGenre: '', nodeDeleteTargetGenre: '', promoteSelection: { semantic: [], sfx: [] }, demoteSelection: { semantic: [], sfx: [] }, overlapGenreSelection: { semantic: [], sfx: [] }, overlapCommonSelection: { semantic: [], sfx: [] }, overlapGenreFeedbackText: '', overlapCommonFeedbackText: '', commonSaveFeedbackText: '', genreSaveFeedbackText: '', nodeKeepOtherFeedbackText: '', nodeDeleteFeedbackText: '' })
+            : { busyAction: '', feedbackText: '', feedbackLevel: 'info', inheritFeedbackText: '', promoteFeedbackText: '', demoteFeedbackText: '', demoteTargetGenre: '', inheritTargetGenre: '', overlapTargetGenre: '', nodeDeleteTargetGenre: '', promoteSelection: { semantic: [], sfx: [] }, demoteSelection: { semantic: [], sfx: [] }, overlapGenreSelection: { semantic: [], sfx: [] }, overlapCommonSelection: { semantic: [], sfx: [] }, overlapGenreFeedbackText: '', overlapCommonFeedbackText: '', commonSaveFeedbackText: '', genreSaveFeedbackText: '', nodeKeepOtherFeedbackText: '', nodeDeleteFeedbackText: '' },
         };
         const commonLayer = data.common_layer || {};
         const genreLayer = data.genre_layer || {};
-        const genreLayerAnyExists = Boolean(data.genre_layer_any_exists);
-        const genreLayerAnyGenres = Array.isArray(data.genre_layer_any_genres) ? data.genre_layer_any_genres.filter(Boolean) : [];
-        const commonExistsDisplay = Boolean(commonLayer.exists);
-        const genreExistsDisplay = Boolean(genreLayer.exists || genreLayerAnyExists);
         const merged = data.merged || {};
         const commonEditor = getLayerState('common');
         const genreEditor = getLayerState('genre');
@@ -5644,11 +3288,15 @@
             const bp = String(b.priority || '') === 'high' ? 0 : 1;
             return ap - bp || Number(b.genre_count || 0) - Number(a.genre_count || 0) || String(a.term || '').localeCompare(String(b.term || ''), 'zh-Hans-CN');
           });
-          if (!sorted.length) return '<div class="muted">当前没有候选词。</div>';
+          const searchId = `candidate-search-${termType}`;
+          const controls = `
+            <div class="mini-action-row">
+              <input id="${searchId}" placeholder="搜索候选词" value="${escHtml(query)}" oninput="setCandidateSearch('${escHtml(termType)}', this.value)" />
+            </div>
+          `;
+          if (!sorted.length) return `${controls}<div class="muted">没有匹配当前搜索条件的候选词</div>`;
           const high = sorted.filter(item => String(item.priority || '') === 'high');
           const normal = sorted.filter(item => String(item.priority || '') !== 'high');
-          const normalTitle = termType === 'semantic' ? '待补入通用元数据集合' : '页面展示音效';
-          const typeChip = termType === 'semantic' ? '语义扩展词' : '页面展示音效';
           const renderList = (list, title) => !list.length ? '' : `
             <div class="candidate-section-title">${title}</div>
             ${list.map((item) => `
@@ -5658,8 +3306,8 @@
                 <div>
                   <div class="term-title">${escHtml(item.term || '')}${suffix}</div>
                   <div class="status-bar" style="margin-top:4px;">
-                    <span class="status-chip">${escHtml(typeChip)}</span>
-                    <span class="status-chip">${escHtml(String(item.priority || '') === 'high' ? '高优先' : normalTitle)}</span>
+                    <span class="status-chip">${escHtml(termType === 'semantic' ? '语义子级' : '音效子级')}</span>
+                    <span class="status-chip">${escHtml(String(item.priority || '') === 'high' ? '高优先' : '一般候选')}</span>
                   </div>
                   <div class="muted-sm">${escHtml(item.reason || '')}</div>
                   <div class="muted-sm">出现赛道数：${escHtml(item.genre_count || 0)}${Array.isArray(item.appears_in_genres) && item.appears_in_genres.length ? ` ｜ ${escHtml(item.appears_in_genres.join('、'))}` : ''}</div>
@@ -5668,27 +3316,21 @@
             </label>
             `).join('')}
           `;
-          return `${renderList(high, '优先处理候选')} ${renderList(normal, normalTitle)}`.trim();
+          return `${controls}${renderList(high, '优先处理候选')} ${renderList(normal, '一般候选')}`.trim();
         };
         box.innerHTML = `
           <div class="graph-detail">
             <h4>维护节点：${escHtml(data.node_key || '')}</h4>
             <div class="layer-state-grid">
-              <div class="layer-state-card ${commonExistsDisplay ? 'active' : 'inactive'}">
+              <div class="layer-state-card ${commonLayer.exists ? 'active' : 'inactive'}">
                 <div class="k">通用元数据</div>
-                <div class="v">${commonExistsDisplay ? '已配置' : '未配置'}</div>
-                <div class="state-tip">${commonExistsDisplay ? '当前节点已有跨赛道可复用的基础元数据。' : '当前节点还没有通用元数据底座，无法被各赛道统一复用。'}</div>
+                <div class="v">${commonLayer.exists ? '已配置' : '未配置'}</div>
+                <div class="state-tip">${commonLayer.exists ? '当前节点已有跨赛道可复用的基础元数据。' : '当前节点还没有通用元数据底座，无法被各赛道统一复用。'}</div>
               </div>
-              <div class="layer-state-card ${genreExistsDisplay ? 'active' : 'inactive'}">
+              <div class="layer-state-card ${genreLayer.exists ? 'active' : 'inactive'}">
                 <div class="k">赛道特化</div>
-                <div class="v">${genreExistsDisplay ? '已配置' : '未配置'}</div>
-                <div class="state-tip">${
-                  genreLayer.exists
-                    ? '当前赛道已对这个动作做了单独强化维护。'
-                    : (genreLayerAnyExists
-                      ? `这个词已在其他赛道做过特化维护${genreLayerAnyGenres.length ? `：${escHtml(genreLayerAnyGenres.join('、'))}` : ''}。当前视角展示的是全局真实状态，不代表你现在就在编辑这些赛道。`
-                      : '当前赛道还没有单独维护，当前展示来自通用元数据引用或保底结果。')
-                }</div>
+                <div class="v">${genreLayer.exists ? '已配置' : '未配置'}</div>
+                <div class="state-tip">${genreLayer.exists ? '当前赛道已对这个动作做了单独强化维护。' : '当前赛道还没有单独维护，当前展示来自通用元数据引用或保底结果。'}</div>
               </div>
             </div>
             <div class="status-bar">
@@ -5735,19 +3377,142 @@
             </div>
             ` : ''}
             <div class="section-box">
-              <h5>前台推荐结果预览</h5>
-              ${hasFallbackTerms ? `` : ''}
-              <div class="muted-sm">语义扩展推荐</div>
+              <h5>前台合并结果（方案 A）</h5>
+              ${hasFallbackTerms ? `<div class="result-banner">当前前台结果里包含“保底生成”词，说明这部分词已经被系统兜底用于推荐，但还没有正式沉淀进通用层或赛道层图谱。</div>` : ''}
+              <div class="muted-sm">语义扩展词</div>
               <div>${renderTermItems(merged.semantic_term_items || [])}</div>
               <div class="muted-sm" style="margin-top:8px;">直达音效来源(可下载)</div>
               <div>${renderTermItems(merged.direct_sfx_term_items || [])}</div>
               <div class="muted-sm" style="margin-top:8px;">整体音效来源(可下载)</div>
               <div>${renderTermItems(merged.composite_sfx_term_items || [], '（整体）')}</div>
             </div>
+            ${isCommonOnlyNode ? `
+            <div class="section-box" style="margin-top:10px;">
+              <h5>补入通用元数据候选</h5>
+              <div class="muted-sm note-prefix">当前节点是通用元数据视角，不适用“补入通用元数据”操作。</div>
+            </div>
+            ` : `
+            <div class="section-box" style="margin-top:10px;">
+              <h5>补入通用元数据候选</h5>
+              <div class="muted-sm note-prefix">这里列的是“当前只在赛道特化层存在、还没进入通用元数据层”的词。勾选后可补入通用元数据，帮助把历史数据整理成可复用底座。</div>
+              ${semanticCandidates.length || sfxCandidates.length ? `
+              ${busyAction === 'promote' ? `<div class="result-banner">正在执行迁移，请稍候。页面刷新后会显示是否已迁移成功。</div>` : ''}
+              <div class="graph-two-col" style="margin-top:8px;">
+                <div>
+                  <div class="muted-sm">语义子级候选</div>
+                  ${renderCandidateBlock(semanticCandidates, 'semantic', '', 'graph-promote-check', 'promoteSelection')}
+                </div>
+                <div>
+                  <div class="muted-sm">音效子级候选</div>
+                  ${renderCandidateBlock(sfxCandidates, 'sfx', '', 'graph-promote-check', 'promoteSelection')}
+                </div>
+              </div>
+              <div class="row" style="margin-top:8px;">
+                <div class="cell">
+                  <select id="graphPromoteMode">
+                    <option value="keep">补入通用元数据，并保留赛道特化</option>
+                    <option value="move">补入通用元数据，并从赛道特化移除</option>
+                  </select>
+                </div>
+                <div class="cell"><button id="graphPromoteBtn" onclick="promoteSelectedTermsToCommon()" ${busyAction === 'promote' ? 'disabled' : ''}>${busyAction === 'promote' ? '处理中...' : '补入通用元数据'}</button></div>
+                <div class="cell">${inlineActionFeedback(graphMaintenanceState?.ui?.promoteFeedbackText || '', graphMaintenanceState?.ui?.feedbackLevel || 'info')}</div>
+              </div>
+              ` : `<div class="muted-sm note-prefix">当前没有可补入通用元数据的候选词。</div>`}
+            </div>
+            `}
+            <div class="section-box" style="margin-top:10px;">
+              <h5>赛道分配与特化候选</h5>
+              <div class="muted-sm note-prefix">${isCommonOnlyNode ? '这里列的是“当前只在通用元数据层存在”的词。请先选择目标赛道，再把这些词分配到对应赛道；如有需要，再继续做赛道特化。' : '这里列的是“当前只在通用元数据层存在、还没进入当前赛道特化层”的词。勾选后可分配到当前赛道，帮助把过于宽泛的通用词下沉成赛道特化边。'}</div>
+              ${demoteSemanticCandidates.length || demoteSfxCandidates.length ? `
+              ${busyAction === 'demote' ? `<div class="result-banner">正在执行赛道分配，请稍候。页面刷新后会显示是否已分配成功。</div>` : ''}
+              <div class="graph-two-col" style="margin-top:8px;">
+                <div>
+                  <div class="muted-sm">语义子级候选</div>
+                  ${renderCandidateBlock(demoteSemanticCandidates, 'semantic', '', 'graph-demote-check', 'demoteSelection')}
+                </div>
+                <div>
+                  <div class="muted-sm">音效子级候选</div>
+                  ${renderCandidateBlock(demoteSfxCandidates, 'sfx', '', 'graph-demote-check', 'demoteSelection')}
+                </div>
+              </div>
+              <div class="row" style="margin-top:8px;">
+                ${isCommonOnlyNode ? `
+                <div class="cell">
+                  <select id="graphDemoteTargetGenre" onchange="setGraphMaintenanceUiState({ demoteTargetGenre: this.value });">
+                    ${graphManageTargetGenreOptions(String(graphMaintenanceState?.ui?.demoteTargetGenre || ''))}
+                  </select>
+                </div>
+                ` : ''}
+                <div class="cell">
+                  <select id="graphDemoteMode">
+                    <option value="keep">分配到赛道，并保留通用元数据</option>
+                    <option value="move">分配到赛道，并从通用元数据移除</option>
+                  </select>
+                </div>
+                <div class="cell"><button id="graphDemoteBtn" onclick="demoteSelectedTermsToGenre()" ${busyAction === 'demote' ? 'disabled' : ''}>${busyAction === 'demote' ? '处理中...' : '分配到赛道'}</button></div>
+                <div class="cell">${inlineActionFeedback(graphMaintenanceState?.ui?.demoteFeedbackText || '', graphMaintenanceState?.ui?.feedbackLevel || 'info')}</div>
+              </div>
+              ` : `<div class="muted-sm note-prefix">当前没有可分配到赛道的候选词。</div>`}
+            </div>
+            <div class="section-box" style="margin-top:10px;">
+              <h5>重叠词清理</h5>
+              <div class="muted-sm">${isCommonOnlyNode ? '请先选择目标赛道。' : '可清理当前重叠词。'}</div>
+              ${isCommonOnlyNode ? `
+              <div class="row" style="margin-top:8px;">
+                <div class="cell">
+                  <select id="graphOverlapTargetGenre" onchange="setGraphMaintenanceUiState({ overlapTargetGenre: this.value }); loadGraphMaintenance(currentGraphManageNodeKey());">
+                    ${graphManageTargetGenreOptions(String(graphMaintenanceState?.ui?.overlapTargetGenre || ''))}
+                  </select>
+                </div>
+              </div>
+              ` : ''}
+              ${overlapSemanticCandidates.length || overlapSfxCandidates.length ? `
+              <div class="graph-two-col" style="margin-top:8px;">
+                <div>
+                  <div class="muted-sm">语义重叠词</div>
+                  ${renderCandidateBlock(overlapSemanticCandidates, 'semantic', '', 'graph-overlap-check', isCommonOnlyNode ? 'overlapCommonSelection' : 'overlapGenreSelection')}
+                </div>
+                <div>
+                  <div class="muted-sm">音效重叠词</div>
+                  ${renderCandidateBlock(overlapSfxCandidates, 'sfx', '', 'graph-overlap-check', isCommonOnlyNode ? 'overlapCommonSelection' : 'overlapGenreSelection')}
+                </div>
+              </div>
+              ${isCommonOnlyNode ? `
+              <div class="row" style="margin-top:8px;">
+                <div class="cell"><button onclick="removeOverlapTerms('common')" ${busyAction === 'overlap-common' ? 'disabled' : ''}>${busyAction === 'overlap-common' ? '处理中...' : '从通用元数据移除重叠词，只保留赛道特化'}</button></div>
+                <div class="cell">${inlineActionFeedback(graphMaintenanceState?.ui?.overlapCommonFeedbackText || '', graphMaintenanceState?.ui?.feedbackLevel || 'info')}</div>
+              </div>
+              ` : `
+              <div class="row" style="margin-top:8px;">
+                <div class="cell"><button onclick="removeOverlapTerms('genre')" ${busyAction === 'overlap-genre' ? 'disabled' : ''}>${busyAction === 'overlap-genre' ? '处理中...' : '从赛道特化移除重叠词，只保留通用元数据'}</button></div>
+                <div class="cell">${inlineActionFeedback(graphMaintenanceState?.ui?.overlapGenreFeedbackText || '', graphMaintenanceState?.ui?.feedbackLevel || 'info')}</div>
+              </div>
+              `}
+              ` : `${isCommonOnlyNode ? `
+              <div class="muted-sm note-prefix">当前目标赛道下还没有可清理的重叠词。若你已经选择目标赛道，可直接点击下方按钮尝试执行同步清理。</div>
+              <div class="row" style="margin-top:8px;">
+                <div class="cell"><button onclick="removeOverlapTerms('common')" ${busyAction === 'overlap-common' ? 'disabled' : ''}>${busyAction === 'overlap-common' ? '处理中...' : '从通用元数据移除重叠词，只保留赛道特化'}</button></div>
+                <div class="cell">${inlineActionFeedback(graphMaintenanceState?.ui?.overlapCommonFeedbackText || '', graphMaintenanceState?.ui?.feedbackLevel || 'info')}</div>
+              </div>
+              ` : `<div class="muted-sm note-prefix">当前没有通用层与赛道层重叠的词。</div>`}`}
+            </div>
+            <div class="section-box" style="margin-top:10px;">
+              <h5>直接删除动作词</h5>
+              <div class="muted-sm note-prefix">这里提供直接删除通用动词或赛道动词的入口。删除赛道里的通用引用词，建议优先使用上方“从赛道删除与恢复”；这里更适合删除真正建错的通用节点或赛道特化节点。</div>
+              <div class="mini-action-row" style="margin-top:8px;">
+                ${commonLayer.exists ? `<button class="ghost-btn" onclick="deleteCurrentCommonVerb()">${isCommonOnlyNode ? '删除通用动词' : '删除通用动词（保留当前赛道）'}</button>` : ''}
+                ${(genreLayer.exists || (!isCommonOnlyNode && !Boolean(rawData?.genre_layer?.exists))) ? `<button class="ghost-btn" onclick="deleteCurrentGenreVerb()">${genreLayer.exists ? '删除赛道动词' : '删除未保存赛道草稿'}</button>` : ''}
+              </div>
+              <div style="margin-top:8px;">${inlineActionFeedback((graphMaintenanceState?.ui?.nodeKeepOtherFeedbackText || graphMaintenanceState?.ui?.nodeDeleteFeedbackText || ''), graphMaintenanceState?.ui?.feedbackLevel || 'info')}</div>
+            </div>
+            <div class="section-box" style="margin-top:10px;">
+              <h5>运营维护顺序</h5>
+              <div class="muted-sm note-prefix">建议按这条顺序操作：先确认通用元数据是否成立，再决定当前赛道是否引用，最后才做赛道特化。只有系统里确实没有现成词时，再用“新增自定义词”补充。</div>
+            </div>
             <div class="graph-two-col" style="margin-top:10px;">
               <div class="section-box">
                 <h5>通用元数据层</h5>
-                <div class="muted-sm note-prefix">这里维护跨赛道可复用的基础动作元数据。核心扩展词会先在这里沉淀，再去承接直达音效和整体音效。</div>
+                <div class="muted-sm note-prefix">这里维护跨赛道可复用的基础动作元数据，是所有赛道分配和复用的底座。</div>
                 ${renderLayerEditor('common', commonEditor, {
                   mergedSemanticItems: merged.semantic_term_items || [],
                   mergedDirectItems: merged.direct_sfx_term_items || [],
@@ -5757,18 +3522,10 @@
                   <div class="cell"><button onclick="saveGraphLayer('common')" ${busyAction === 'save-common' ? 'disabled' : ''}>${busyAction === 'save-common' ? '保存中...' : '保存通用元数据'}</button></div>
                   <div class="cell">${inlineActionFeedback(graphMaintenanceState?.ui?.commonSaveFeedbackText || '', graphMaintenanceState?.ui?.feedbackLevel || 'info')}</div>
                 </div>
-                ${renderNewNodeAssetUploadSection('common', data, commonEditor)}
               </div>
               <div class="section-box">
-                <h5>
-                  <span class="title-help-wrap">
-                    <span>赛道特化维护区</span>
-                    <span class="title-help" tabindex="0">?
-                      <span class="title-help-bubble"><strong>赛道音效层建设说明</strong><br>以 <strong>玄幻::挥剑劈砍</strong> 为例：你在这里维护的是这个词在玄幻赛道下的赛道音效层，也就是把它正式挂上 <strong>直达音效</strong> 和 <strong>整体音效</strong>。<br><br>保存赛道特化后，会发生这些事：<br>1. <strong>挥剑劈砍</strong> 会正式成为玄幻赛道里的已维护节点。<br>2. 你刚加进去的直达音效、整体音效，会进入这个节点的赛道特化层。<br>3. 用户端下次在玄幻文本里，如果动作分析命中到 <strong>挥剑劈砍</strong>，或者通过扩展词命中到它，动作图谱推荐里就会优先展示你维护进去的这些音效标签。<br><br>如果当前还没有上传真实素材文件，用户端的期待值应该是：<br>1. <strong>语义推荐词</strong> 里，能围绕 <strong>挥剑劈砍</strong> 出现更相关的词。<br>2. <strong>直达音效来源(可下载)</strong> 里，会出现你维护的直达音效词，例如：剑气呼啸、剑鞘摩擦声、金属破风声、重物下劈风声、利刃横扫嗡鸣。<br>3. <strong>整体音效来源(可下载)</strong> 里，会出现你维护的整体音效词，例如：拔剑至收剑全流程（整体）、连续斩击组合（整体）。</span>
-                    </span>
-                  </span>
-                </h5>
-                <div class="muted-sm note-prefix">这里维护当前赛道独有的强化内容。赛道扩展词只在当前赛道参与推荐，再去承接直达音效和整体音效。</div>
+                <h5>赛道特化维护区</h5>
+                <div class="muted-sm note-prefix">这里维护当前赛道独有的强化内容。只有确认当前赛道需要不同表达时，再在这里补充。</div>
                 ${renderLayerEditor('genre', genreEditor, {
                   mergedSemanticItems: merged.semantic_term_items || [],
                   mergedDirectItems: merged.direct_sfx_term_items || [],
@@ -5778,7 +3535,6 @@
                   <div class="cell"><button onclick="saveGraphLayer('genre')" ${busyAction === 'save-genre' ? 'disabled' : ''}>${busyAction === 'save-genre' ? '保存中...' : '保存赛道特化'}</button></div>
                   <div class="cell">${inlineActionFeedback(graphMaintenanceState?.ui?.genreSaveFeedbackText || '', graphMaintenanceState?.ui?.feedbackLevel || 'info')}</div>
                 </div>
-                ${renderNewNodeAssetUploadSection('genre', data, genreEditor)}
               </div>
             </div>
             <div class="muted note-prefix" style="margin-top:8px;">如果把某一层的标签全部移空再保存，该层配置会被删除。建议先确认是要清理通用元数据，还是只清理当前赛道特化。</div>
@@ -6176,15 +3932,9 @@
       }
 
       async function saveGraphLayer(layer) {
-        const currentNodeKey = currentGraphManageNodeKey();
-        if (!currentNodeKey) return show('graphManageOut', '请输入节点Key');
+        const nodeKey = currentGraphManageNodeKey();
+        if (!nodeKey) return show('graphManageOut', '请输入节点Key');
         const isCommon = layer === 'common';
-        const rawData = graphMaintenanceState?.rawData || {};
-        const compareGenre = String(rawData.compare_genre || rawData.genre || graphMaintenanceState?.ui?.overlapTargetGenre || '').trim();
-        const verbHead = String(rawData.verb_head || '').trim();
-        const nodeKey = (!isCommon && !String(currentNodeKey).includes('::') && compareGenre && verbHead)
-          ? `${compareGenre}::${verbHead}`
-          : currentNodeKey;
         setGraphMaintenanceUiState({
           busyAction: isCommon ? 'save-common' : 'save-genre',
           feedbackLevel: 'info',
@@ -6223,49 +3973,8 @@
           });
           show('graphManageOut', data);
           if (res.ok) {
-            const finalNodeKey = String(data?.node_key || nodeKey).trim() || nodeKey;
-            const redirectEntries = Object.entries(supplementMaintenanceRedirectState || {}).filter(([, meta]) => {
-              const targetNodeKey = String(meta?.node_key || '').trim();
-              return targetNodeKey && targetNodeKey === finalNodeKey && String(meta?.target_scope || '') === String(layer || '');
-            });
-            if (redirectEntries.length) {
-              const targetMeta = redirectEntries[0][1] || {};
-              try {
-                const retargetRes = await fetch(`${base()}/ops/action-supplements/retarget`, {
-                  method: 'POST',
-                  headers: h({ 'Content-Type': 'application/json' }),
-                  body: JSON.stringify({
-                    item_ids: redirectEntries.map(([itemId]) => Number(itemId)).filter(x => Number.isFinite(x) && x > 0),
-                    target_scope: String(targetMeta.target_scope || layer).trim(),
-                    target_scope_genre: String(targetMeta.target_scope_genre || '').trim(),
-                    target_head: String(targetMeta.target_head || rawData.verb_head || '').trim(),
-                  }),
-                });
-                const retargetData = await read(retargetRes);
-                if (retargetRes.ok) {
-                  for (const [itemId] of redirectEntries) delete supplementMaintenanceRedirectState[itemId];
-                  show('suppOut', {
-                    ok: true,
-                    message: `补充单已同步改成${retargetData.target_scope_label || (layer === 'common' ? '通用版' : '赛道版')}。你现在可以回到动作补充单运营继续上传并合并入库。`,
-                    item_ids: retargetData.item_ids,
-                    target_scope: retargetData.target_scope,
-                    target_scope_label: retargetData.target_scope_label,
-                    target_head: retargetData.target_head,
-                  });
-                  await loadSupplements();
-                } else {
-                  show('suppOut', retargetData);
-                }
-              } catch (retargetErr) {
-                show('suppOut', {
-                  ok: false,
-                  detail: `补充单重定层级失败：${retargetErr && retargetErr.message ? retargetErr.message : String(retargetErr || 'unknown error')}`,
-                  node_key: finalNodeKey,
-                });
-              }
-            }
             await loadGraphMaintenanceCatalog(nodeKey);
-            await loadGraphMaintenance(finalNodeKey);
+            await loadGraphMaintenance(String(data?.node_key || nodeKey).trim() || nodeKey);
           } else {
             renderGraphMaintenance(graphMaintenanceState?.rawData || {});
           }
@@ -6308,8 +4017,7 @@
         if (nodeKey) await queryActionGraphNode();
       }
 
-      async function loadSupplements(options = {}) {
-        const silent = Boolean(options && options.silent);
+      async function loadSupplements() {
         const days = (document.getElementById('suppDays').value || '30').trim();
         const status = (document.getElementById('suppStatus').value || '').trim();
         updateSupplementStatusHint();
@@ -6323,7 +4031,7 @@
         renderSupplementTable(latestSupplements);
         renderGraphPriorityTodo();
         await loadNotifyTargets();
-        if (!silent) show('suppOut', data);
+        show('suppOut', data);
       }
 
       function renderSupplementTable(items) {
@@ -6374,40 +4082,6 @@
           </div>
         `;
         };
-        const renderMaintenanceRedirect = (item) => {
-          const redirectMeta = supplementMaintenanceRedirectState[item.id] || {};
-          const selectedScope = String(redirectMeta.target_scope || item.task_scope || 'genre').trim();
-          const selectedGenre = String(redirectMeta.target_scope_genre || item.task_scope_genre || item.target_genre || item.genre || '').trim();
-          return `
-            <div class="term-block" style="margin-bottom:10px;">
-              <div class="term-title">
-                <span class="title-help-wrap">
-                  <span>转去维护节点</span>
-                  <span class="title-help" tabindex="0">?
-                    <span class="title-help-bubble"><strong>转去维护节点说明</strong><br>如果一条原本来自 <strong>玄幻</strong> 的补充单，运营判断它其实更适合 <strong>科幻赛道</strong>，那么点 <strong>转去维护节点 -> 赛道特化 -> 科幻</strong>，它表达的是：<br>1. 这条补充单后续要按 <strong>科幻赛道</strong> 去维护。<br>2. 打开的是 <strong>维护节点：科幻::凌空跃起</strong> 这种目标节点。<br>3. 后续保存、补音效、上传素材，都按 <strong>科幻版</strong> 走。</span>
-                  </span>
-                </span>
-              </div>
-              <div class="muted-sm note-prefix">当这条补充单的层级判断不对时，先转去维护节点调整；只有在维护节点保存成功后，补充版本才会同步改写。</div>
-              <div class="row" style="margin-top:6px;">
-                <div class="cell">
-                  <select id="suppRetargetScope_${item.id}" onchange="onSupplementRetargetScopeChange(${item.id})">
-                    <option value="common" ${selectedScope === 'common' ? 'selected' : ''}>通用元数据</option>
-                    <option value="genre" ${selectedScope === 'genre' ? 'selected' : ''}>赛道特化</option>
-                  </select>
-                </div>
-                <div class="cell">
-                  <select id="suppRetargetGenre_${item.id}" ${selectedScope === 'genre' ? '' : 'disabled'}>
-                    <option value="">请选择赛道</option>
-                    ${['玄幻','言情','悬疑','科幻'].map(genre => `<option value="${escAttr(genre)}" ${selectedGenre === genre ? 'selected' : ''}>${escHtml(genre)}</option>`).join('')}
-                  </select>
-                </div>
-                <div class="cell"><button class="ghost-btn" onclick="redirectSupplementToMaintenance(${item.id})">转去维护节点</button></div>
-              </div>
-              <div id="suppRetargetFeedback_${item.id}" style="margin-top:6px;"></div>
-            </div>
-          `;
-        };
         const renderRow = (item) => `
           <tr>
             <td><input type="checkbox" class="supp-check" value="${item.id}" /></td>
@@ -6416,8 +4090,7 @@
             <td>${escHtml(item.genre || '')}</td>
             <td class="verb-cell">
               <div><strong>${escHtml(item.verb || '')}</strong></div>
-              <div class="muted-sm">维护节点：${escHtml((item.parent_node && item.parent_node.node_key) || ((item.genre || '') + '::' + (item.verb || '')))}</div>
-              ${item.original_hit_node && item.original_hit_node.node_key && item.original_hit_node.node_key !== ((item.parent_node && item.parent_node.node_key) || '') ? `<div class="muted-sm">原始命中：${escHtml(item.original_hit_node.node_key)}</div>` : ''}
+              <div class="muted-sm">父级节点：${escHtml((item.parent_node && item.parent_node.node_key) || ((item.genre || '') + '::' + (item.verb || '')))}</div>
               <div class="muted-sm">补充版本：${escHtml(item.task_scope_label || '未标注版本')}</div>
             </td>
             <td>${escHtml(item.target_head || '')}</td>
@@ -6452,7 +4125,6 @@
             </td>
             <td>
               <div class="supp-actions">
-                ${canRedirectSupplementMaintenance(item) ? renderMaintenanceRedirect(item) : ''}
                 ${(() => {
                   const directTerms = ((item.children && item.children.missing_direct_sfx_terms) || []);
                   const compositeTerms = ((item.children && item.children.missing_composite_sfx_terms) || []);
@@ -6505,7 +4177,7 @@
                       <th>通知</th>
                       <th>ID</th>
                       <th>用户手机号</th>
-                      <th>原始命中赛道</th>
+                      <th>赛道</th>
                       <th>动作词</th>
                       <th>建议头词</th>
                       <th>原句片段</th>
@@ -6572,23 +4244,19 @@
           const nextStatus = String((data && data.status) || '').trim();
           const sel = document.getElementById('suppStatus');
           if (sel && nextStatus) sel.value = nextStatus;
-          const coveredCount = Number(data.covered_term_count || 0);
-          const targetCount = Number(data.target_term_count || 0);
-          const pendingCount = Math.max(0, targetCount - coveredCount);
           show('suppOut', {
             ok: true,
-            message: `上传成功：已按${data.asset_scope_label || '指定版本'}入库。当前进度 ${coveredCount}/${targetCount}${pendingCount ? `，还剩 ${pendingCount} 个待补词` : '，这条补充单已全部补齐'}。系统已自动切换到 ${supplementStatusLabel(nextStatus)} 视图。`,
+            message: `上传成功：已按${data.asset_scope_label || '指定版本'}入库，这条补充单已从 pending 流转到 ${supplementStatusLabel(nextStatus)}。系统已自动切换到新状态视图。`,
             item_id: data.item_id,
             next_status: nextStatus,
             asset_label: data.asset_label,
             asset_scope: data.asset_scope,
             asset_scope_label: data.asset_scope_label,
             asset_file_path: data.asset_file_path,
-            covered_term_count: coveredCount,
-            target_term_count: targetCount,
-            pending_term_count: pendingCount,
+            covered_term_count: data.covered_term_count,
+            target_term_count: data.target_term_count,
           });
-          await loadSupplements({ silent: true });
+          await loadSupplements();
           if (current && current.parent_node && current.parent_node.node_key) {
             setTimeout(() => jumpToSupplementGroup(current.parent_node.node_key, nextStatus || 'partial'), 120);
           }
@@ -6604,75 +4272,6 @@
             button.disabled = false;
             button.textContent = '上传并合并入库';
           }
-        }
-      }
-
-      function onSupplementRetargetScopeChange(itemId) {
-        const scopeSel = document.getElementById(`suppRetargetScope_${itemId}`);
-        const genreSel = document.getElementById(`suppRetargetGenre_${itemId}`);
-        const targetScope = String(scopeSel?.value || 'genre').trim();
-        if (genreSel) genreSel.disabled = targetScope !== 'genre';
-        supplementMaintenanceRedirectState[itemId] = {
-          ...(supplementMaintenanceRedirectState[itemId] || {}),
-          target_scope: targetScope,
-          target_scope_genre: String(genreSel?.value || '').trim(),
-        };
-      }
-
-      function setSupplementRetargetFeedback(itemId, text, level = 'info') {
-        const box = document.getElementById(`suppRetargetFeedback_${itemId}`);
-        if (!box) return;
-        box.innerHTML = text ? inlineActionFeedback(text, level) : '';
-      }
-
-      async function ensureSupplementMaintenanceNode(targetScope, targetGenre, targetHead) {
-        const safeHead = String(targetHead || '').trim();
-        if (!safeHead) throw new Error('target head is required');
-        if (targetScope === 'genre' && !String(targetGenre || '').trim()) {
-          throw new Error('请选择赛道');
-        }
-        const nodeKey = targetScope === 'common' ? safeHead : `${targetGenre}::${safeHead}`;
-        graphMaintenanceCatalogState.selectedGenreKey = targetScope === 'common' ? 'common' : targetGenre;
-        graphMaintenanceCatalogState.selectedNodeKey = nodeKey;
-        const genreSel = document.getElementById('graphManageGenre');
-        if (genreSel) genreSel.value = targetScope === 'common' ? 'common' : targetGenre;
-        syncGraphManageNodeInput(nodeKey);
-        await loadGraphMaintenanceCatalog(nodeKey);
-        await loadGraphMaintenance(nodeKey);
-        return { nodeKey };
-      }
-
-      async function redirectSupplementToMaintenance(itemId) {
-        const item = latestSupplements.find(x => Number(x.id) === Number(itemId));
-        if (!item) return;
-        const scopeSel = document.getElementById(`suppRetargetScope_${itemId}`);
-        const genreSel = document.getElementById(`suppRetargetGenre_${itemId}`);
-        const targetScope = String(scopeSel?.value || item.task_scope || 'genre').trim();
-        const targetGenre = String(genreSel?.value || item.task_scope_genre || item.target_genre || item.genre || '').trim();
-        const targetHead = String(item.target_head || item.verb || '').trim();
-        if (targetScope === 'genre' && !targetGenre) {
-          setSupplementRetargetFeedback(itemId, '请先选择赛道', 'warning');
-          return;
-        }
-        setSupplementRetargetFeedback(itemId, '正在打开维护节点...', 'info');
-        try {
-          const { nodeKey } = await ensureSupplementMaintenanceNode(targetScope, targetGenre, targetHead);
-          supplementMaintenanceRedirectState[itemId] = {
-            item_ids: [itemId],
-            target_scope: targetScope,
-            target_scope_genre: targetScope === 'genre' ? targetGenre : '',
-            target_head: targetHead,
-            node_key: nodeKey,
-          };
-          setSupplementRetargetFeedback(
-            itemId,
-            `已打开维护节点：${nodeKey}。当你在该节点保存成功后，这条补充单会同步改成${targetScope === 'common' ? '通用元数据' : `${targetGenre}赛道特化`}版本。`,
-            'success'
-          );
-          const box = document.getElementById('graphManageBox');
-          if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (err) {
-          setSupplementRetargetFeedback(itemId, `转去维护节点失败：${err && err.message ? err.message : String(err || 'unknown error')}`, 'error');
         }
       }
 
@@ -6736,24 +4335,17 @@
       }
 
       setState();
-      const adminPhoneInput = document.getElementById('phone');
-      if (adminPhoneInput) adminPhoneInput.addEventListener('input', updateAdminAuthMode);
-      updateAdminAuthMode();
       renderDocAnchors('actionDocsOut', ACTION_DOC_ANCHORS);
       updateSupplementStatusHint();
       if (token) {
-        loadReferralRewardSettings().catch(err => show('referralRewardOut', String(err?.message || err)));
         loadFrontendSecurity().catch(err => show('frontendSecurityOut', String(err?.message || err)));
         loadActionFallbackMonitor().catch(err => show('fallbackMonitorOut', String(err?.message || err)));
         loadActionFallbackAlerts().catch(err => show('fallbackMonitorOut', String(err?.message || err)));
         loadCreatorShowcases().catch(err => show('eventsOut', String(err?.message || err)));
         loadCopyrightAdsAdmin().catch(err => show('assetFeedbackOut', String(err?.message || err)));
         loadRechargeOrders().catch(err => show('usersOut', String(err?.message || err)));
-        loadUserSfxSubmissions().catch(err => show('usersOut', String(err?.message || err)));
         startFallbackAlertPolling();
       }
       loadInheritanceDashboard();
       loadGraphMaintenanceCatalog('');
-    </script>
-  </body>
-</html>
+    

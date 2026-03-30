@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 from typing import Any
+
+from app.services.llm import generate_report, llm_enabled
 
 
 GENRE_PROFILES: dict[str, dict[str, Any]] = {
@@ -29,6 +32,8 @@ GENRE_PROFILES: dict[str, dict[str, Any]] = {
         'replace_traits': ['电子', '空间感', '冷感', '未来感推进'],
     },
 }
+
+EXPECTED_MUSIC_MATCH_PROMPT = 'V3-music_match_task.txt'
 
 
 def _safe_list(raw: Any) -> list[Any]:
@@ -217,11 +222,88 @@ def _replace_advice(project_genre: str, total_score: float, genre_match: dict[st
     }
 
 
+def _normalize_llm_music_match_review(llm_json: dict | None, fallback_verdict: str, fallback_summary: str) -> dict | None:
+    if not isinstance(llm_json, dict):
+        return None
+    return {
+        'title': str(llm_json.get('title') or 'LLM增强解读'),
+        'summary': str(llm_json.get('summary') or fallback_summary),
+        'professional_verdict': str(llm_json.get('professional_verdict') or fallback_verdict),
+        'professional_reasons': [str(x).strip() for x in (llm_json.get('professional_reasons') or []) if str(x).strip()][:5],
+        'editing_focus': [str(x).strip() for x in (llm_json.get('editing_focus') or []) if str(x).strip()][:5],
+        'replace_direction': [str(x).strip() for x in (llm_json.get('replace_direction') or []) if str(x).strip()][:4],
+        'evidence_focus': [str(x).strip() for x in (llm_json.get('evidence_focus') or []) if str(x).strip()][:4],
+        'markdown': str(llm_json.get('markdown') or '').strip(),
+    }
+
+
+def build_music_match_llm_review(
+    project_genre: str,
+    audio_context: dict[str, Any],
+    text_context: dict[str, Any],
+    narration_timeline: dict[str, Any] | None,
+    rule_result: dict[str, Any],
+    llm_provider_override: str = '',
+) -> tuple[dict | None, dict]:
+    if not llm_enabled(llm_provider_override):
+        return None, {
+            'llm_enabled': False,
+            'llm_trace': [],
+            'effective_prompt_file': EXPECTED_MUSIC_MATCH_PROMPT,
+        }
+
+    compact_audio = {
+        'duration_sec': float(audio_context.get('duration_sec') or 0.0),
+        'bpm': float(audio_context.get('bpm') or 0.0),
+        'tags': [str(x).strip() for x in (audio_context.get('tags') or []) if str(x).strip()][:10],
+        'markers': (audio_context.get('markers') or [])[:8],
+    }
+    compact_text = {
+        'raw_text_excerpt': str(text_context.get('raw_text') or '')[:600],
+        'scene_count': len(text_context.get('scenes') or []),
+        'scenes': (text_context.get('scenes') or [])[:6],
+    }
+    compact_narration = None
+    if isinstance(narration_timeline, dict):
+        compact_narration = {
+            'scene_timeline': (narration_timeline.get('scene_timeline') or [])[:6],
+            'clause_timeline': (narration_timeline.get('clause_timeline') or [])[:10],
+        }
+    payload = {
+        'kind': 'music_match',
+        'project_genre': project_genre,
+        'audio_context': compact_audio,
+        'text_context': compact_text,
+        'narration_timeline': compact_narration,
+        'rule_result': {
+            'verdict': rule_result.get('verdict'),
+            'score': rule_result.get('score'),
+            'summary': rule_result.get('summary'),
+            'genre_match': rule_result.get('genre_match'),
+            'text_match': rule_result.get('text_match'),
+            'narration_match': rule_result.get('narration_match'),
+            'editing_advice': rule_result.get('editing_advice'),
+            'replace_advice': rule_result.get('replace_advice'),
+            'key_points': rule_result.get('key_points'),
+            'risks': rule_result.get('risks'),
+        },
+        'llm_provider_override': llm_provider_override,
+    }
+    llm_json, _llm_md, llm_meta = generate_report('analysis', payload, debug_prompt=True)
+    normalized = _normalize_llm_music_match_review(
+        llm_json,
+        fallback_verdict=str(rule_result.get('verdict') or ''),
+        fallback_summary=str(rule_result.get('summary') or ''),
+    )
+    return normalized, llm_meta or {}
+
+
 def build_music_match_result(
     project_genre: str,
     audio_context: dict[str, Any],
     text_context: dict[str, Any],
     narration_timeline: dict[str, Any] | None = None,
+    llm_provider_override: str = '',
 ) -> dict[str, Any]:
     tags = [str(x).strip() for x in _safe_list(audio_context.get('tags')) if str(x).strip()]
     markers = _safe_list(audio_context.get('markers'))
@@ -264,7 +346,7 @@ def build_music_match_result(
     else:
         risks = ['若实际录音语速变化较大，仍需根据成片节奏微调进入点和淡出点。']
 
-    return {
+    result = {
         'title': '音乐是否适合作品',
         'verdict': verdict,
         'score': total_score,
@@ -290,3 +372,16 @@ def build_music_match_result(
             'risks': risks,
         },
     }
+    llm_review, llm_meta = build_music_match_llm_review(
+        project_genre=project_genre,
+        audio_context=audio_context,
+        text_context=text_context,
+        narration_timeline=narration_timeline,
+        rule_result=result,
+        llm_provider_override=llm_provider_override,
+    )
+    result['llm_review'] = llm_review
+    result['llm_trace'] = llm_meta.get('llm_trace') or []
+    result['llm_enabled'] = bool(llm_meta.get('llm_enabled', True)) if llm_meta else llm_enabled(llm_provider_override)
+    result['report_json']['llm_review'] = llm_review or {}
+    return result

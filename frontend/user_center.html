@@ -25,23 +25,56 @@
       .row { display: flex; gap: 8px; flex-wrap: wrap; }
       .row > * { flex: 1 1 180px; }
       .hint { font-size: 12px; color: #7a5a41; line-height: 1.7; }
+      .field-status { margin-top:6px; font-size:12px; color:#7a5a41; }
+      .field-status.warn { color:#8d2b20; }
+      .auth-gate { display: none; margin-bottom: 14px; background: linear-gradient(135deg, #fff4e9, #fff8f0); border: 1px solid #d8c3a3; border-radius: 14px; padding: 12px; color: #744f2e; }
+      .locked { opacity: .52; pointer-events: none; filter: grayscale(.08); }
       .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 10px; }
       .tab { width: auto; padding: 7px 12px; border-radius: 999px; background: #fff; color: #6e5036; border: 1px solid var(--line); }
       .tab.active { background: #8d2b20; color: #fff; }
       .list-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
       .item-card { border: 1px solid var(--line); border-radius: 14px; padding: 12px; background: #fffdfa; }
+      .works-shell { background: linear-gradient(135deg, #fff8ef, #fff1df 52%, #fff8f4); border: 1px solid #d9c2a3; border-radius: 18px; padding: 16px; }
+      .works-header { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:10px; flex-wrap:wrap; }
+      .works-title { font-size: 22px; font-weight: 800; color:#6d2d1d; letter-spacing:.02em; }
+      .works-subtitle { font-size: 13px; color:#7a5a41; max-width:720px; line-height:1.8; }
+      .works-list-grid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:12px; }
+      .work-card { border-radius: 16px; padding: 14px; border:1px solid rgba(111,77,38,.18); box-shadow: 0 10px 24px rgba(97,69,40,.08); background: rgba(255,255,255,.86); backdrop-filter: blur(6px); }
+      .work-card-title { font-size: 17px; font-weight: 800; color:#322117; }
+      .work-card-summary {
+        margin-top:8px;
+        line-height:1.8;
+        color:#4f3b2d;
+        display:-webkit-box;
+        -webkit-box-orient:vertical;
+        -webkit-line-clamp:3;
+        overflow:hidden;
+        min-height:4.8em;
+      }
+      .work-card-cta { margin-top: 12px; display:inline-block; padding:8px 12px; border-radius:999px; background:#8d2b20; color:#fff; text-decoration:none; font-size:12px; font-weight:700; }
       .item-card.theme-xuanhuan { background: linear-gradient(135deg, #fff9df, #ffefb6); border-color: #d3b353; }
       .item-card.theme-yanqing { background: linear-gradient(135deg, #fff0f0, #ffd8d8); border-color: #d08282; }
       .item-card.theme-xuanyi { background: linear-gradient(135deg, #2b3039, #11161f); border-color: #495262; color: #f7f7f7; }
       .item-card.theme-kehuan { background: linear-gradient(135deg, #ecf6ff, #d7ecff); border-color: #77a9d8; }
       .meta { font-size: 12px; color: #7a5a41; margin-top: 4px; }
       .item-card.theme-xuanyi .meta, .item-card.theme-xuanyi .hint { color: #d4dae5; }
+      .item-card.theme-xuanyi .work-card-title { color: #f3d78a; }
+      .item-card.theme-xuanyi .work-card-summary { color: #f0dfb2; }
+      .item-card.theme-xuanyi .meta { color: #d9c18a; }
+      .item-card.theme-xuanyi .work-card-cta { background: linear-gradient(135deg, #c9a556, #9f7a2f); color: #17130e; }
       .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.7); font-size: 12px; margin: 4px 6px 0 0; }
       .pager { display: flex; gap: 8px; align-items: center; justify-content: space-between; margin-top: 10px; }
       .pager button { width: auto; min-width: 120px; }
+      .sfx-reward-grid { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:12px; margin-top:10px; }
+      .sfx-reward-card { border:1px solid var(--line); border-radius:14px; padding:12px; background:#fffdfa; box-shadow:0 8px 20px rgba(97,69,40,.06); }
+      .sfx-reward-card .title { font-size:15px; font-weight:800; color:#6d2d1d; }
+      .sfx-reward-card .summary { margin-top:8px; line-height:1.7; color:#6a513a; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; min-height:3.4em; }
+      .sfx-reward-card .meta { margin-top:6px; }
+      @media (max-width: 1100px) { .sfx-reward-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
       .kv { display: grid; grid-template-columns: 110px 1fr; gap: 8px; margin-bottom: 6px; font-size: 13px; }
       .hidden-api { display: none; }
-      @media (max-width: 900px) { .grid, .list-grid { grid-template-columns: 1fr; } }
+      .anchor-focus { box-shadow: 0 0 0 3px rgba(141,43,32,.18), 0 10px 30px rgba(97,69,40,.08); }
+      @media (max-width: 900px) { .grid, .list-grid, .works-list-grid { grid-template-columns: 1fr; } }
     </style>
   </head>
   <body>
@@ -50,31 +83,29 @@
         <h1>用户中心</h1>
         <div class="hint">这里承载平台侧能力：作品展示、书单发布与在线充值。首页暂不对外展示这些内容，避免干扰核心创作流程。</div>
       </section>
+      <div id="authGateBanner" class="auth-gate">请先完成用户登录后再使用用户中心功能。未登录状态下，不展示个人充值、投稿与提交入口。</div>
       <div class="grid">
         <section class="card">
-          <div class="hidden-api"><input id="apiBase" value="http://127.0.0.1:8090/api" /></div>
-          <h3>登录与提交入口</h3>
-          <input id="loginPhone" placeholder="请输入手机号" />
-          <div class="row" style="margin-top:8px;">
-            <button onclick="requestCode()" style="width:auto;">发送验证码</button>
-            <input id="loginCode" placeholder="验证码" />
-            <button onclick="loginByCode()" style="width:auto;">登录</button>
-          </div>
+          <div class="hidden-api"><input id="apiBase" value="http://127.0.0.1:8010/api" /></div>
+          <h3>用户中心入口</h3>
           <div class="hint" style="margin-top:8px;">当前登录：<span id="loginState">未登录</span></div>
+          <div class="row" style="margin-top:10px;">
+            <button type="button" onclick="window.location.href='/'" style="width:auto;">返回首页登录</button>
+          </div>
           <hr style="border:none; border-top:1px solid #e4d8c5; margin:12px 0;" />
+          <div id="userCenterPrivateSections">
           <h3>提交作品</h3>
           <input id="workTitle" placeholder="作品标题" />
           <div class="row" style="margin-top:8px;">
             <select id="workGenre">
               <option value="玄幻">玄幻</option><option value="言情">言情</option><option value="悬疑">悬疑</option><option value="科幻">科幻</option>
             </select>
-            <input id="workRole" placeholder="角色定位" />
           </div>
-          <textarea id="workSummary" rows="4" placeholder="描述你的代表能力与作品亮点" style="margin-top:8px;"></textarea>
-          <input id="workSkills" placeholder="技能标签，如：混音、音效设计、节奏剪辑" style="margin-top:8px;" />
-          <input id="workLink" placeholder="样片链接（可选）" style="margin-top:8px;" />
+          <textarea id="workSummary" rows="4" maxlength="120" placeholder="描述你的代表能力与作品亮点（最多120字）" style="margin-top:8px;"></textarea>
+          <div id="workSummaryStatus" class="field-status">作品简介最多 120 字。</div>
           <input id="workFile" type="file" accept="audio/*,.mp4,.mov,.m4a,.wav,.mp3" style="margin-top:8px;" />
           <button onclick="submitWork()" style="margin-top:8px;">提交作品展示</button>
+          <div id="workSubmitStatus" class="hint" style="margin-top:8px;"></div>
           <hr style="border:none; border-top:1px solid #e4d8c5; margin:12px 0;" />
           <h3>提交书单</h3>
           <input id="bookTitle" placeholder="书单标题" />
@@ -90,8 +121,9 @@
             <input id="bookContact" placeholder="联系说明" />
           </div>
           <button onclick="submitBooklist()" style="margin-top:8px;">提交书单</button>
+          </div>
         </section>
-        <section class="card">
+        <section class="card" id="rechargeCard">
           <h3>在线充值中心</h3>
           <div id="rechargeSummaryView" class="hint">请先登录后查看余额与充值记录。</div>
           <select id="rechargeOrderType" style="margin-top:8px;">
@@ -110,16 +142,24 @@
           </div>
           <button onclick="submitRechargeOrder()" style="margin-top:8px;">提交充值申请</button>
         </section>
-        <section class="card wide">
+        <section class="card wide" id="sfxSubmissionCard">
           <h3>我的音效投稿</h3>
-          <div class="hint">如果你在创作链路中提交了更合适的音效，这里会显示最近投稿、审核状态，以及审核通过后累计获得的永久下载奖励。</div>
+          <div class="hint">这里只展示已经被系统采纳并获得永久奖励的音效投稿成果。</div>
           <div id="sfxSubmissionsView" style="margin-top:10px;" class="hint">请先登录后查看音效投稿记录。</div>
+          <div class="pager">
+            <button onclick="changeSfxRewardPage(-1)">上一页</button>
+            <div id="sfxRewardPagerInfo" class="hint">第 1 / 1 页</div>
+            <button onclick="changeSfxRewardPage(1)">下一页</button>
+          </div>
         </section>
-        <section class="card wide">
-          <h3>作品</h3>
-          <div class="hint">展示创作者已发布的成品作品，按四大赛道浏览。每页展示 8 条。</div>
+        <section class="card wide works-shell" id="works">
+          <div class="works-header">
+            <div>
+              <div class="works-title">作品展示</div>
+            </div>
+          </div>
           <div class="tabs" id="worksTabs"></div>
-          <div id="worksList" class="list-grid" style="margin-top:10px;"></div>
+          <div id="worksList" class="works-list-grid" style="margin-top:10px;"></div>
           <div class="pager">
             <button onclick="changeWorksPage(-1)">上一页</button>
             <div id="worksPagerInfo" class="hint">第 1 / 1 页</div>
@@ -146,15 +186,42 @@
       let authUser = null;
       let worksState = { genre: '玄幻', page: 1, total: 0, items: [] };
       let booksState = { genre: '玄幻', page: 1, total: 0, items: [] };
+      let sfxRewardState = { page: 1, pageSize: 12, total: 0, items: [] };
       function apiBase() { return document.getElementById('apiBase').value.replace(/\/$/, ''); }
       function escHtml(s) { return String(s ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;'); }
+      function clipText(s, max = 72) {
+        const value = String(s || '').trim();
+        if (!value) return '';
+        return value.length > max ? `${value.slice(0, max)}...` : value;
+      }
+      function updateWorkSummaryStatus() {
+        const input = document.getElementById('workSummary');
+        const box = document.getElementById('workSummaryStatus');
+        if (!input || !box) return;
+        const max = 120;
+        const current = String(input.value || '').length;
+        box.className = `field-status${current >= max ? ' warn' : ''}`;
+        box.textContent = current >= max ? `作品简介 ${current}/${max}，已达到上限。` : `作品简介 ${current}/${max}`;
+      }
       function authHeaders(extra = {}) { const h = { ...(extra || {}) }; if (authToken) h.Authorization = `Bearer ${authToken}`; return h; }
       async function apiFetch(url, options = {}) { const opts = { ...(options || {}) }; opts.headers = authHeaders(opts.headers || {}); return window.fetch(url, opts); }
       async function readApiResponse(res) { const t = await res.text(); try { return JSON.parse(t); } catch { return { detail: t }; } }
       function normalizePhoneInput(raw) { let phone = String(raw || '').replace(/\D/g, ''); if (phone.startsWith('86') && phone.length === 13) phone = phone.slice(2); return phone; }
+      function normalizeUidInput(raw) { return String(raw || '').replace(/\D/g, '').slice(0, 32); }
       function isValidPhoneInput(raw) { return /^1\d{10}$/.test(normalizePhoneInput(raw)); }
       function themeCls(genre) { return ({'玄幻':'theme-xuanhuan','言情':'theme-yanqing','悬疑':'theme-xuanyi','科幻':'theme-kehuan'})[String(genre||'').trim()] || ''; }
-      function setLoginState() { document.getElementById('loginState').textContent = authPhone ? `${authPhone}${authUser && authUser.uid ? ` / UID:${authUser.uid}` : ''}（已登录）` : '未登录'; }
+      function setLoginState() {
+        document.getElementById('loginState').textContent = authPhone ? `${authPhone}${authUser && authUser.uid ? ` / UID:${authUser.uid}` : ''}（已登录）` : '未登录';
+        const loggedIn = !!authToken;
+        const banner = document.getElementById('authGateBanner');
+        const privateSections = document.getElementById('userCenterPrivateSections');
+        const rechargeCard = document.getElementById('rechargeCard');
+        const sfxSubmissionCard = document.getElementById('sfxSubmissionCard');
+        if (banner) banner.style.display = loggedIn ? 'none' : 'block';
+        if (privateSections) privateSections.classList.toggle('locked', !loggedIn);
+        if (rechargeCard) rechargeCard.classList.toggle('locked', !loggedIn);
+        if (sfxSubmissionCard) sfxSubmissionCard.classList.toggle('locked', !loggedIn);
+      }
       function renderTabs(containerId, current, handlerName) {
         const box = document.getElementById(containerId);
         if (!box) return;
@@ -164,14 +231,19 @@
         renderTabs('worksTabs', worksState.genre, 'setWorksGenre');
         const box = document.getElementById('worksList');
         const info = document.getElementById('worksPagerInfo');
-        const totalPages = Math.max(1, Math.ceil((worksState.total || 0) / 8));
+        const totalPages = Math.max(1, Math.ceil((worksState.total || 0) / 6));
         info.textContent = `第 ${worksState.page} / ${totalPages} 页，当前赛道：${worksState.genre}`;
         box.innerHTML = (worksState.items || []).length ? worksState.items.map((item) => `
-          <div class="item-card ${themeCls(item.genre)}">
-            <div style="font-weight:700;">${escHtml(item.title || '-')}</div>
-            <div class="meta">${escHtml(item.genre || '')} ｜ ${escHtml(item.role_label || '创作者')}</div>
-            <div style="margin-top:6px; line-height:1.7;">${escHtml(item.summary || '')}</div>
-            <div style="margin-top:6px;">${(Array.isArray(item.skills) ? item.skills : []).slice(0, 6).map((skill) => `<span class="pill">${escHtml(skill)}</span>`).join('')}</div>
+          <div class="work-card item-card ${themeCls(item.genre)}">
+            <div class="work-card-title">${escHtml(item.title || '-')}</div>
+            <div class="meta">${escHtml(item.genre || '')}</div>
+            <div class="work-card-summary">${escHtml(clipText(item.summary || '', 72))}</div>
+            ${item.sample_file_name && item.sample_download_api ? `
+              <div style="margin-top:10px;">
+                <a href="${escHtml(item.sample_download_api)}" download class="work-card-cta">下载作品文件</a>
+                <div class="hint" style="margin-top:6px;">文件：${escHtml(item.sample_file_name)}</div>
+              </div>
+            ` : ''}
           </div>
         `).join('') : '<div class="hint">当前赛道还没有已发布作品。</div>';
       }
@@ -190,7 +262,7 @@
         `).join('') : '<div class="hint">当前赛道还没有已发布书单。</div>';
       }
       async function loadWorks() {
-        const res = await window.fetch(`${apiBase()}/home/creator-showcases?genre=${encodeURIComponent(worksState.genre)}&page=${worksState.page}&page_size=8`);
+        const res = await window.fetch(`${apiBase()}/home/creator-showcases?genre=${encodeURIComponent(worksState.genre)}&page=${worksState.page}&page_size=6`);
         const data = await readApiResponse(res);
         worksState.items = Array.isArray(data.items) ? data.items : [];
         worksState.total = Number(data.total || 0);
@@ -205,65 +277,65 @@
       }
       function setWorksGenre(genre) { worksState.genre = genre; worksState.page = 1; loadWorks(); }
       function setBooksGenre(genre) { booksState.genre = genre; booksState.page = 1; loadBooks(); }
-      function changeWorksPage(delta) { const totalPages = Math.max(1, Math.ceil((worksState.total || 0) / 8)); worksState.page = Math.max(1, Math.min(totalPages, worksState.page + delta)); loadWorks(); }
+      function changeWorksPage(delta) { const totalPages = Math.max(1, Math.ceil((worksState.total || 0) / 6)); worksState.page = Math.max(1, Math.min(totalPages, worksState.page + delta)); loadWorks(); }
       function changeBooksPage(delta) { const totalPages = Math.max(1, Math.ceil((booksState.total || 0) / 8)); booksState.page = Math.max(1, Math.min(totalPages, booksState.page + delta)); loadBooks(); }
-      async function requestCode() {
-        const phone = normalizePhoneInput((document.getElementById('loginPhone').value || '').trim());
-        document.getElementById('loginPhone').value = phone;
-        if (!isValidPhoneInput(phone)) return alert('请输入有效的11位手机号');
-        const res = await window.fetch(`${apiBase()}/auth/request-code`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone }) });
-        const data = await readApiResponse(res);
-        if (data.code) document.getElementById('loginCode').value = data.code;
-        alert(data.message || data.detail || '验证码已发送');
-      }
-      async function loginByCode() {
-        const phone = normalizePhoneInput((document.getElementById('loginPhone').value || '').trim());
-        const code = (document.getElementById('loginCode').value || '').trim();
-        if (!isValidPhoneInput(phone) || !code) return alert('请输入手机号和验证码');
-        const res = await window.fetch(`${apiBase()}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, code }) });
-        const data = await readApiResponse(res);
-        if (!res.ok || !data.token) return alert(data.detail || '登录失败');
-        authToken = data.token; authPhone = data.user?.phone || phone; authUser = data.user || null;
-        localStorage.setItem('mfa_auth_token', authToken); localStorage.setItem('mfa_auth_phone', authPhone);
-        setLoginState();
-        await loadRechargeSummary();
-        await loadSfxSubmissions();
-        alert('登录成功');
-      }
       async function syncAuthBootstrap() {
         if (!authToken) { setLoginState(); return; }
         try {
           const res = await apiFetch(`${apiBase()}/auth/me`);
           const data = await readApiResponse(res);
-          if (res.ok) { authUser = data; authPhone = data.phone || authPhone; localStorage.setItem('mfa_auth_phone', authPhone); }
-        } catch (_) {}
+          if (!res.ok) throw new Error(data.detail || 'auth/me failed');
+          authUser = data; authPhone = data.phone || authPhone; localStorage.setItem('mfa_auth_phone', authPhone);
+        } catch (_) {
+          authToken = '';
+          authPhone = '';
+          authUser = null;
+          localStorage.removeItem('mfa_auth_token');
+          localStorage.removeItem('mfa_auth_phone');
+        }
         setLoginState();
         await loadRechargeSummary();
         await loadSfxSubmissions();
       }
       async function loadSfxSubmissions() {
         const box = document.getElementById('sfxSubmissionsView');
+        const pagerInfo = document.getElementById('sfxRewardPagerInfo');
         if (!authToken) { box.innerHTML = '请先登录后查看音效投稿记录。'; return; }
-        const res = await apiFetch(`${apiBase()}/home/sfx-submissions`);
+        const res = await apiFetch(`${apiBase()}/home/sfx-submissions?page=${sfxRewardState.page}&page_size=${sfxRewardState.pageSize}`);
         const data = await readApiResponse(res);
         if (!res.ok) { box.innerHTML = escHtml(data.detail || '加载失败'); return; }
         const items = Array.isArray(data.items) ? data.items : [];
+        sfxRewardState.items = items;
+        sfxRewardState.total = Number(data.total || 0);
+        sfxRewardState.page = Number(data.page || sfxRewardState.page || 1);
+        sfxRewardState.pageSize = Number(data.page_size || sfxRewardState.pageSize || 12);
+        const totalPages = Math.max(1, Math.ceil((sfxRewardState.total || 0) / (sfxRewardState.pageSize || 12)));
+        if (pagerInfo) pagerInfo.textContent = `第 ${sfxRewardState.page} / ${totalPages} 页，共 ${sfxRewardState.total} 条`;
         const rewardBalance = Number(data?.reward_summary?.sfx_download_pack_balance || 0);
         box.innerHTML = `
           <div class="item-card" style="margin-bottom:10px;">
             <div style="font-weight:700;">当前永久下载奖励余额</div>
             <div class="meta">累计 ${escHtml(rewardBalance)} 次额外下载次数</div>
           </div>
-          ${items.length ? items.map((item) => `
-            <div class="item-card ${themeCls(item.genre)}" style="margin-bottom:10px;">
-              <div style="font-weight:700;">${escHtml(item.display_term || item.verb || '-')}</div>
-              <div class="meta">${escHtml(item.genre || '')} ｜ 动作词 ${escHtml(item.verb || '')} ｜ 状态 ${escHtml(item.status || '-')}</div>
-              ${item.sentence_excerpt ? `<div style="margin-top:6px; line-height:1.7;">${escHtml(item.sentence_excerpt)}</div>` : ''}
-              ${item.review_note ? `<div class="hint" style="margin-top:6px;">审核备注：${escHtml(item.review_note)}</div>` : ''}
-              <div class="hint" style="margin-top:6px;">奖励状态：${escHtml(item.reward_applied ? `已增加 ${item.reward_download_delta || 0} 次永久下载` : '待审核后决定')}</div>
+          ${items.length ? `
+            <div class="sfx-reward-grid">
+              ${items.map((item) => `
+                <div class="sfx-reward-card ${themeCls(item.genre)}">
+                <div class="title">${escHtml(item.display_term || item.verb || '-')}</div>
+                  <div class="meta">${escHtml(item.genre || '')} ｜ 动作词 ${escHtml(item.verb || '')} ｜ ${escHtml(item.status_label || '已被系统采纳')}</div>
+                  ${item.sentence_excerpt ? `<div class="summary">${escHtml(item.sentence_excerpt)}</div>` : ''}
+                  <div class="hint" style="margin-top:8px;">已永久增加 ${escHtml(item.reward_download_delta || 0)} 次下载次数</div>
+                  <div class="hint" style="margin-top:4px;">被下载 ${escHtml(item.adopted_download_count || 0)} 次</div>
+                </div>
+              `).join('')}
             </div>
-          `).join('') : '<div class="hint">当前还没有音效投稿记录。</div>'}
+          ` : '<div class="hint">当前还没有获得奖励的音效投稿。</div>'}
         `;
+      }
+      function changeSfxRewardPage(delta) {
+        const totalPages = Math.max(1, Math.ceil((sfxRewardState.total || 0) / (sfxRewardState.pageSize || 12)));
+        sfxRewardState.page = Math.max(1, Math.min(totalPages, sfxRewardState.page + delta));
+        loadSfxSubmissions();
       }
       async function loadRechargeSummary() {
         const box = document.getElementById('rechargeSummaryView');
@@ -281,19 +353,37 @@
         `;
       }
       async function submitWork() {
-        if (!authToken) return alert('请先登录');
+        const statusBox = document.getElementById('workSubmitStatus');
+        const summaryInput = document.getElementById('workSummary');
+        if (!authToken) {
+          if (statusBox) statusBox.textContent = '请先登录后再提交作品。';
+          return;
+        }
+        const summary = (summaryInput?.value || '').trim();
+        if (summary.length > 120) {
+          if (statusBox) {
+            statusBox.textContent = '作品简介已超过 120 字，请精简后再发布。';
+            statusBox.style.color = '#8d2b20';
+          }
+          return;
+        }
         const fd = new FormData();
         fd.set('title', (document.getElementById('workTitle').value || '').trim());
         fd.set('genre', (document.getElementById('workGenre').value || '').trim());
-        fd.set('role_label', (document.getElementById('workRole').value || '').trim());
-        fd.set('summary', (document.getElementById('workSummary').value || '').trim());
-        fd.set('skills', (document.getElementById('workSkills').value || '').trim());
-        fd.set('sample_link', (document.getElementById('workLink').value || '').trim());
+        fd.set('summary', summary);
         const file = document.getElementById('workFile').files[0];
-        if (file) fd.set('sample_file', file);
+        if (!file) {
+          if (statusBox) statusBox.textContent = '请上传作品文件后再提交。';
+          return;
+        }
+        fd.set('sample_file', file);
+        if (statusBox) statusBox.textContent = '正在提交作品展示，请稍候...';
         const res = await apiFetch(`${apiBase()}/home/creator-showcases`, { method: 'POST', body: fd });
         const data = await readApiResponse(res);
-        alert(data.message || data.detail || '提交完成');
+        if (statusBox) {
+          statusBox.textContent = data.message || data.detail || (res.ok ? '作品展示已提交。' : '提交失败。');
+          statusBox.style.color = res.ok ? '#6b5334' : '#8d2b20';
+        }
       }
       async function submitBooklist() {
         if (!authToken) return alert('请先登录');
@@ -327,6 +417,17 @@
       syncAuthBootstrap();
       loadWorks();
       loadBooks();
+      updateWorkSummaryStatus();
+      document.getElementById('workSummary')?.addEventListener('input', updateWorkSummaryStatus);
+      if (window.location.hash === '#works') {
+        setTimeout(() => {
+          const target = document.getElementById('works');
+          if (target) {
+            target.classList.add('anchor-focus');
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 120);
+      }
     </script>
   </body>
 </html>

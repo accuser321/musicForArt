@@ -175,7 +175,8 @@ class UserAccount(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     phone: Mapped[str] = mapped_column(String(32), unique=True, index=True, nullable=False)
-    uid: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False, default='')
+    uid: Mapped[str] = mapped_column(String(64), index=True, nullable=False, default='')
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False, default='')
     ops_role_code: Mapped[str] = mapped_column(String(2), index=True, nullable=False, default='33')
     user_tier_code: Mapped[str] = mapped_column(String(2), index=True, nullable=False, default='33')
     is_authorized: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # 0/1
@@ -307,6 +308,10 @@ class UserSfxSubmission(Base):
     reviewed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     reward_download_delta: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     reward_applied: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    adopted_download_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    adopted_file_name: Mapped[str] = mapped_column(String(255), nullable=False, default='')
+    adopted_file_path: Mapped[str] = mapped_column(String(1024), nullable=False, default='')
+    adopted_source_label: Mapped[str] = mapped_column(String(64), nullable=False, default='')
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 

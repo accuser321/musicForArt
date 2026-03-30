@@ -7,6 +7,7 @@ from app.services.action_sfx_graph import (
     classify_sfx_terms,
     ensure_action_sfx_terms,
 )
+from app.services.semantic_graph import suggest_action_semantic_terms, suggest_action_sfx_terms
 
 ACTION_GRAPH_PATH = Path('./assets/sfx/action_graph.json').resolve()
 
@@ -561,7 +562,7 @@ def apply_action_fallback_replacements(
     genre_key = ''
     replacements = _merge_unique([str(x or '').strip() for x in (replacement_terms or []) if str(x or '').strip()])
     ignored = _merge_unique([str(x or '').strip() for x in (ignored_terms or []) if str(x or '').strip()])
-    ignored = [term for term in ignored if term != source and term not in replacements]
+    ignored = [term for term in ignored if term not in replacements]
     if not source:
         return {'ok': False, 'detail': 'source_term is required'}
     if not replacements and not ignored:
@@ -598,6 +599,8 @@ def apply_action_fallback_replacements(
             common_map.pop(term, None)
             for mapping in genre_maps.values():
                 mapping.pop(term, None)
+        if source in ignored and source in common_map:
+            common_map.pop(source, None)
 
     _write_fallback_replacement_meta(graph, {'common': common_map, 'genres': genre_maps})
     _write_fallback_ignored_meta(graph, {'common': common_ignored, 'genres': genre_ignored})
@@ -674,6 +677,7 @@ def _source_label(source: str) -> str:
         'genre': '赛道层',
         'common+genre': '通用+赛道',
         'fallback': '保底生成',
+        'suggested': '系统建议扩展词',
         'unknown': '未标注',
     }.get(str(source or '').strip(), '未标注')
 
@@ -701,6 +705,8 @@ def _term_items(common_terms: list[str], genre_terms: list[str]) -> list[dict]:
                 'term': term,
                 'source': source,
                 'source_label': _source_label(source),
+                'origin': 'system_maintained',
+                'origin_label': '系统维护',
                 'from_common': term in common_set,
                 'from_genre': term in genre_set,
             }
@@ -720,6 +726,8 @@ def _append_fallback_items(existing_items: list[dict], fallback_terms: list[str]
                 'term': value,
                 'source': 'fallback',
                 'source_label': _source_label('fallback'),
+                'origin': 'system_fallback',
+                'origin_label': '系统兜底',
                 'from_common': False,
                 'from_genre': False,
                 'is_fallback': True,
@@ -727,6 +735,59 @@ def _append_fallback_items(existing_items: list[dict], fallback_terms: list[str]
         )
         existing_terms.add(value)
     return out
+
+
+def _append_suggested_items(existing_items: list[dict], suggested_terms: list[dict | str]) -> list[dict]:
+    out = [dict(item) for item in (existing_items or []) if isinstance(item, dict)]
+    existing_terms = {str(item.get('term') or '').strip() for item in out if str(item.get('term') or '').strip()}
+    for term in suggested_terms or []:
+        if isinstance(term, dict):
+            value = str(term.get('term') or '').strip()
+            origin = str(term.get('origin') or 'system').strip() or 'system'
+            origin_label = str(term.get('origin_label') or '系统建议').strip() or '系统建议'
+            reason = str(term.get('reason') or '').strip()
+            source_label = str(term.get('source_label') or _source_label('suggested')).strip() or _source_label('suggested')
+            suggested_mode = str(term.get('suggested_mode') or '').strip()
+        else:
+            value = str(term or '').strip()
+            origin = 'system'
+            origin_label = '系统建议'
+            reason = ''
+            source_label = _source_label('suggested')
+            suggested_mode = ''
+        if not value or value in existing_terms:
+            continue
+        out.append(
+            {
+                'term': value,
+                'source': 'suggested',
+                'source_label': source_label,
+                'origin': origin,
+                'origin_label': origin_label,
+                'reason': reason,
+                'suggested_mode': suggested_mode,
+                'from_common': False,
+                'from_genre': False,
+                'is_suggested': True,
+            }
+        )
+        existing_terms.add(value)
+    return out
+
+
+def _split_sfx_term_items(term_items: list[dict]) -> tuple[list[dict], list[dict]]:
+    direct_items: list[dict] = []
+    composite_items: list[dict] = []
+    classified = classify_sfx_terms([str(item.get('term') or '').strip() for item in (term_items or [])])
+    direct_set = set(classified['direct_terms'])
+    for item in term_items or []:
+        term = str(item.get('term') or '').strip()
+        mode = str(item.get('suggested_mode') or '').strip()
+        if mode == 'direct' or (not mode and term in direct_set):
+            direct_items.append(item)
+        else:
+            composite_items.append(item)
+    return direct_items, composite_items
 
 
 def _layer_payload(layer: str, genre: str, verb_head: str, row: dict | None) -> dict:
@@ -858,6 +919,16 @@ def get_action_graph_node_layers(node_key: str, target_genre: str = '') -> dict:
     genre_row = None
     if compare_genre:
         genre_row = ((((graph.get('genres') or {}).get(compare_genre)) or {}).get(verb_head)) if isinstance((graph.get('genres') or {}).get(compare_genre), dict) else None
+    any_genre_rows = []
+    for genre_name, bucket in ((graph.get('genres') or {}).items()):
+        genre_name = str(genre_name or '').strip()
+        if not genre_name or not isinstance(bucket, dict):
+            continue
+        row = bucket.get(verb_head)
+        if isinstance(row, dict) and row:
+            any_genre_rows.append({'genre': genre_name, 'row': row})
+    any_genre_exists = bool(any_genre_rows)
+    any_genre_names = sorted({str(item.get('genre') or '').strip() for item in any_genre_rows if str(item.get('genre') or '').strip()})
     genre_assigned = is_genre_assigned(compare_genre, verb_head, graph) if compare_genre else False
     inheritance_blocked = (not genre_assigned) if compare_genre and common_row else False
 
@@ -865,17 +936,58 @@ def get_action_graph_node_layers(node_key: str, target_genre: str = '') -> dict:
     common_semantic, common_sfx = _row_terms(active_common_row)
     genre_semantic, genre_sfx = _row_terms(genre_row)
     merged_semantic_items = _term_items(common_semantic, genre_semantic)
+    existing_semantic_set = {str(item.get('term') or '').strip() for item in merged_semantic_items if str(item.get('term') or '').strip()}
+    pending_semantic_items = [
+        {
+            'term': item.term,
+            'origin': item.origin,
+            'origin_label': item.origin_label,
+            'source_label': '系统建议扩展词',
+            'reason': item.reason,
+            'score': item.score,
+        }
+        for item in suggest_action_semantic_terms(verb_head, genre=compare_genre, limit=10)
+        if str(item.term or '').strip() not in existing_semantic_set
+    ][:10]
+    merged_semantic_items = _append_suggested_items(merged_semantic_items, pending_semantic_items)
     merged_sfx_items = _term_items(common_sfx, genre_sfx)
-    front_sfx_terms = ensure_action_sfx_terms(verb_head, [item['term'] for item in merged_sfx_items])
+    pending_sfx_items = [
+        {
+            'term': item.term,
+            'origin': item.origin,
+            'origin_label': item.origin_label,
+            'source_label': '系统建议音效',
+            'suggested_mode': 'direct' if str(item.mode or '').strip() == 'direct' else 'composite',
+            'reason': item.reason,
+            'score': item.score,
+        }
+        for item in suggest_action_sfx_terms(
+            verb_head,
+            genre=compare_genre,
+            semantic_terms=[item['term'] for item in merged_semantic_items],
+            limit=10,
+        )
+        if str(item.term or '').strip() not in {str(existing.get('term') or '').strip() for existing in merged_sfx_items}
+    ][:10]
+    front_sfx_terms = ensure_action_sfx_terms(
+        verb_head,
+        [item['term'] for item in merged_sfx_items] + [item['term'] for item in pending_sfx_items],
+    )
     merged_sfx_items = _append_fallback_items(
         merged_sfx_items,
         [term for term in front_sfx_terms if term not in {str(item.get('term') or '').strip() for item in merged_sfx_items}],
     )
-    merged_sfx_classified = classify_sfx_terms([item['term'] for item in merged_sfx_items])
-    direct_set = set(merged_sfx_classified['direct_terms'])
-    composite_set = set(merged_sfx_classified['composite_terms'])
-    direct_items = [item for item in merged_sfx_items if item['term'] in direct_set]
-    composite_items = [item for item in merged_sfx_items if item['term'] in composite_set]
+    merged_sfx_items = _append_suggested_items(
+        merged_sfx_items,
+        [
+            item for item in pending_sfx_items
+            if str(item.get('term') or '').strip() not in {str(existing.get('term') or '').strip() for existing in merged_sfx_items}
+        ],
+    )
+    direct_items, composite_items = _split_sfx_term_items(merged_sfx_items)
+    merged_sfx_classified = classify_sfx_terms(
+        [item['term'] for item in direct_items] + [item['term'] for item in composite_items]
+    )
     semantic_candidates = _promotion_candidates(graph, verb_head, common_semantic, genre_semantic, 'semantic') if compare_genre else []
     sfx_candidates = _promotion_candidates(graph, verb_head, common_sfx, genre_sfx, 'sfx') if compare_genre else []
     demote_semantic_candidates = _demotion_candidates(common_semantic, genre_semantic, 'semantic')
@@ -890,17 +1002,21 @@ def get_action_graph_node_layers(node_key: str, target_genre: str = '') -> dict:
         'verb_head': verb_head,
         'genre_assigned': genre_assigned,
         'inheritance_blocked': inheritance_blocked,
+        'genre_layer_any_exists': any_genre_exists,
+        'genre_layer_any_genres': any_genre_names,
         'common_layer': _layer_payload('common', compare_genre, verb_head, common_row),
         'genre_layer': _layer_payload('genre', compare_genre, verb_head, genre_row),
         'merged': {
             'semantic_terms': [item['term'] for item in merged_semantic_items],
             'semantic_term_items': merged_semantic_items,
+            'pending_semantic_term_items': [item for item in merged_semantic_items if str(item.get('source') or '').strip() == 'suggested'],
             'sfx_terms': [item['term'] for item in merged_sfx_items],
             'sfx_term_items': merged_sfx_items,
             'direct_sfx_terms': [item['term'] for item in direct_items],
             'direct_sfx_term_items': direct_items,
             'composite_sfx_terms': [item['term'] for item in composite_items],
             'composite_sfx_term_items': composite_items,
+            'pending_sfx_term_items': [item for item in merged_sfx_items if str(item.get('source') or '').strip() == 'suggested'],
             'summary': {
                 'semantic_count': len(merged_semantic_items),
                 'sfx_count': len(merged_sfx_items),
