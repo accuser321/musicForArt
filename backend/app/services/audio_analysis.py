@@ -313,6 +313,81 @@ def _to_float(v, default: float = 0.0) -> float:
         return default
 
 
+def _build_fallback_structure_logic(markers: list[dict], sections: list[dict], duration_sec: float, tags: list[str]) -> dict:
+    marker_rows = [m for m in (markers or []) if isinstance(m, dict)]
+    type_seq = [str(m.get('type') or '').strip().lower() for m in marker_rows]
+    peaks = sum(1 for t in type_seq if t == 'peak')
+    valleys = sum(1 for t in type_seq if t == 'valley')
+    builds = sum(1 for t in type_seq if t == 'build')
+    turns = sum(1 for t in type_seq if t == 'turn')
+
+    if peaks >= 2 and valleys >= 1:
+        pattern_guess = '起势后进入多次推进，并夹有回落换气'
+    elif peaks >= 1 and (builds >= 1 or turns >= 1):
+        pattern_guess = '起势后进入主体推进，中段有结构转折'
+    elif valleys >= 1:
+        pattern_guess = '整体推进中夹有抽空回落'
+    elif len(marker_rows) >= 3:
+        pattern_guess = '按锚点顺序逐段推进'
+    else:
+        pattern_guess = '以单次推进为主的短结构'
+
+    label_counts = {}
+    for item in marker_rows:
+        label = str(item.get('label') or '').strip()
+        if not label:
+            continue
+        label_counts[label] = label_counts.get(label, 0) + 1
+    repeat_groups = [f'{label} ×{count}' for label, count in label_counts.items() if count >= 2][:4]
+    if not repeat_groups and peaks >= 2:
+        repeat_groups = ['峰值推进出现多次']
+    elif not repeat_groups and valleys >= 2:
+        repeat_groups = ['回落换气出现多次']
+
+    section_count = len(sections or [])
+    progression_parts = []
+    if section_count:
+        progression_parts.append(f'共可切分为 {section_count} 个有效乐段')
+    if builds:
+        progression_parts.append('前段具备起势铺垫')
+    if peaks:
+        progression_parts.append(f'中后段出现 {peaks} 个推进高点')
+    if valleys:
+        progression_parts.append(f'其中有 {valleys} 个回落窗口可留给旁白')
+    if turns:
+        progression_parts.append(f'另有 {turns} 个转段点可做过门')
+    if any('持续推进感强' == str(tag).strip() for tag in (tags or [])):
+        progression_parts.append('整体持续推进感较强')
+    if duration_sec >= 150:
+        progression_parts.append('长时值段落建议二次切片使用')
+    progression_comment = '，'.join(progression_parts[:4]) or '可依据锚点顺序做分段进入与退出。'
+
+    return {
+        'pattern_guess': pattern_guess,
+        'repeat_groups': repeat_groups,
+        'progression_comment': progression_comment,
+    }
+
+
+def _is_weak_structure_logic(value: dict | None) -> bool:
+    if not isinstance(value, dict):
+        return True
+    pattern_guess = str(value.get('pattern_guess') or '').strip()
+    progression_comment = str(value.get('progression_comment') or '').strip()
+    repeat_groups = value.get('repeat_groups') if isinstance(value.get('repeat_groups'), list) else []
+    weak_patterns = {'未识别', '未明确识别', '无', '暂无'}
+    weak_comments = {
+        '',
+        '无',
+        '本次结果缺少稳定结构说明，建议结合音乐锚点复核。',
+    }
+    if pattern_guess in weak_patterns and not repeat_groups:
+        return True
+    if progression_comment in weak_comments and not repeat_groups:
+        return True
+    return False
+
+
 def _build_fallback_audio_json(features: dict, report_markdown: str) -> dict:
     duration = float(features.get('duration_sec') or 0.0)
     tags = list(features.get('tags') or [])
@@ -340,21 +415,117 @@ def _build_fallback_audio_json(features: dict, report_markdown: str) -> dict:
     if duration > 0:
         split.append(duration)
     split = sorted(set(split))
+    def _marker_type_at(section_start: float, section_end: float) -> str:
+        center = (section_start + section_end) / 2 if section_end > section_start else section_start
+        inside_types = []
+        for item in hit_points:
+            t = _to_float(item.get('time_sec'), center)
+            marker_type = str(item.get('type') or '').strip().lower()
+            if section_start <= t <= section_end:
+                inside_types.append(marker_type)
+        priority = ['valley', 'peak', 'turn', 'build']
+        for marker_type in priority:
+            if marker_type in inside_types:
+                return marker_type
+
+        nearest = None
+        nearest_gap = None
+        for item in hit_points:
+            t = _to_float(item.get('time_sec'), center)
+            gap = abs(t - center)
+            if nearest_gap is None or gap < nearest_gap:
+                nearest_gap = gap
+                nearest = str(item.get('type') or '').strip().lower()
+        return nearest or ''
+
+    def _fallback_section_profile(marker_type: str, idx: int, total: int, span_sec: float) -> dict:
+        last_idx = max(total - 1, 0)
+        is_first = idx == 0
+        is_last = idx == last_idx
+        if marker_type == 'valley':
+            return {
+                'label': '抽空回落段' if not is_last else '尾声回收段',
+                'energy_level': '低',
+                'main_layers': ['低频留白层', '中频呼吸层', '空间铺底层'],
+                'instrument_guess': ['长音铺底', '轻打击点'],
+                'entry_suggestion': '旁白可前置进入，保留呼吸感',
+                'exit_suggestion': '在尾字前淡出，为下一段留白',
+            }
+        if marker_type == 'peak':
+            if span_sec <= 8.0:
+                return {
+                    'label': '峰值抬升段',
+                    'energy_level': '中高',
+                    'main_layers': ['低频抬升层', '中频冲刺层', '高频提示层'],
+                    'instrument_guess': ['短促打击', '推进性短音'],
+                    'entry_suggestion': '适合短动作命中或情绪抬升点切入',
+                    'exit_suggestion': '快速收束后，转入主体推进或旁白',
+                }
+            return {
+                'label': '主体推进段' if not is_last else '终段推进段',
+                'energy_level': '高',
+                'main_layers': ['低频推动层', '中频动作纹理层', '高频亮点层'],
+                'instrument_guess': ['短弦推动', '重击打击'],
+                'entry_suggestion': '可在动作句前半拍切入，强化命中点',
+                'exit_suggestion': '峰值后短收，再转旁白或下一段',
+            }
+        if marker_type == 'turn':
+            return {
+                'label': '转段抬升段',
+                'energy_level': '中',
+                'main_layers': ['节奏承接层', '中频转折层', '空间抬升层'],
+                'instrument_guess': ['过门打击', '短促纹理音'],
+                'entry_suggestion': '适合接转场句或情绪转折句',
+                'exit_suggestion': '尾部保留半拍，便于切到主推进段',
+            }
+        if marker_type == 'build' or is_first:
+            return {
+                'label': '起势铺垫段',
+                'energy_level': '中' if total <= 2 else '低',
+                'main_layers': ['低频起势层', '中频铺陈层', '空间预热层'],
+                'instrument_guess': ['铺底鼓点', '持续纹理音'],
+                'entry_suggestion': '建议渐入，先铺环境与动作前兆',
+                'exit_suggestion': '尾部略抬能量，衔接下一段推进',
+            }
+        if is_last:
+            return {
+                'label': '终段收束段',
+                'energy_level': '中',
+                'main_layers': ['中频收束层', '低频托底层', '空间回收层'],
+                'instrument_guess': ['持续垫底音', '收束性打击'],
+                'entry_suggestion': '可接总结句或收尾动作',
+                'exit_suggestion': '建议自然回收，不要硬切',
+            }
+        return {
+            'label': f'乐段{idx + 1}',
+            'energy_level': '中',
+            'main_layers': ['低频节奏层', '中频纹理层', '空间承接层'],
+            'instrument_guess': ['节奏打点', '短纹理音'],
+            'entry_suggestion': '建议跟随句子起笔进入',
+            'exit_suggestion': '建议在句尾轻退',
+        }
+
     sections = []
-    for i in range(len(split) - 1):
+    total_sections = max(len(split) - 1, 0)
+    for i in range(total_sections):
+        start_sec = round(split[i], 2)
+        end_sec = round(split[i + 1], 2)
+        marker_type = _marker_type_at(start_sec, end_sec)
+        profile = _fallback_section_profile(marker_type, i, total_sections, round(end_sec - start_sec, 2))
         sections.append(
             {
                 'section_no': i + 1,
-                'label': f'乐段{i + 1}',
-                'start_sec': round(split[i], 2),
-                'end_sec': round(split[i + 1], 2),
-                'energy_level': '中',
-                'main_layers': ['低频节奏层', '中频纹理层'],
-                'instrument_guess': ['战鼓', '短弦'],
-                'entry_suggestion': '渐入',
-                'exit_suggestion': '淡出',
+                'label': profile['label'],
+                'start_sec': start_sec,
+                'end_sec': end_sec,
+                'energy_level': profile['energy_level'],
+                'main_layers': profile['main_layers'],
+                'instrument_guess': profile['instrument_guess'],
+                'entry_suggestion': profile['entry_suggestion'],
+                'exit_suggestion': profile['exit_suggestion'],
             }
         )
+    structure_logic = _build_fallback_structure_logic(markers, sections, duration, tags)
 
     summary = '节奏推进明显，适合冲突与战斗场景。'
     if isinstance(report_markdown, str) and report_markdown.strip():
@@ -368,11 +539,7 @@ def _build_fallback_audio_json(features: dict, report_markdown: str) -> dict:
         'fit_genres': _clip_list(fit_genres, 5),
         'risk_genres': ['轻松日常', '温柔抒情'],
         'sections': _clip_list(sections, 6),
-        'structure_logic': {
-            'pattern_guess': '分段推进',
-            'repeat_groups': ['按锚点分段'],
-            'progression_comment': '整体由低到高推进，峰值点适合命中动作。',
-        },
+        'structure_logic': structure_logic,
         'hit_points': _clip_list(hit_points, 6),
         'mix_notes': _clip_list(
             [
@@ -424,6 +591,7 @@ def _normalize_audio_report_json(report_json: dict | None, features: dict, repor
         not isinstance(structure_logic, dict)
         or not str(structure_logic.get('pattern_guess') or '').strip()
         or not str(structure_logic.get('progression_comment') or '').strip()
+        or _is_weak_structure_logic(structure_logic)
     ):
         merged['structure_logic'] = base['structure_logic']
     elif not isinstance(structure_logic.get('repeat_groups'), list):
@@ -485,7 +653,7 @@ def analyze_audio_for_audiobook(
         'audio_features': features,
         'llm_provider_override': llm_provider_override,
     }
-    report_json, report_markdown, llm_meta = generate_report(mode, payload, debug_prompt=debug_prompt)
+    raw_report_json, report_markdown, llm_meta = generate_report(mode, payload, debug_prompt=debug_prompt)
     trace = llm_meta.get('llm_trace') or []
     actual_prompt = None
     if isinstance(trace, list) and trace:
@@ -501,9 +669,14 @@ def analyze_audio_for_audiobook(
                 'markers': features['markers'],
             }
         )
-    report_json = _normalize_audio_report_json(report_json, features, report_markdown)
+    report_json = _normalize_audio_report_json(raw_report_json, features, report_markdown)
 
-    llm_hit = bool(llm_meta.get('effective_mode')) and bool(report_markdown)
+    llm_structured = bool(
+        isinstance(raw_report_json, dict)
+        and isinstance(raw_report_json.get('sections'), list)
+        and len(raw_report_json.get('sections') or []) > 0
+    )
+    llm_hit = llm_structured and bool(llm_meta.get('effective_mode')) and bool(report_markdown)
     result = {
         'duration_sec': features['duration_sec'],
         'bpm': features['estimated_bpm'],
@@ -511,8 +684,8 @@ def analyze_audio_for_audiobook(
         'markers': features['markers'],
         'report_markdown': report_markdown,
         'report_json': report_json,
-        'analysis_mode': 'llm+features' if llm_hit else 'rules-only',
-        'llm_structured': bool(report_json),
+        'analysis_mode': 'llm+features' if llm_hit else ('rules+llm-markdown' if report_markdown else 'rules-only'),
+        'llm_structured': llm_structured,
         'llm_enabled': llm_enabled(llm_provider_override),
         'llm_provider_used': llm_meta.get('llm_provider_used'),
         'llm_model_used': llm_meta.get('llm_model_used'),

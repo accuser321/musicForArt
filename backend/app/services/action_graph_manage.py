@@ -559,7 +559,7 @@ def apply_action_fallback_replacements(
     ignored_terms: list[str] | None = None,
 ) -> dict:
     source = str(source_term or '').strip()
-    genre_key = ''
+    genre_key = str(genre or '').strip()
     replacements = _merge_unique([str(x or '').strip() for x in (replacement_terms or []) if str(x or '').strip()])
     ignored = _merge_unique([str(x or '').strip() for x in (ignored_terms or []) if str(x or '').strip()])
     ignored = [term for term in ignored if term not in replacements]
@@ -1145,6 +1145,27 @@ def update_action_graph_node_layer(node_key: str, layer: str, semantic_terms: li
                     deleted_genre_nodes.pop(genre, None)
         if layer_key == 'genre' and not graph['genres'].get(genre):
             graph['genres'].pop(genre, None)
+        if layer_key == 'common':
+            assignments = _genre_assignments(graph)
+            blocks = _inheritance_blocks(graph)
+            for genre_key in list(assignments.keys()):
+                heads = set(assignments.get(genre_key, set()))
+                if verb_head in heads:
+                    heads.discard(verb_head)
+                    if heads:
+                        assignments[genre_key] = heads
+                    else:
+                        assignments.pop(genre_key, None)
+            for genre_key in list(blocks.keys()):
+                heads = set(blocks.get(genre_key, set()))
+                if verb_head in heads:
+                    heads.discard(verb_head)
+                    if heads:
+                        blocks[genre_key] = heads
+                    else:
+                        blocks.pop(genre_key, None)
+            _write_genre_assignments(graph, assignments)
+            _write_inheritance_blocks(graph, blocks)
     else:
         row_genre = '' if layer_key == 'common' else genre
         target_bucket[verb_head] = {

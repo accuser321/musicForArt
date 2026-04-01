@@ -55,10 +55,11 @@
       }
       .hero-subtitle {
         margin-top: 8px;
-        max-width: 920px;
+        max-width: 1180px;
         font-size: 13px;
         line-height: 1.7;
         color: #7a5a41;
+        white-space: nowrap;
       }
       .hero-dot {
         display: inline-block;
@@ -72,28 +73,69 @@
       }
       .hero-inline {
         display: inline-flex;
-        flex-wrap: wrap;
-        gap: 6px;
+        flex-wrap: nowrap;
+        gap: 5px;
         align-items: center;
         vertical-align: baseline;
       }
       .hero-inline-chip {
         display: inline-flex;
         align-items: center;
-        padding: 3px 9px;
+        padding: 3px 8px;
         border-radius: 999px;
         border: 1px solid #d7bea0;
         background: linear-gradient(135deg, rgba(255,255,255,.92), rgba(253, 242, 225, .92));
         color: #744b32;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 700;
         line-height: 1.2;
         transform: translateY(-1px);
         box-shadow: 0 6px 12px rgba(123, 87, 47, 0.07);
+        white-space: nowrap;
       }
       .hero-inline-chip.capability {
         border-color: #d7bea0;
         color: #744b32;
+      }
+      .hero-inline-chip.capability.in-progress {
+        position: relative;
+        gap: 6px;
+        border-color: #7c8db3;
+        background:
+          linear-gradient(135deg, rgba(247, 250, 255, .96), rgba(230, 239, 255, .95));
+        color: #3b547f;
+        box-shadow: 0 8px 16px rgba(69, 97, 148, 0.12);
+        overflow: visible;
+      }
+      .hero-inline-chip.capability.in-progress::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #6b86c4, #46629d);
+        box-shadow: 0 0 0 3px rgba(92, 121, 184, 0.12);
+      }
+      .hero-inline-chip-note {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 6px;
+        border-radius: 999px;
+        background: rgba(63, 88, 143, 0.12);
+        color: #4d6898;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+      }
+      .hero-inline-chip-note::before {
+        content: '';
+        width: 11px;
+        height: 11px;
+        display: inline-block;
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: contain;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233f5c91' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14.7 6.3a4 4 0 0 0 5 5L12 19l-4 1 1-4 7.7-7.7a4 4 0 0 1-2-2Z'/%3E%3Cpath d='M16 4.5a4 4 0 0 1 3.5 3.5'/%3E%3C/svg%3E");
       }
       .hero-inline-chip.outcome {
         border-color: #c97e68;
@@ -115,12 +157,13 @@
         background-clip: text;
         color: transparent;
       }
-      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
       .card {
         background: var(--panel);
         border: 1px solid var(--line);
         border-radius: 12px;
         padding: 14px;
+        min-width: 0;
       }
       label { display: block; margin: 8px 0 4px; font-weight: 600; }
       .api-base-hidden {
@@ -140,9 +183,105 @@
         background: linear-gradient(180deg, rgba(255, 250, 241, 0.96), rgba(255, 244, 228, 0.96));
         box-shadow: inset 0 1px 0 rgba(255,255,255,0.65);
       }
+      .login-stage {
+        position: relative;
+        margin-top: 0;
+        padding-top: 0;
+      }
+      .login-stage::before {
+        display: none;
+      }
+      .login-lamp-wrap {
+        display: none;
+      }
+      .login-lamp-cap {
+        width: 62px;
+        height: 22px;
+        border-radius: 18px 18px 10px 10px;
+        border: 1px solid rgba(118, 86, 51, 0.28);
+        background: linear-gradient(180deg, #f7df9d, #dfb668);
+        box-shadow:
+          inset 0 1px 0 rgba(255,255,255,.52),
+          0 10px 20px rgba(164, 118, 48, 0.18);
+      }
+      .login-lamp-core {
+        margin-top: -2px;
+        width: 28px;
+        height: 16px;
+        border-radius: 0 0 12px 12px;
+        background: radial-gradient(circle at 50% 18%, #fff8de, #f2cc73 60%, #d79d43 100%);
+        box-shadow:
+          0 0 18px rgba(245, 201, 103, 0.46),
+          0 4px 10px rgba(145, 104, 43, 0.15);
+      }
+      .login-stage.lights-dim .login-lamp-core {
+        background: radial-gradient(circle at 50% 18%, #efe6ce, #c8b07c 62%, #9f8251 100%);
+        box-shadow: 0 4px 8px rgba(97, 75, 42, 0.14);
+      }
+      .login-cord {
+        --cord-pull: 0px;
+        position: relative;
+        width: 20px;
+        height: calc(42px + var(--cord-pull));
+        margin-top: -1px;
+        border: 0;
+        background: transparent;
+        cursor: ns-resize;
+        padding: 0;
+      }
+      .login-cord::before {
+        content: '';
+        position: absolute;
+        left: 9px;
+        top: 0;
+        width: 2px;
+        height: calc(100% - 16px);
+        border-radius: 999px;
+        background: linear-gradient(180deg, #87603e, #64472f);
+      }
+      .login-cord::after {
+        content: '';
+        position: absolute;
+        left: 2px;
+        bottom: 0;
+        width: 16px;
+        height: 16px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #8b5e39, #6c4729);
+        box-shadow:
+          inset 0 1px 0 rgba(255,255,255,.24),
+          0 4px 8px rgba(92, 62, 32, 0.18);
+      }
+      .login-cord:focus-visible {
+        outline: 2px solid #9d6846;
+        outline-offset: 3px;
+        border-radius: 999px;
+      }
+      .login-cord-tip {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 50%;
+        transform: translateX(-50%);
+        white-space: nowrap;
+        font-size: 11px;
+        color: #805c3e;
+      }
+      .login-stage-shell {
+        position: relative;
+      }
+      .login-aux-panel {
+        overflow: hidden;
+        max-height: none;
+        opacity: 1;
+        transition: none;
+      }
+      .login-primary-row.core-row {
+        position: relative;
+        z-index: 1;
+      }
       .login-primary-row {
         display: grid;
-        grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) auto;
+        grid-template-columns: minmax(0, 1.25fr) auto;
         gap: 10px;
         align-items: end;
       }
@@ -229,14 +368,18 @@
         gap: 10px;
       }
       .login-action-row {
-        display: flex;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 8px;
         margin-top: 10px;
-        flex-wrap: wrap;
+        align-items: stretch;
       }
       .login-action-row button {
-        width: auto;
-        padding: 0 16px;
+        width: 100%;
+        min-width: 0;
+        padding: 0 10px;
+        font-size: 12px;
+        white-space: nowrap;
       }
       @media (max-width: 900px) {
         .mini-field-grid {
@@ -251,6 +394,9 @@
         }
         .login-primary-row {
           grid-template-columns: 1fr;
+        }
+        .login-action-row {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
       }
       .share-toggle {
@@ -274,6 +420,23 @@
       }
       .share-toggle.open .caret {
         transform: rotate(180deg);
+      }
+      .login-policy-card {
+        margin-top: 10px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid #dfc9a7;
+        background: linear-gradient(135deg, rgba(255, 249, 239, 0.96), rgba(255, 241, 220, 0.96));
+        color: #734b32;
+        line-height: 1.75;
+      }
+      .login-policy-card strong {
+        color: #8a3a2b;
+      }
+      .login-policy-card .login-policy-note {
+        display: inline-block;
+        margin-top: 4px;
+        color: #8a6748;
       }
       input, textarea, button, select {
         width: 100%;
@@ -311,6 +474,9 @@
         padding: 10px;
         min-height: 220px;
         margin-bottom: 10px;
+        min-width: 0;
+        overflow-x: auto;
+        overflow-wrap: anywhere;
       }
       .kv {
         display: grid;
@@ -328,6 +494,122 @@
         border: 1px solid var(--line);
         padding: 6px;
         text-align: left;
+      }
+      .cue-sheet-wrap {
+        border: 1px solid rgba(208, 193, 173, 0.58);
+        border-radius: 16px;
+        overflow: hidden;
+        background:
+          linear-gradient(180deg, rgba(255, 252, 247, 0.98), rgba(250, 244, 235, 0.98));
+        box-shadow: 0 10px 24px rgba(138, 108, 70, 0.08);
+        padding: 10px;
+        max-width: 100%;
+      }
+      .cue-sheet-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0 6px;
+        font-size: 12px;
+      }
+      .cue-sheet-table thead th {
+        padding: 8px 10px;
+        border-bottom: 1px solid rgba(210, 193, 168, 0.72);
+        background: linear-gradient(180deg, #fff7ee, #f6ebdd);
+        color: #7d5838;
+        font-size: 11px;
+        letter-spacing: .2px;
+        text-align: left;
+      }
+      .cue-sheet-table thead th:nth-child(1) { width: 58px; }
+      .cue-sheet-table thead th:nth-child(2) { width: 18%; }
+      .cue-sheet-table thead th:nth-child(3) { width: 20%; }
+      .cue-sheet-table thead th:nth-child(4) { width: 20%; }
+      .cue-sheet-table thead th:nth-child(5) { width: 22%; }
+      .cue-sheet-table tbody td {
+        padding: 0;
+        border: none;
+        vertical-align: top;
+      }
+      .cue-item {
+        border: 1px solid rgba(221, 205, 181, 0.92);
+        border-radius: 12px;
+        background: rgba(255, 252, 247, 0.98);
+        box-shadow: 0 4px 12px rgba(138, 108, 70, 0.05);
+        overflow: hidden;
+      }
+      .cue-item-grid {
+        display: grid;
+        grid-template-columns: 58px 0.9fr 1.04fr 1.04fr 1.18fr;
+        gap: 0;
+      }
+      .cue-item-cell {
+        padding: 8px 8px;
+        border-right: 1px solid rgba(228, 215, 197, 0.86);
+      }
+      .cue-item-cell:last-child {
+        border-right: none;
+      }
+      .cue-item-text {
+        padding: 9px 10px 10px;
+        border-top: 1px solid rgba(228, 215, 197, 0.86);
+      }
+      .cue-scene-no {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 24px;
+        height: 22px;
+        padding: 0 6px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #f0d8bb, #e7c69c);
+        color: #6f4724;
+        font-weight: 700;
+        font-size: 11px;
+      }
+      .cue-range {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 7px;
+        border-radius: 999px;
+        background: #f7efe4;
+        color: #7f6142;
+        border: 1px solid rgba(208, 188, 160, 0.72);
+        white-space: nowrap;
+        font-size: 11px;
+      }
+      .cue-range.music {
+        background: #f1f6ea;
+        color: #49653a;
+        border-color: rgba(136, 170, 118, 0.52);
+      }
+      .cue-range.narration {
+        background: #eef4fb;
+        color: #45627f;
+        border-color: rgba(135, 166, 205, 0.48);
+      }
+      .cue-text-snippet {
+        max-width: 100%;
+        padding: 9px 11px;
+        border-radius: 10px;
+        background: linear-gradient(180deg, rgba(255, 252, 247, 0.98), rgba(250, 242, 232, 0.98));
+        border: 1px solid rgba(223, 206, 183, 0.78);
+        line-height: 1.6;
+        color: #583c26;
+        word-break: break-word;
+        white-space: normal;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.68);
+        font-size: 12px;
+      }
+      .cue-anchor-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #fff0da, #f4d3a5);
+        color: #7d5327;
+        border: 1px solid rgba(208, 161, 95, 0.55);
+        font-weight: 700;
       }
       .asset-candidate-details {
         margin-top: 6px;
@@ -430,6 +712,142 @@
         color: #9f2f2a;
         font-size: 12px;
         line-height: 1.6;
+      }
+      .usage-signpost {
+        margin-top: 10px;
+        perspective: 900px;
+        pointer-events: auto;
+      }
+      .usage-signpost-card {
+        position: relative;
+        width: 100%;
+        min-height: 52px;
+        transform-style: preserve-3d;
+        transition: transform .55s ease;
+        cursor: pointer;
+      }
+      .usage-signpost.open .usage-signpost-card {
+        transform: rotateY(180deg);
+      }
+      .usage-signpost-face {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 8px 12px;
+        border-radius: 14px;
+        border: 1px solid #d7bea0;
+        backface-visibility: hidden;
+        box-shadow: 0 10px 22px rgba(112, 74, 43, 0.08);
+      }
+      .usage-signpost-front {
+        background: linear-gradient(135deg, #fff7e8, #f7e4be);
+        color: #744b32;
+      }
+      .usage-signpost-back {
+        transform: rotateY(180deg);
+        background: linear-gradient(135deg, #fff4f1, #fce0d7);
+        color: #8c3127;
+        align-items: center;
+        justify-content: center;
+      }
+      .usage-signpost-lamp {
+        position: relative;
+        width: 12px;
+        height: 24px;
+        flex: 0 0 12px;
+        align-self: center;
+      }
+      .usage-signpost-lamp::before {
+        content: '';
+        position: absolute;
+        left: 4px;
+        top: 6px;
+        width: 4px;
+        height: 16px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #8b6948, #6a4c34);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.22);
+      }
+      .usage-signpost-lamp::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        width: 12px;
+        height: 4px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #76563a, #5c412d);
+        box-shadow: 0 3px 6px rgba(82, 55, 32, 0.12);
+      }
+      .usage-signpost-lamp-head {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 12px;
+        height: 9px;
+        border-radius: 6px 6px 4px 4px;
+        background: linear-gradient(180deg, #f6d98d, #d8b363);
+        border: 1px solid rgba(148, 102, 47, 0.28);
+        box-shadow:
+          inset 0 1px 0 rgba(255,255,255,.45),
+          0 0 10px rgba(241, 189, 87, 0.18);
+      }
+      .usage-signpost-lamp-head::after {
+        content: '';
+        position: absolute;
+        left: 2px;
+        top: 2px;
+        width: 6px;
+        height: 3px;
+        border-radius: 4px;
+        background: radial-gradient(circle at 50% 40%, rgba(255,250,210,.95), rgba(255,222,145,.7) 55%, transparent 75%);
+      }
+      .usage-signpost-board {
+        flex: 1 1 auto;
+        border-radius: 14px;
+        border: 1px solid rgba(128, 93, 53, 0.24);
+        background: linear-gradient(135deg, rgba(255,255,255,.72), rgba(255,244,220,.85));
+        padding: 10px 14px;
+        font-weight: 700;
+        line-height: 1.45;
+      }
+      .usage-signpost-title {
+        font-size: 12px;
+      }
+      .usage-signpost-copy {
+        font-size: 12px;
+        line-height: 1.7;
+      }
+      .usage-egg-anchor {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        color: inherit;
+      }
+      .usage-egg-tip {
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 8px);
+        transform: translateX(-50%);
+        padding: 6px 9px;
+        border-radius: 10px;
+        background: rgba(88, 35, 31, 0.96);
+        color: #fff4ec;
+        font-size: 11px;
+        line-height: 1;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .18s ease;
+        transition-delay: 1s;
+        box-shadow: 0 8px 18px rgba(63, 24, 21, 0.18);
+      }
+      .usage-signpost.open .usage-egg-anchor:hover .usage-egg-tip,
+      .usage-signpost.open .usage-egg-anchor:focus-visible .usage-egg-tip {
+        opacity: 1;
       }
       .panel h4 {
         margin: 0 0 8px;
@@ -1105,6 +1523,34 @@
         gap: 8px;
         margin-top: 12px;
       }
+      .flow-buttons button {
+        position: relative;
+        transition: transform 0.16s ease, box-shadow 0.18s ease, filter 0.18s ease, background 0.18s ease;
+        box-shadow: 0 8px 16px rgba(141, 43, 32, 0.16);
+      }
+      .flow-buttons button:hover:not(:disabled) {
+        filter: brightness(1.02);
+      }
+      .flow-buttons button.is-current-step {
+        background: linear-gradient(180deg, #73312a 0%, #5b201a 100%);
+        box-shadow:
+          inset 0 2px 5px rgba(56, 18, 14, 0.32),
+          0 4px 10px rgba(91, 32, 26, 0.18);
+        transform: translateY(1px);
+      }
+      .flow-buttons button.is-current-step::after {
+        content: 'now';
+        position: absolute;
+        right: 10px;
+        top: 8px;
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: rgba(255, 243, 226, 0.18);
+        border: 1px solid rgba(255, 234, 207, 0.26);
+        font-size: 9px;
+        line-height: 1.1;
+        letter-spacing: 0.04em;
+      }
       .flow-buttons.single {
         grid-template-columns: 1fr;
       }
@@ -1752,24 +2198,32 @@
         .enhanced-grid { grid-template-columns: 1fr; }
       }
       @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+      @media (max-width: 1180px) {
+        .hero-inline {
+          flex-wrap: wrap;
+        }
+        .hero-subtitle {
+          white-space: normal;
+        }
+      }
     </style>
   </head>
   <body>
     <div class="wrap">
       <section class="hero-top">
-        <h1>有声书·后期·设计台</h1>
+        <h1>有声书·后期·设计台 <span class="hero-inline-chip-note">Beta版页面有彩蛋</span></h1>
         <div class="hero-subtitle">
           <span class="hero-lead">帮助有声书<span class="hero-dot" aria-hidden="true"></span>后期从业者，快速完成</span>
           <span class="hero-inline">
             <span class="hero-inline-chip capability">文本分析</span>
             <span class="hero-inline-chip capability">动作音效</span>
-            <span class="hero-inline-chip capability">场景搭建</span>
-            <span class="hero-inline-chip capability">音乐分析</span>
-            <span class="hero-inline-chip capability">文本音乐执行单</span>
+            <span class="hero-inline-chip capability in-progress">场景搭建 <span class="hero-inline-chip-note">正在全力开发中</span></span>
+            <span class="hero-inline-chip capability">音乐适配</span>
+            <span class="hero-inline-chip capability">工程文件说明书</span>
           </span>
           <span class="hero-sep">实现</span>
           <span class="hero-inline">
-            <span class="hero-inline-chip outcome">音效命中</span>
+            <span class="hero-inline-chip outcome">真智能音效推荐</span>
             <span class="hero-inline-chip outcome">素材下载</span>
             <span class="hero-inline-chip outcome">制作决策</span>
           </span>
@@ -1795,20 +2249,26 @@
             <input id="apiBase" value="http://127.0.0.1:8010/api" />
           </div>
 
-          <label>用户登录</label>
+          <label>用户登录 / 注册</label>
+          <div class="login-stage" id="loginStage">
+            <!-- 灯绳登录交互预留：当前已隐藏，不参与正式登录流程
+            <div class="login-lamp-wrap" aria-hidden="true">
+              <div class="login-lamp-cap"></div>
+              <div class="login-lamp-core"></div>
+              <button id="loginCord" class="login-cord" type="button" aria-label="拖拽灯绳切换登录辅助区显隐" onpointerdown="startLoginCordDrag(event)"></button>
+              <div class="login-cord-tip">下拉灯绳</div>
+            </div>
+            -->
+            <div class="login-stage-shell">
           <div class="login-shell">
-            <div class="login-primary-row">
+            <div class="login-primary-row core-row">
               <div class="login-field">
                 <div class="login-field-label">手机号</div>
                 <input id="loginPhone" placeholder="请输入手机号" />
               </div>
-              <div class="login-field">
-                <div class="login-field-label">登录密码</div>
-                <input id="loginPassword" type="password" placeholder="请输入登录密码" />
-              </div>
-              <button onclick="loginAccount()" style="width:auto;">登录</button>
+              <button onclick="loginAccount()" style="width:auto;">验证码登录 / 注册</button>
             </div>
-            <div class="login-primary-row" style="margin-top:8px;">
+            <div class="login-primary-row core-row" style="margin-top:8px;">
               <div class="login-field">
                 <div class="login-field-label">测试验证码</div>
                 <div class="auth-inline-row code-row">
@@ -1821,6 +2281,7 @@
                 <input id="userUid" placeholder="填写喜马拉雅的UID" />
               </div>
             </div>
+            <div class="login-aux-panel">
             <div class="mini-field-grid">
             <div class="mini-field triple-row">
               <div class="triple-inline-grid">
@@ -1830,21 +2291,22 @@
                 </div>
                 <div>
                   <label for="referralCode">推荐码</label>
-                  <input id="referralCode" placeholder="填写推荐人的UID" />
+                  <input id="referralCode" placeholder="可填推荐人UID或手机号" />
                 </div>
               </div>
             </div>
           </div>
           <div class="login-action-row">
-            <button onclick="registerAccount()" style="background:#80573b;">注册</button>
-            <button onclick="resetPassword()" style="background:#6a6f85;">忘记密码</button>
             <button onclick="changeUid()" style="background:#546b73;">修改UID</button>
             <button onclick="goUserCenter()" style="background:#8d6a42;">用户中心</button>
             <button onclick="goWorksShowcase()" style="background:#9a4a2f;">作品展示</button>
           </div>
+            </div>
+          </div>
+            </div>
           </div>
           <p class="hint">当前登录：<span id="loginState">未登录</span></p>
-          <p class="hint" id="loginPolicyHint">登录不强制 UID；注册时必须填写 UID（纯数字）与密码。忘记密码和修改 UID 都需先通过手机号验证码确认本人。邀请码激活规则仍然保留。</p>
+          <div class="hint login-policy-card" id="loginPolicyHint"><strong>测试期登录说明</strong>：仅邀请码用户可完成首次激活使用。邀请码一旦激活成功会立即失效，但同一账号后续登录无需再次填写邀请码。<span class="login-policy-note">通过手机获取验证码登录；若为首次激活，请同时填写 UID，邀请码（选填）。</span></div>
           <button id="referralShareToggle" class="share-toggle" type="button" onclick="toggleReferralShareBox()" style="display:none;">
             推荐好友使用
             <span class="caret">▾</span>
@@ -1868,10 +2330,12 @@
           </div>
 
           <label>项目标题</label>
-          <input id="projectTitle" placeholder="请填写项目标题" />
-          <label>内容赛道</label>
+          <input id="projectTitle" maxlength="40" placeholder="请填写项目标题（最多40字）" oninput="updateProjectTitleCounter()" />
+          <div class="hint" id="projectTitleHint">项目标题 0/40</div>
+          <label>内容赛道 <span class="hint" style="font-size:12px;">准确赛道选择与推荐音效的内容息息相关。</span></label>
           <select id="projectGenre">
-            <option value="玄幻" selected>玄幻</option>
+            <option value="" selected>请选择作品赛道</option>
+            <option value="玄幻">玄幻</option>
             <option value="言情">言情</option>
             <option value="悬疑">悬疑</option>
             <option value="科幻">科幻</option>
@@ -1886,12 +2350,12 @@
           </div>
           <div class="flow-group">
             <h4>基础准备</h4>
-            <div class="flow-desc">先创建项目。音乐分析可独立执行；文本与演绎音频是“文本演绎分析”和“文本音乐执行单”的基础输入。</div>
+            <div class="flow-desc">先创建项目。音乐分析可独立执行；文本与演绎音频是“文本演绎分析”和“文本匹配音乐”的基础输入。</div>
             <label>上传音乐</label>
-            <input id="audioFile" type="file" accept="audio/*" />
+            <input id="audioFile" type="file" accept=".mp3,.wav,.m4a,.aac,.flac,.ogg,audio/*" />
             <div class="flow-buttons">
-              <button data-auth-required="1" onclick="createProject()">1) 创建项目</button>
-              <button data-auth-required="1" onclick="uploadAudio()">2) 音乐分析（独立）</button>
+              <button data-auth-required="1" data-flow-step="project" onclick="createProject()">1) 创建项目</button>
+              <button data-auth-required="1" data-flow-step="music" onclick="uploadAudio()">2) 音乐分析（独立）</button>
             </div>
             <div class="flow-note">完成音乐分析后，可直接进入“文本与执行”链路，继续判断这首音乐是否适合作品，并生成文本音乐执行单。</div>
           </div>
@@ -1901,26 +2365,26 @@
           <label>输入文本</label>
           <textarea id="textInput" rows="8" placeholder="输入章节片段，系统会识别动作和音效建议"></textarea>
 
-          <label>上传演绎音频（文本演绎分析 / 文本音乐执行单使用）</label>
-          <input id="narrationFile" type="file" accept="audio/*" />
+          <label>上传演绎音频（文本演绎分析 / 文本匹配音乐使用）</label>
+          <input id="narrationFile" type="file" accept=".mp3,.wav,.m4a,.aac,.flac,.ogg,audio/*" />
           <div class="flow-group">
             <h4>文本与执行</h4>
-            <div class="flow-desc">这部分只用于文本、音乐与演绎时间轴的后期制作，不包含动作模块和场景模块结果；依赖“文本 + 演绎音频”，其中“文本音乐执行单”还额外依赖音乐分析。</div>
+            <div class="flow-desc">这部分只用于文本、音乐与演绎时间轴的后期制作，不包含动作模块和场景模块结果；依赖“文本 + 演绎音频”，其中“文本匹配音乐”还额外依赖音乐分析。</div>
             <div class="flow-buttons">
-              <button data-auth-required="1" onclick="analyzeTextNarration()">3) 文本演绎分析（含时间轴）</button>
-              <button data-auth-required="1" onclick="buildFusion()">4) 生成文本音乐执行单</button>
-              <button data-auth-required="1" onclick="analyzeMusicMatch()">5) 判断是否适合作品</button>
+              <button data-auth-required="1" data-flow-step="text_narration" onclick="analyzeTextNarration()">3) 文本演绎分析</button>
+              <button data-auth-required="1" data-flow-step="fusion" onclick="buildFusion()">4) 文本匹配音乐</button>
+              <button data-auth-required="1" data-flow-step="music_match" onclick="analyzeMusicMatch()">5) 判断是否适合作品</button>
             </div>
-            <div class="flow-note">顺序建议：先做 <code>2) 音乐分析</code>，再做 <code>3) 文本演绎分析（含时间轴）</code>，然后生成 <code>4) 文本音乐执行单</code>，最后用 <code>5) 判断是否适合作品</code> 复核这首音乐是否适合当前作品。</div>
+            <div class="flow-note">顺序建议：先做 <code>2) 音乐分析</code>，再做 <code>3) 文本演绎分析</code>，然后执行 <code>4) 文本匹配音乐</code>，最后用 <code>5) 判断是否适合作品</code> 复核这首音乐是否适合当前作品。</div>
           </div>
 
           <div class="flow-group">
             <h4>动作模块</h4>
             <div class="flow-desc">动作模块只依赖“项目 + 文本”。它与场景模块互不依赖，可单独运行。图谱推荐依赖动作提取，动作补充单依赖图谱推荐。</div>
             <div class="flow-buttons">
-              <button data-auth-required="1" onclick="analyzeActionVerbs()">6) 动作提取</button>
-              <button data-auth-required="1" onclick="buildActionSfxGraph()">7) 动作图谱推荐</button>
-              <button data-auth-required="1" onclick="buildActionGraphDraft()">8) 动作补充单</button>
+              <button data-auth-required="1" data-flow-step="action_verbs" onclick="analyzeActionVerbs()">6) 动作提取</button>
+              <button data-auth-required="1" data-flow-step="action_sfx" onclick="buildActionSfxGraph()">7) 动作图谱推荐</button>
+              <button data-auth-required="1" data-flow-step="action_draft" onclick="buildActionGraphDraft()">8) 动作补充单</button>
             </div>
             <div class="flow-note">顺序建议：动作提取 → 动作图谱推荐 → 动作补充单。</div>
           </div>
@@ -1929,9 +2393,9 @@
             <h4>场景模块</h4>
             <div class="flow-desc">场景模块也只依赖“项目 + 文本”。它与动作模块并列，不以动作模块为前提。场景音效推荐依赖场景搭建分析，场景补充单依赖场景音效推荐。</div>
             <div class="flow-buttons">
-              <button data-auth-required="1" id="sceneBuildingBtn" onclick="buildSceneBuilding()">9) 场景搭建分析</button>
-              <button data-auth-required="1" id="sceneSfxBtn" onclick="buildSceneSfxGraph()">10) 场景音效推荐（待第9步）</button>
-              <button data-auth-required="1" id="sceneSupplementBtn" onclick="buildSceneSupplements()">11) 场景补充单（待第10步）</button>
+              <button data-auth-required="1" data-flow-step="scene_building" id="sceneBuildingBtn" onclick="buildSceneBuilding()">9) 场景搭建分析</button>
+              <button data-auth-required="1" data-flow-step="scene_sfx" id="sceneSfxBtn" onclick="buildSceneSfxGraph()">10) 场景音效推荐（待第9步）</button>
+              <button data-auth-required="1" data-flow-step="scene_supplements" id="sceneSupplementBtn" onclick="buildSceneSupplements()">11) 场景补充单（待第10步）</button>
             </div>
             <div id="sceneStageHint" class="flow-note">场景模块链路：先做 <code>9) 场景搭建分析</code>，再做 <code>10) 场景音效推荐</code>，最后再生成 <code>11) 场景补充单</code>。</div>
           </div>
@@ -1940,7 +2404,7 @@
             <h4>导出工程文件说明书</h4>
             <div class="flow-desc">提供汇总后的数字资产，用于创作参考。当前先导出动作分析资产表，后续会随着场景模块完善继续扩充。</div>
             <div class="flow-buttons">
-              <button data-auth-required="1" onclick="fetchReport()">12) 导出工程文件说明书</button>
+              <button data-auth-required="1" data-flow-step="report" onclick="fetchReport()">12) 获取工程文件说明书</button>
             </div>
           </div>
         </section>
@@ -2017,6 +2481,7 @@
       let latestSceneBuildingData = null;
       let latestSceneSfxData = null;
       let latestSceneSupplementData = null;
+      let currentFlowStep = '';
       let uiBusy = false;
       let busyResolveTimer = null;
       let authToken = localStorage.getItem('mfa_auth_token') || '';
@@ -2060,6 +2525,15 @@
         latestSceneSfxData = null;
         latestSceneSupplementData = null;
         refreshSceneActionButtons();
+      }
+
+      function setCurrentFlowStep(stepKey) {
+        currentFlowStep = String(stepKey || '').trim();
+        document.querySelectorAll('.flow-buttons button[data-flow-step]').forEach((btn) => {
+          const active = !!currentFlowStep && btn.dataset.flowStep === currentFlowStep;
+          btn.classList.toggle('is-current-step', active);
+          btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
       }
 
       function clearSceneFlowFrom(stage) {
@@ -2112,7 +2586,7 @@
         sceneBuildingBtn.disabled = !loggedIn || !hasProject;
         sceneSfxBtn.disabled = !loggedIn || !hasSceneBuilding;
         sceneSupplementBtn.disabled = !loggedIn || !hasSceneSfx;
-        sceneBuildingBtn.textContent = hasProject ? '9) 场景搭建分析' : '9) 场景搭建分析（先创建项目）';
+        sceneBuildingBtn.textContent = '9) 场景搭建分析';
         sceneSfxBtn.textContent = hasSceneBuilding
           ? `10) 场景音效推荐${hasSceneSfx ? '（可重跑）' : ''}`
           : '10) 场景音效推荐（待第9步）';
@@ -2352,6 +2826,102 @@
         renderUsagePanel(authUser);
       }
 
+      function toggleUsageSignpost(el) {
+        const host = el && el.classList && el.classList.contains('usage-signpost') ? el : null;
+        if (!host) return;
+        host.classList.toggle('open');
+      }
+
+      // 灯绳登录交互预留：当前已停用，仅保留代码，默认不接入正式功能。
+      const loginLampState = {
+        dimmed: false,
+        dragging: false,
+        startY: 0,
+        pull: 0,
+      };
+
+      function getLoginStage() {
+        return document.getElementById('loginStage');
+      }
+
+      function getLoginCord() {
+        return document.getElementById('loginCord');
+      }
+
+      function updateLoginLampStage() {
+        const stage = getLoginStage();
+        const cord = getLoginCord();
+        if (stage) stage.classList.toggle('lights-dim', !!loginLampState.dimmed);
+        if (cord) cord.style.setProperty('--cord-pull', `${Math.max(0, Number(loginLampState.pull || 0))}px`);
+      }
+
+      function toggleLoginLampStage(forceDimmed = null) {
+        loginLampState.dimmed = typeof forceDimmed === 'boolean' ? forceDimmed : !loginLampState.dimmed;
+        loginLampState.pull = 0;
+        updateLoginLampStage();
+      }
+
+      function handleLoginCordDragMove(event) {
+        if (!loginLampState.dragging) return;
+        const currentY = Number(event.clientY || 0);
+        loginLampState.pull = Math.max(0, Math.min(32, currentY - loginLampState.startY));
+        updateLoginLampStage();
+      }
+
+      function stopLoginCordDrag(event) {
+        if (!loginLampState.dragging) return;
+        const moved = Math.max(0, Number(loginLampState.pull || 0));
+        loginLampState.dragging = false;
+        if (moved >= 18) toggleLoginLampStage();
+        else {
+          loginLampState.pull = 0;
+          updateLoginLampStage();
+        }
+        window.removeEventListener('pointermove', handleLoginCordDragMove);
+        window.removeEventListener('pointerup', stopLoginCordDrag);
+        const cord = getLoginCord();
+        if (cord && event && typeof cord.releasePointerCapture === 'function') {
+          try { cord.releasePointerCapture(event.pointerId); } catch (_) {}
+        }
+      }
+
+      function startLoginCordDrag(event) {
+        const cord = getLoginCord();
+        if (!cord) return;
+        loginLampState.dragging = true;
+        loginLampState.startY = Number(event.clientY || 0);
+        loginLampState.pull = 0;
+        updateLoginLampStage();
+        if (typeof cord.setPointerCapture === 'function') {
+          try { cord.setPointerCapture(event.pointerId); } catch (_) {}
+        }
+        window.addEventListener('pointermove', handleLoginCordDragMove);
+        window.addEventListener('pointerup', stopLoginCordDrag);
+      }
+
+      function renderUsageSignpost() {
+        return `
+          <div class="usage-signpost" onclick="toggleUsageSignpost(this)">
+            <div class="usage-signpost-card">
+              <div class="usage-signpost-face usage-signpost-front">
+                <div class="usage-signpost-lamp" aria-hidden="true">
+                  <div class="usage-signpost-lamp-head"></div>
+                </div>
+                <div class="usage-signpost-board">
+                  <div class="usage-signpost-title">额度协助路牌</div>
+                </div>
+              </div>
+              <div class="usage-signpost-face usage-signpost-back">
+                <div class="usage-signpost-copy">
+                  聪明如你，观字在。<br/>
+                  如今日用量达到上限，请联系<span class="usage-egg-anchor" tabindex="0">管理员<span class="usage-egg-tip">优秀！彩蛋被你发现了~15914141177</span></span>协助调整额度。
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
       function renderUsagePanel(data) {
         const box = document.getElementById('usagePanel');
         if (!box) return;
@@ -2378,9 +2948,7 @@
         const sfxPack = Number(quota.sfx_download_pack_balance || 0);
         const sfxTotalAvailable = Number(quota.sfx_download_total_available || (sfxRemaining + sfxPack));
         const sfxEffectiveLimit = Number(quota.sfx_download_effective_limit || (Number(quota.sfx_download_limit || 0) + sfxPack));
-        const overLimitHint = (!isAuthorized && (textRemaining <= 0 || sfxRemaining <= 0))
-          ? '<div class="usage-alert">用量超额，请联系管理员。文本分析支持单次最多超额 1000 字的缓冲；缓冲使用完后，当天将暂停继续使用。</div>'
-          : '<div class="usage-alert">如今日用量达到上限，请联系管理员协助调整额度。</div>';
+        const overLimitHint = renderUsageSignpost();
         box.style.display = 'block';
         box.innerHTML = `
           <h4>今日用量</h4>
@@ -2934,7 +3502,7 @@
         if (Array.isArray(safeReport.mix_notes) && safeReport.mix_notes.length) {
           blocks.push(panel('混音与后期建议', `<ul>${safeReport.mix_notes.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`));
         }
-        if (safeReport.structure_logic && typeof safeReport.structure_logic === 'object') {
+        if (hasMeaningfulMusicStructureLogic(safeReport.structure_logic)) {
           const sl = safeReport.structure_logic;
           blocks.push(panel('结构规律', `
             <div class="kv"><div>结构猜测</div><div>${escHtml(sl.pattern_guess || '未识别')}</div></div>
@@ -3040,9 +3608,6 @@
             ${Array.isArray(replaceAdvice.reasons) && replaceAdvice.reasons.length ? `<ul>${replaceAdvice.reasons.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>` : ''}
             <div class="kv"><div>建议寻找的音乐方向</div><div>${renderPills(replaceAdvice.target_music_traits || [])}</div></div>
           `));
-        }
-        if (Array.isArray(data.key_points) && data.key_points.length) {
-          blocks.push(panel('评分结果', `<ul>${data.key_points.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`));
         }
         return blocks;
       }
@@ -3386,6 +3951,11 @@
         }
         if (!file) {
           if (hint) hint.textContent = '请先选择要上传的音效文件。';
+          return;
+        }
+        const fileErr = validateAudioUploadFile(file, '音效文件');
+        if (fileErr) {
+          if (hint) hint.textContent = fileErr;
           return;
         }
         const fd = new FormData();
@@ -4078,7 +4648,7 @@
         if (keyPoints.length) {
           blocks.push(panel('关键结论', `<ul>${keyPoints.map(x => `<li>${escHtml(x)}</li>`).join('')}</ul>`));
         }
-        if (!isMusicResult && !isActionVerbResult && userView && userView.structure_logic && typeof userView.structure_logic === 'object') {
+        if (!isMusicResult && !isActionVerbResult && userView && hasMeaningfulStructureLogic(userView.structure_logic)) {
           const sl = userView.structure_logic;
           blocks.push(panel('乐段结构规律', `
             <div class="kv"><div>结构猜测</div><div>${escHtml(sl.pattern_guess || '未识别')}</div></div>
@@ -4141,14 +4711,20 @@
         }
         if (Array.isArray(data.cues) && data.cues.length) {
           const rows = data.cues.map(c => `<tr>
-            <td>${c.scene_no}</td>
-            <td>${c.text_start_char ?? '-'} ~ ${c.text_end_char ?? '-'}</td>
-            <td>${escHtml(c.text_excerpt || '')}</td>
-            <td>${c.narration_start_sec ?? '-'} ~ ${c.narration_end_sec ?? '-'}</td>
-            <td>${c.music_segment_start_sec ?? c.target_time_sec} ~ ${c.music_segment_end_sec ?? c.target_time_sec}</td>
-            <td>${escHtml(c.marker_label || '')}</td>
+            <td colspan="5">
+              <div class="cue-item">
+                <div class="cue-item-grid">
+                  <div class="cue-item-cell"><span class="cue-scene-no">${escHtml(c.scene_no ?? '-')}</span></div>
+                  <div class="cue-item-cell"><span class="cue-range">${escHtml(`${c.text_start_char ?? '-'} ~ ${c.text_end_char ?? '-'}`)}</span></div>
+                  <div class="cue-item-cell"><span class="cue-range narration">${escHtml(formatCueRange(c.narration_start_sec, c.narration_end_sec))}</span></div>
+                  <div class="cue-item-cell"><span class="cue-range music">${escHtml(formatCueRange(c.music_segment_start_sec ?? c.target_time_sec, c.music_segment_end_sec ?? c.target_time_sec))}</span></div>
+                  <div class="cue-item-cell"><span class="cue-anchor-chip">${escHtml(c.marker_label || '未标注')}</span></div>
+                </div>
+                <div class="cue-item-text">${renderCueTextSnippet(c, clauseTimeline)}</div>
+              </div>
+            </td>
           </tr>`).join('');
-          blocks.push(panel('文字-旁白-音乐对位执行单', `<table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>旁白区间(秒)</th><th>音乐区间(秒)</th><th>锚点</th></tr></thead><tbody>${rows}</tbody></table>`));
+          blocks.push(panel('文字-旁白-音乐对位执行单', `<div class="cue-sheet-wrap"><table class="cue-sheet-table"><thead><tr><th>场景</th><th>文字区间</th><th>旁白区间</th><th>音乐区间</th><th>锚点</th></tr></thead><tbody>${rows}</tbody></table></div>`));
         }
         if (isFusionResult) {
           blocks.push(panel('执行建议', `<div class="md">${buildFusionUsageGuidance(data)}</div>`));
@@ -4168,10 +4744,10 @@
             <td>${r.scene_no ?? '-'}</td>
             <td>${r.text_start_char ?? '-'} ~ ${r.text_end_char ?? '-'}</td>
             <td>${escHtml(r.text_excerpt || '')}</td>
-            <td>${r.music_start_sec ?? '-'} ~ ${r.music_end_sec ?? '-'}</td>
+            <td>${escHtml(formatCueRange(r.music_start_sec, r.music_end_sec))}</td>
             <td>${escHtml(r.entry_reason || '')}</td>
           </tr>`).join('');
-          blocks.push(panel('融合阶段对位计划（模型输出）', `<table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>音乐区间(秒)</th><th>进入理由</th></tr></thead><tbody>${rows}</tbody></table>`));
+          blocks.push(panel('融合阶段对位计划（模型输出）', `<table class="table-lite"><thead><tr><th>场景</th><th>文字区间</th><th>文字片段</th><th>音乐区间</th><th>进入理由</th></tr></thead><tbody>${rows}</tbody></table>`));
         }
         if (data.report_markdown && isFrontendDebugEnabled(data)) {
           blocks.push(panel('内部调试说明', `<div class="md">${mdToHtml(data.report_markdown)}</div>`));
@@ -4300,13 +4876,14 @@
       function updateLoginState() {
         const box = document.getElementById('loginState');
         if (!box) return;
-        const uid = authUser && authUser.uid ? ` / UID:${authUser.uid}` : '';
+        const referralUid = normalizeReferralUid(authUser && authUser.uid ? authUser.uid : '', authPhone);
+        const uid = referralUid ? ` / UID:${referralUid}` : '';
         box.textContent = authPhone ? `${authPhone}${uid}（已登录）` : '未登录';
         const policy = document.getElementById('loginPolicyHint');
         if (policy) {
-          policy.textContent = authSettings && authSettings.invite_only_enabled
-            ? '测试期间仅邀请码用户可激活使用。邀请码激活后即刻失效；推荐码请填写推荐人的 UID。'
-            : '邀请码测试已关闭，可正常注册登录；推荐码请填写推荐人的 UID。';
+          policy.innerHTML = authSettings && authSettings.invite_only_enabled
+            ? '<strong>测试期登录说明</strong>：仅邀请码用户可完成首次激活使用。邀请码一旦激活成功会立即失效，但同一账号后续登录无需再次填写邀请码。<span class="login-policy-note">通过手机获取验证码登录；若为首次激活，请同时填写 UID，邀请码（选填）。</span>'
+            : '<strong>当前登录说明</strong>：邀请码限制已关闭，可直接使用手机号与验证码登录。<span class="login-policy-note">若为新账号，首次登录时仍建议同步填写 UID（纯数字），便于后续识别与运营管理。</span>';
         }
         renderReferralShareBox();
         updateFeatureGateUI();
@@ -4333,7 +4910,7 @@
         const linkInput = document.getElementById('myReferralLink');
         const rewardHint = document.getElementById('referralRewardHint');
         if (!shell || !toggle || !uidInput || !linkInput) return;
-        const uid = normalizeUidInput(authUser && authUser.uid ? authUser.uid : '');
+        const uid = normalizeReferralUid(authUser && authUser.uid ? authUser.uid : '', authPhone);
         if (!authToken || !uid) {
           shell.style.display = 'none';
           shell.dataset.expanded = '0';
@@ -4425,7 +5002,7 @@
       function stripUserFacingAssetQualifier(name) {
         const value = String(name || '').trim();
         if (!value) return '';
-        return value.replace(/（(?:整体|直达)-(?:玄幻|言情|悬疑|科幻)）/g, '').trim();
+        return value.replace(/（(?:整体|组合|直达)-(?:玄幻|言情|悬疑|科幻)）/g, '').trim();
       }
 
       function buildReadableAssetFileName(asset) {
@@ -4491,6 +5068,14 @@
         return /^1\d{10}$/.test(normalizePhoneInput(raw));
       }
 
+      function normalizeReferralUid(rawUid, phone = '') {
+        const uid = normalizeUidInput(rawUid || '');
+        const normalizedPhone = normalizePhoneInput(phone || '');
+        if (!uid) return '';
+        if (normalizedPhone && uid === normalizedPhone) return '';
+        return uid;
+      }
+
       async function requestCode() {
         const input = (document.getElementById('loginPhone').value || '').trim();
         const phone = normalizePhoneInput(input);
@@ -4507,52 +5092,31 @@
           if (data && data.code) {
             document.getElementById('loginCode').value = data.code;
           }
+          if (data && data.daily_limit) {
+            const sent = Number(data.sent_today || 0);
+            const remain = Number(data.remaining_today || 0);
+            data.tip = `今日已发送 ${sent}/${Number(data.daily_limit || 10)} 次，剩余 ${remain} 次。`;
+          }
           show(data);
         }, { requiresLogin: false });
       }
 
       async function loginAccount() {
         const phone = normalizePhoneInput((document.getElementById('loginPhone').value || '').trim());
-        const password = (document.getElementById('loginPassword').value || '').trim();
-        const invite_code = (document.getElementById('inviteCode').value || '').trim();
-        const referral_code = (document.getElementById('referralCode').value || '').trim();
-        document.getElementById('loginPhone').value = phone;
-        if (!phone || !password) return show('请输入手机号和密码');
-        if (!isValidPhoneInput(phone)) return show('请输入有效的11位手机号');
-        await runAction('密码登录', async () => {
-          const res = await apiFetch(`${apiBase()}/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, password, invite_code, referral_code }),
-          });
-          const data = await readApiResponse(res);
-          authToken = data.token || '';
-          authPhone = data.user?.phone || phone;
-          authUser = data.user || null;
-          localStorage.setItem('mfa_auth_token', authToken);
-          localStorage.setItem('mfa_auth_phone', authPhone);
-          updateLoginState();
-          show(data);
-        }, { requiresLogin: false });
-      }
-
-      async function registerAccount() {
-        const phone = normalizePhoneInput((document.getElementById('loginPhone').value || '').trim());
         const code = (document.getElementById('loginCode').value || '').trim() || '111111';
-        const password = (document.getElementById('loginPassword').value || '').trim();
         const uid = normalizeUidInput((document.getElementById('userUid').value || '').trim());
         const invite_code = (document.getElementById('inviteCode').value || '').trim();
         const referral_code = (document.getElementById('referralCode').value || '').trim();
         document.getElementById('loginPhone').value = phone;
         document.getElementById('loginCode').value = code;
         document.getElementById('userUid').value = uid;
-        if (!phone || !password || !uid) return show('注册需要填写手机号、UID 和密码');
+        if (!phone || !code) return show('请输入手机号并填写验证码');
         if (!isValidPhoneInput(phone)) return show('请输入有效的11位手机号');
-        await runAction('注册账号', async () => {
-          const res = await apiFetch(`${apiBase()}/auth/register`, {
+        await runAction('验证码登录 / 注册', async () => {
+          const res = await apiFetch(`${apiBase()}/auth/code-login-or-register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, code, password, uid, invite_code, referral_code }),
+            body: JSON.stringify({ phone, code, uid, invite_code, referral_code }),
           });
           const data = await readApiResponse(res);
           authToken = data.token || '';
@@ -4561,25 +5125,6 @@
           localStorage.setItem('mfa_auth_token', authToken);
           localStorage.setItem('mfa_auth_phone', authPhone);
           updateLoginState();
-          show(data);
-        }, { requiresLogin: false });
-      }
-
-      async function resetPassword() {
-        const phone = normalizePhoneInput((document.getElementById('loginPhone').value || '').trim());
-        const code = (document.getElementById('loginCode').value || '').trim() || '111111';
-        const password = (document.getElementById('loginPassword').value || '').trim();
-        document.getElementById('loginPhone').value = phone;
-        document.getElementById('loginCode').value = code;
-        if (!phone || !password) return show('找回密码需要填写手机号和新密码');
-        if (!isValidPhoneInput(phone)) return show('请输入有效的11位手机号');
-        await runAction('找回密码', async () => {
-          const res = await apiFetch(`${apiBase()}/auth/reset-password`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, code, password }),
-          });
-          const data = await readApiResponse(res);
           show(data);
         }, { requiresLogin: false });
       }
@@ -4844,11 +5389,121 @@
         checks.forEach(ch => { ch.checked = checked; });
       }
 
+      function updateProjectTitleCounter() {
+        const input = document.getElementById('projectTitle');
+        const hint = document.getElementById('projectTitleHint');
+        if (!input || !hint) return;
+        const len = String(input.value || '').trim().length;
+        hint.textContent = `项目标题 ${len}/40`;
+        hint.style.color = len >= 40 ? '#a53f33' : '#7a5a41';
+      }
+
+      const MAX_AUDIO_UPLOAD_MB = 80;
+      const ALLOWED_AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg']);
+      const ALLOWED_AUDIO_MIME_TYPES = new Set([
+        'audio/mpeg',
+        'audio/mp3',
+        'audio/wav',
+        'audio/x-wav',
+        'audio/wave',
+        'audio/mp4',
+        'audio/x-m4a',
+        'audio/aac',
+        'audio/flac',
+        'audio/x-flac',
+        'audio/ogg',
+        'application/ogg',
+      ]);
+
+      function validateAudioUploadFile(file, label = '音频文件') {
+        if (!file) return `${label}不能为空。`;
+        const name = String(file.name || '').trim();
+        const ext = name.includes('.') ? `.${name.split('.').pop().toLowerCase()}` : '';
+        if (!ALLOWED_AUDIO_EXTENSIONS.has(ext)) {
+          return '仅支持 mp3 / wav / m4a / aac / flac / ogg 音频文件，请不要上传视频、文本或其他非音频格式。';
+        }
+        const type = String(file.type || '').trim().toLowerCase();
+        if (type && !type.startsWith('audio/') && !ALLOWED_AUDIO_MIME_TYPES.has(type)) {
+          return '仅支持音频格式文件，请不要上传视频、文本或其他非音频内容。';
+        }
+        if (Number(file.size || 0) > MAX_AUDIO_UPLOAD_MB * 1024 * 1024) {
+          return `${label}大小不能超过 ${MAX_AUDIO_UPLOAD_MB}MB。`;
+        }
+        return '';
+      }
+
+      function hasMeaningfulStructureLogic(structureLogic) {
+        if (!structureLogic || typeof structureLogic !== 'object') return false;
+        const patternGuess = String(structureLogic.pattern_guess || '').trim();
+        const repeatGroups = Array.isArray(structureLogic.repeat_groups) ? structureLogic.repeat_groups.filter(Boolean) : [];
+        const evidence = Array.isArray(structureLogic.evidence) ? structureLogic.evidence.filter(Boolean) : [];
+        if (repeatGroups.length || evidence.length) return true;
+        if (!patternGuess) return false;
+        return !['未识别', '未明确识别', '无', '暂无'].includes(patternGuess);
+      }
+
+      function hasMeaningfulMusicStructureLogic(structureLogic) {
+        if (!structureLogic || typeof structureLogic !== 'object') return false;
+        const patternGuess = String(structureLogic.pattern_guess || '').trim();
+        const progressionComment = String(structureLogic.progression_comment || '').trim();
+        const repeatGroups = Array.isArray(structureLogic.repeat_groups) ? structureLogic.repeat_groups.filter(Boolean) : [];
+        if (repeatGroups.length) return true;
+        if (!patternGuess || ['未识别', '未明确识别', '无', '暂无'].includes(patternGuess)) return false;
+        if (!progressionComment || progressionComment === '本次结果缺少稳定结构说明，建议结合音乐锚点复核。') return false;
+        return true;
+      }
+
+      function formatCueRange(start, end) {
+        const hasStart = typeof start === 'number' || (typeof start === 'string' && String(start).trim() !== '');
+        const hasEnd = typeof end === 'number' || (typeof end === 'string' && String(end).trim() !== '');
+        if (!hasStart && !hasEnd) return '未提供';
+        const left = hasStart ? Number(start).toFixed(2) : '未提供';
+        const right = hasEnd ? Number(end).toFixed(2) : '未提供';
+        return `${left} - ${right}`;
+      }
+
+      function resolveCueDisplayText(cue, clauseTimeline) {
+        const raw = String((cue && cue.text_excerpt) || '').trim();
+        if (!raw) return '未提供文字片段';
+        if (/[，。！？；：、,.!?;:]$/.test(raw)) return raw;
+        const cueEnd = Number(cue && cue.text_end_char);
+        const clauses = Array.isArray(clauseTimeline) ? clauseTimeline : [];
+        let matchedPunct = '';
+        const exact = clauses.find((item) => Number(item && item.text_end_char) === cueEnd && String(item && item.punct || '').trim());
+        if (exact) {
+          matchedPunct = String(exact.punct || '').trim();
+        } else {
+          const overlap = clauses.find((item) => {
+            const start = Number(item && item.text_start_char);
+            const end = Number(item && item.text_end_char);
+            return Number.isFinite(start) && Number.isFinite(end) && cueEnd >= start && cueEnd <= end && String(item && item.punct || '').trim();
+          });
+          if (overlap) matchedPunct = String(overlap.punct || '').trim();
+        }
+        return matchedPunct ? `${raw}${matchedPunct}` : raw;
+      }
+
+      function renderCueTextSnippet(cue, clauseTimeline) {
+        const text = resolveCueDisplayText(cue, clauseTimeline);
+        return `<div class="cue-text-snippet">${escHtml(text)}</div>`;
+      }
+
+      function formatExportReadinessMessage(readiness) {
+        const base = String((readiness && readiness.message) || '').trim();
+        const missing = Array.isArray(readiness && readiness.missing_steps) ? readiness.missing_steps : [];
+        if (!missing.length) return base || '导出条件未满足。';
+        const detail = missing.map(item => `${item.step_no || '?'}）${item.label || '未命名步骤'}`).join('、');
+        return `${base || '导出条件未满足。'}\n当前仍需补齐：${detail}`;
+      }
+
       async function createProject() {
+        setCurrentFlowStep('project');
         await runAction('创建项目', async () => {
           const title = (document.getElementById('projectTitle').value || '').trim();
-          const genre = document.getElementById('projectGenre').value;
+          const genre = (document.getElementById('projectGenre').value || '').trim();
           if (!title) return show('请先填写项目标题');
+          if (title.length > 40) return show('项目标题最多支持 40 个字，请精简后再创建。');
+          if (!genre) return show('内容赛道为必选，请先选择作品赛道。');
           const res = await apiFetch(`${apiBase()}/projects`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -4867,6 +5522,9 @@
         if (!projectId) return show('请先创建项目');
         const f = document.getElementById('audioFile').files[0];
         if (!f) return show('请先选择音频文件');
+        const audioErr = validateAudioUploadFile(f, '音乐文件');
+        if (audioErr) return show(audioErr);
+        setCurrentFlowStep('music');
         await runAction('音乐分析', async () => {
           const form = new FormData();
           form.append('file', f);
@@ -4879,6 +5537,7 @@
 
       async function analyzeMusicMatch() {
         if (!projectId) return show('请先创建项目');
+        setCurrentFlowStep('music_match');
         await runAction('判断是否适合作品', async () => {
           const llmProviderOverride = currentLlmProviderOverride();
           const res = await apiFetch(`${apiBase()}/analysis/${projectId}/music-match`, {
@@ -4896,6 +5555,9 @@
         const f = document.getElementById('narrationFile').files[0];
         if (!text) return show('请先输入文本');
         if (!f) return show('请先选择演绎音频');
+        const narrationErr = validateAudioUploadFile(f, '演绎音频');
+        if (narrationErr) return show(narrationErr);
+        setCurrentFlowStep('text_narration');
         await runAction('文本演绎分析（含时间轴）', async () => {
           const form = new FormData();
           form.append('text', text);
@@ -4914,6 +5576,7 @@
         const promptFile = ACTION_PROMPT_BY_GENRE[genre] || 'V3-action_verbs_xuanhuan_task.txt';
         const llmProviderOverride = currentLlmProviderOverride();
         if (!text) return show('请先输入文本');
+        setCurrentFlowStep('action_verbs');
         await runAction('人物动作提取', async () => {
           const res = await apiFetch(`${apiBase()}/analysis/${projectId}/action-verbs`, {
             method: 'POST',
@@ -4931,6 +5594,7 @@
         if (!latestActionVerbData || !latestActionVerbData.report_json) {
           return show('请先执行第3步：人物动作提取');
         }
+        setCurrentFlowStep('action_sfx');
         await runAction('动作图谱推荐', async () => {
           try {
             const explainRes = await apiFetch(`${apiBase()}/action-graph/explanation`);
@@ -4955,6 +5619,7 @@
         if (!latestActionSfxData || !Array.isArray(latestActionSfxData.graph_items)) {
           return show('请先执行第3.5步：动作图谱推荐');
         }
+        setCurrentFlowStep('action_draft');
         await runAction('动作补充单', async () => {
           const res = await apiFetch(`${apiBase()}/analysis/${projectId}/action-graph-draft`, {
             method: 'POST',
@@ -4974,6 +5639,7 @@
         const promptFile = SCENE_PROMPT_BY_GENRE[genre] || 'V3-scene_building_task.txt';
         const llmProviderOverride = currentLlmProviderOverride();
         if (!text) return show('请先输入文本');
+        setCurrentFlowStep('scene_building');
         clearSceneFlowFrom('building');
         showScenePendingState('building');
         await runAction('场景搭建分析', async () => {
@@ -4996,6 +5662,7 @@
         if (!latestSceneBuildingData || !Array.isArray(latestSceneBuildingData.scene_items)) {
           return show('请先执行第6步：场景搭建分析');
         }
+        setCurrentFlowStep('scene_sfx');
         clearSceneFlowFrom('sfx');
         showScenePendingState('sfx');
         await runAction('场景音效推荐', async () => {
@@ -5020,6 +5687,7 @@
         if (!latestSceneSfxData || !Array.isArray(latestSceneSfxData.scene_items)) {
           return show('请先执行第7步：场景音效推荐');
         }
+        setCurrentFlowStep('scene_supplements');
         clearSceneFlowFrom('supplements');
         showScenePendingState('supplements');
         await runAction('场景补充单', async () => {
@@ -5062,6 +5730,8 @@
             const textVal = (document.getElementById('textInput').value || '').trim();
             const narrFile = document.getElementById('narrationFile').files[0];
             if (textVal && narrFile) {
+              const narrationErr = validateAudioUploadFile(narrFile, '演绎音频');
+              if (narrationErr) throw new Error(narrationErr);
               const form = new FormData();
               form.append('text', textVal);
               form.append('file', narrFile);
@@ -5076,6 +5746,7 @@
               throw new Error('请先执行第9步：文本演绎分析（含时间轴）（需同时提供文本和演绎音频）');
             }
           }
+          setCurrentFlowStep('fusion');
           const llmProviderOverride = currentLlmProviderOverride();
           const fusionUrl = llmProviderOverride
             ? `${apiBase()}/analysis/${projectId}/fusion?llm_provider_override=${encodeURIComponent(llmProviderOverride)}`
@@ -5087,6 +5758,12 @@
 
       async function fetchReport() {
         if (!projectId) return show('请先创建项目');
+        const readinessRes = await apiFetch(`${apiBase()}/analysis/${projectId}/export-readiness`);
+        const readinessData = await readApiResponse(readinessRes);
+        if (!readinessRes.ok || !readinessData.ready) {
+          return show(formatExportReadinessMessage(readinessData.readiness || readinessData));
+        }
+        setCurrentFlowStep('report');
         await _download(
           `${apiBase()}/analysis/${projectId}/export?type=action_asset_xlsx`,
           `project_${projectId}_action_asset.xlsx`
@@ -5311,6 +5988,9 @@
       updateLeaderboardTabs();
       applyReferralCodeFromQuery();
       syncAuthBootstrap();
+      // 灯绳登录交互预留：当前已停用。
+      // updateLoginLampStage();
+      updateProjectTitleCounter();
       refreshSceneActionButtons();
     </script>
   </body>

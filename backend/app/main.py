@@ -135,6 +135,8 @@ app = Flask(settings.app_name)
 CORS(app)
 
 CREATOR_SHOWCASE_SUMMARY_MAX_CHARS = 120
+PROJECT_TITLE_MAX_CHARS = 40
+AUTH_CODE_DAILY_LIMIT = 10
 
 SUPPORTED_GENRES = {'玄幻', '言情', '悬疑', '科幻'}
 BETA_INVITE_ONLY_KEY = 'beta_invite_only_enabled'
@@ -145,6 +147,7 @@ HOME_LEADERBOARDS_VISIBLE_KEY = 'home_leaderboards_enabled'
 ACTION_FALLBACK_RISK_SEEDED_KEY = 'action_fallback_risk_seeded'
 REFERRAL_REWARD_SFX_PACK_KEY = 'referral_reward_sfx_pack'
 REFERRAL_REWARD_TEXT_PACK_KEY = 'referral_reward_text_pack'
+ACTION_SFX_THRESHOLD_KEY = 'action_sfx_effective_threshold'
 LEADERBOARD_WINDOWS = {
     '1d': 1,
     '10d': 10,
@@ -184,6 +187,22 @@ DEFAULT_ACTION_FALLBACK_RISK_TERMS = [
     ('伸手', 'warn', '常见动作起手式，建议结合正式词判断。'),
 ]
 AUTO_STANDARD_TERM_SUFFIXES = ('道',)
+AUDIO_UPLOAD_MAX_MB = 80
+ALLOWED_AUDIO_EXTENSIONS = {'.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg'}
+ALLOWED_AUDIO_MIME_TYPES = {
+    'audio/mpeg',
+    'audio/mp3',
+    'audio/wav',
+    'audio/x-wav',
+    'audio/wave',
+    'audio/mp4',
+    'audio/x-m4a',
+    'audio/aac',
+    'audio/flac',
+    'audio/x-flac',
+    'audio/ogg',
+    'application/ogg',
+}
 
 
 def _is_composite_sfx_term(term: str, children: dict | None = None) -> bool:
@@ -270,6 +289,17 @@ def _ensure_schema_columns() -> None:
             conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN referred_by_uid VARCHAR(64) NOT NULL DEFAULT ''"))
         if 'referral_input' not in user_cols:
             conn.execute(sql_text("ALTER TABLE user_account ADD COLUMN referral_input VARCHAR(64) NOT NULL DEFAULT ''"))
+        uid_rows = conn.execute(sql_text("SELECT id, phone, uid FROM user_account")).fetchall() if user_cols else []
+        for row_id, phone, uid in uid_rows:
+            phone_value = str(phone or '').strip()
+            uid_value = str(uid or '').strip()
+            if not phone_value:
+                continue
+            if uid_value == f'auto_{phone_value}':
+                conn.execute(
+                    sql_text("UPDATE user_account SET uid = '' WHERE id = :id"),
+                    {'id': row_id},
+                )
         copyright_cols = {row[1] for row in conn.execute(sql_text("PRAGMA table_info(copyright_book_ad)")).fetchall()}
         if copyright_cols and 'user_phone' not in copyright_cols:
             conn.execute(sql_text("ALTER TABLE copyright_book_ad ADD COLUMN user_phone VARCHAR(32) NOT NULL DEFAULT ''"))
@@ -363,6 +393,235 @@ def _set_int_system_setting(db, key: str, value: int, *, min_value: int = 0, max
     row.setting_value = str(actual)
     db.commit()
     return actual
+
+
+def _get_float_system_setting(
+    db,
+    key: str,
+    default_value: float,
+    *,
+    min_value: float = 0.0,
+    max_value: float = 1.0,
+) -> float:
+    row = _ensure_system_setting(db, key, str(float(default_value)))
+    try:
+        value = float(str(row.setting_value or '').strip() or float(default_value))
+    except (TypeError, ValueError):
+        value = float(default_value)
+    return max(min_value, min(max_value, value))
+
+
+def _set_float_system_setting(
+    db,
+    key: str,
+    value: float,
+    *,
+    min_value: float = 0.0,
+    max_value: float = 1.0,
+    precision: int = 4,
+) -> float:
+    actual = max(min_value, min(max_value, float(value)))
+    actual = round(actual, precision)
+    row = _ensure_system_setting(db, key, str(actual))
+    row.setting_value = str(actual)
+    db.commit()
+    return actual
+
+
+def _action_sfx_effective_threshold(db) -> float:
+    return _get_float_system_setting(db, ACTION_SFX_THRESHOLD_KEY, 0.18, min_value=0.0, max_value=1.0)
+
+
+def _strip_user_visible_sfx_suffix(name: str) -> str:
+    value = str(name or '').strip()
+    if not value:
+        return ''
+    return re.sub(r'（(?:整体|组合|直达)-[^）]+）$', '', value).strip()
+
+
+def _build_user_visible_sfx_download_name(
+    *,
+    abs_path: Path,
+    display_name: str = '',
+    adopted_submission: UserSfxSubmission | None = None,
+) -> str:
+    ext = abs_path.suffix or '.mp3'
+    base_name = _strip_user_visible_sfx_suffix(display_name)
+    if not base_name:
+        stem = str(abs_path.stem or '').strip()
+        if '__' in stem:
+            parts = [str(x).strip() for x in stem.split('__') if str(x).strip()]
+            if len(parts) >= 4 and parts[-1].startswith('userbetter_'):
+                base_name = _strip_user_visible_sfx_suffix(parts[2])
+            else:
+                base_name = _strip_user_visible_sfx_suffix(parts[0] if parts else stem)
+        else:
+            base_name = _strip_user_visible_sfx_suffix(stem)
+    if adopted_submission is not None and base_name:
+        base_name = f'{base_name}（由用户更优推荐）'
+    safe_name = str(base_name or abs_path.stem or 'sfx').strip()
+    if not safe_name.lower().endswith(ext.lower()):
+        safe_name = f'{safe_name}{ext}'
+    return safe_name
+
+
+def _filter_action_sfx_result_by_threshold(result: dict, threshold: float) -> tuple[dict, int]:
+    payload = dict(result or {})
+    graph_items = []
+    filtered_out_count = 0
+    for item in list(payload.get('graph_items') or []):
+        row = dict(item or {})
+        assets = []
+        for asset in list(row.get('assets') or []):
+            try:
+                score = float((asset or {}).get('score', 0.0) or 0.0)
+            except (TypeError, ValueError):
+                score = 0.0
+            if score >= threshold:
+                assets.append(asset)
+            else:
+                filtered_out_count += 1
+        row['assets'] = assets
+        child = dict(row.get('children') or {})
+        all_sfx_terms = [str(x).strip() for x in (child.get('sfx_terms') or row.get('sfx_terms') or []) if str(x).strip()]
+        retained_labels = {
+            str((asset or {}).get('label') or '').strip()
+            for asset in assets
+            if str((asset or {}).get('label') or '').strip()
+        }
+        covered_sfx_terms = [term for term in all_sfx_terms if term in retained_labels]
+        missing_sfx_terms = [term for term in all_sfx_terms if term not in retained_labels]
+        covered_classified = classify_sfx_terms(covered_sfx_terms)
+        missing_classified = classify_sfx_terms(missing_sfx_terms)
+        child['covered_sfx_terms'] = covered_sfx_terms[:10]
+        child['missing_sfx_terms'] = missing_sfx_terms[:10]
+        child['missing_direct_sfx_terms'] = missing_classified['direct_terms'][:10]
+        child['missing_composite_sfx_terms'] = missing_classified['composite_terms'][:10]
+        child['display_missing_sfx_terms'] = missing_classified['display_terms'][:10]
+        row['children'] = child
+        row['missing_sfx_terms'] = missing_sfx_terms[:10]
+        row['missing_sfx_terms_classified'] = {
+            'direct_terms': missing_classified['direct_terms'][:10],
+            'composite_terms': missing_classified['composite_terms'][:10],
+            'display_terms': missing_classified['display_terms'][:10],
+        }
+        row['covered_sfx_terms_classified'] = {
+            'direct_terms': covered_classified['direct_terms'][:10],
+            'composite_terms': covered_classified['composite_terms'][:10],
+            'display_terms': covered_classified['display_terms'][:10],
+        }
+        graph_items.append(row)
+    payload['graph_items'] = graph_items
+    summary = dict(payload.get('summary') or {})
+    summary['asset_count'] = sum(len((item or {}).get('assets') or []) for item in graph_items)
+    summary['covered_term_count'] = sum(len(((item or {}).get('children') or {}).get('covered_sfx_terms') or []) for item in graph_items)
+    summary['effective_threshold'] = round(float(threshold), 4)
+    summary['filtered_asset_count'] = int(filtered_out_count)
+    payload['summary'] = summary
+    return payload, filtered_out_count
+
+
+def _build_action_sfx_threshold_recommendation(db, *, days: int) -> dict:
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    effective_threshold = _action_sfx_effective_threshold(db)
+    search_rows = db.execute(
+        select(ReasoningLog.output_json)
+        .where(ReasoningLog.event_type == 'search_sfx')
+        .where(ReasoningLog.created_at >= cutoff)
+    ).all()
+
+    total_searches = 0
+    zero_match_count = 0
+    weak_match_count = 0
+    top_scores: list[float] = []
+    for (output_json,) in search_rows:
+        try:
+            payload = json.loads(output_json)
+        except (TypeError, json.JSONDecodeError):
+            payload = {}
+        matches = payload.get('matches') or []
+        total_searches += 1
+        if not matches:
+            zero_match_count += 1
+            continue
+        try:
+            top_score = float(((matches or [])[0] or {}).get('score', 0.0) or 0.0)
+        except (TypeError, ValueError):
+            top_score = 0.0
+        top_scores.append(top_score)
+        if top_score < effective_threshold:
+            weak_match_count += 1
+
+    official_assets = [item for item in load_sfx_library() if str(item.source_pool or '') == 'system']
+    user_better_assets = [item for item in load_sfx_library() if str(item.source_pool or '') == 'user_better']
+    adopted_rows = db.execute(
+        select(UserSfxSubmission.reward_applied, UserSfxSubmission.adopted_download_count)
+    ).all()
+    adopted_submission_count = 0
+    adopted_download_total = 0
+    for reward_applied, adopted_download_count in adopted_rows:
+        if int(reward_applied or 0) != 1:
+            continue
+        adopted_submission_count += 1
+        adopted_download_total += int(adopted_download_count or 0)
+
+    zero_ratio = (zero_match_count / total_searches) if total_searches else 0.0
+    weak_ratio = (weak_match_count / total_searches) if total_searches else 0.0
+    avg_top_score = (sum(top_scores) / len(top_scores)) if top_scores else 0.0
+
+    suggested = 0.18
+    reasons = []
+
+    if weak_ratio >= 0.45:
+        suggested += 0.04
+        reasons.append('最近周期内低分命中占比偏高，建议抬高阈值，减少“勉强命中”的素材展示。')
+    elif weak_ratio >= 0.25:
+        suggested += 0.02
+        reasons.append('最近周期内存在较多低分命中，建议适度抬高阈值。')
+    else:
+        reasons.append('低分命中占比可控，当前阈值不需要明显抬高。')
+
+    if zero_ratio >= 0.45:
+        suggested -= 0.02
+        reasons.append('完全无命中的比例偏高，说明素材覆盖仍有缺口，不宜把阈值抬得过高。')
+    elif zero_ratio >= 0.25:
+        suggested -= 0.01
+        reasons.append('存在一定无命中情况，阈值建议保守调整。')
+    else:
+        reasons.append('完全无命中的比例较低，阈值有条件维持稍严格。')
+
+    if adopted_submission_count >= 3:
+        suggested += 0.01
+        reasons.append('已采纳的“由用户更优推荐”素材逐步增加，系统有条件对展示结果更严格。')
+    if adopted_download_total >= 10:
+        suggested += 0.01
+        reasons.append('用户更优推荐素材已有真实下载表现，可适度提高阈值以强化优质结果。')
+    if len(official_assets) < 50:
+        suggested -= 0.01
+        reasons.append('系统官方素材总量仍偏少，为避免过度过滤，建议稍微下调阈值。')
+
+    suggested = round(max(0.12, min(0.35, suggested)), 4)
+    if not reasons:
+        reasons = ['当前样本量有限，先沿用基础阈值建议。']
+
+    return {
+        'effective_threshold': round(float(effective_threshold), 4),
+        'suggested_threshold': suggested,
+        'evaluation_period_days': int(days),
+        'dimensions': {
+            'search_sample_count': int(total_searches),
+            'zero_match_count': int(zero_match_count),
+            'zero_match_ratio': round(float(zero_ratio), 4),
+            'weak_match_count': int(weak_match_count),
+            'weak_match_ratio': round(float(weak_ratio), 4),
+            'avg_top_score': round(float(avg_top_score), 4),
+            'official_asset_count': int(len(official_assets)),
+            'user_better_asset_count': int(len(user_better_assets)),
+            'adopted_submission_count': int(adopted_submission_count),
+            'adopted_download_total': int(adopted_download_total),
+        },
+        'reasons': reasons[:8],
+    }
 
 
 def _referral_reward_settings(db) -> dict:
@@ -1155,7 +1414,7 @@ def _ensure_user(db, phone: str) -> UserAccount:
     if row is None:
         row = UserAccount(
             phone=phone,
-            uid=f'auto_{phone}',
+            uid='',
             ops_role_code='33',
             user_tier_code='33',
             is_authorized=0,
@@ -1178,8 +1437,8 @@ def _ensure_user(db, phone: str) -> UserAccount:
             row = db.execute(select(UserAccount).where(UserAccount.phone == phone)).scalar_one_or_none()
             if row is None:
                 raise
-    elif not str(getattr(row, 'uid', '') or '').strip():
-        row.uid = f'auto_{phone}'
+    elif str(getattr(row, 'uid', '') or '').strip() == f'auto_{phone}':
+        row.uid = ''
         try:
             db.commit()
             db.refresh(row)
@@ -1637,6 +1896,142 @@ def _summarize_llm_audit(payload: dict | None) -> dict:
         'overall_duration_ms': overall_duration_ms,
         'models': models,
         'calls': rows,
+    }
+
+
+SYSTEM_PRESSURE_ACTION_LABELS = {
+    'audio_analysis': '音乐分析',
+    'text_analysis': '文本分析',
+    'action_verb_analysis': '动作词提取',
+    'action_sfx_graph': '动作图谱音效分析',
+    'scene_building_analysis': '场景搭建分析',
+    'scene_sfx_graph': '场景图谱音效分析',
+    'text_narration_analysis': '文本旁白联合分析',
+    'fusion_execution': '融合执行单生成',
+}
+SYSTEM_PRESSURE_ACTIONS = tuple(SYSTEM_PRESSURE_ACTION_LABELS.keys())
+
+
+def _pressure_percentile(values: list[int], ratio: float) -> int | None:
+    seq = sorted(int(v) for v in values if v is not None)
+    if not seq:
+        return None
+    idx = max(0, min(len(seq) - 1, int(round((len(seq) - 1) * ratio))))
+    return seq[idx]
+
+
+def _pressure_estimate_peak(entries: list[dict]) -> int:
+    points = []
+    for item in entries:
+        ended_at = item.get('created_at')
+        duration_ms = item.get('duration_ms')
+        if not isinstance(ended_at, datetime) or not isinstance(duration_ms, int) or duration_ms <= 0:
+            continue
+        started_at = ended_at - timedelta(milliseconds=duration_ms)
+        points.append((started_at, 1))
+        points.append((ended_at, -1))
+    if not points:
+        return 0
+    current = 0
+    peak = 0
+    for _, delta in sorted(points, key=lambda x: (x[0], x[1])):
+        current += delta
+        peak = max(peak, current)
+    return peak
+
+
+def _pressure_duration_ms(output_json: dict, llm_audit: dict) -> int | None:
+    candidates = []
+    for value in [
+        output_json.get('duration_ms'),
+        llm_audit.get('overall_duration_ms'),
+        llm_audit.get('total_elapsed_ms'),
+    ]:
+        try:
+            value = int(value) if value is not None else None
+        except (TypeError, ValueError):
+            value = None
+        if value is not None and value > 0:
+            candidates.append(value)
+    return candidates[0] if candidates else None
+
+
+def _build_system_pressure_window(entries: list[dict]) -> dict:
+    durations = [int(item['duration_ms']) for item in entries if isinstance(item.get('duration_ms'), int)]
+    llm_calls = sum(int(item.get('llm_calls') or 0) for item in entries)
+    retry_jobs = sum(1 for item in entries if int(item.get('llm_calls') or 0) > 1)
+    llm_failures = sum(int(item.get('llm_failure_count') or 0) for item in entries)
+    quality_issues = sum(int(item.get('quality_issue_count') or 0) for item in entries)
+    contract_issues = sum(int(item.get('contract_issue_count') or 0) for item in entries)
+    return {
+        'request_count': len(entries),
+        'unique_users': len({item['user_phone'] for item in entries if item.get('user_phone')}),
+        'unique_projects': len({item['project_id'] for item in entries if item.get('project_id') is not None}),
+        'llm_calls': llm_calls,
+        'retry_jobs': retry_jobs,
+        'llm_failure_count': llm_failures,
+        'quality_issue_count': quality_issues,
+        'contract_issue_count': contract_issues,
+        'avg_elapsed_ms': int(sum(durations) / len(durations)) if durations else None,
+        'p95_elapsed_ms': _pressure_percentile(durations, 0.95),
+        'max_elapsed_ms': max(durations) if durations else None,
+        'peak_concurrency_est': _pressure_estimate_peak(entries),
+    }
+
+
+def _build_system_pressure_guidance(m10: dict, h1: dict, h24: dict) -> dict:
+    peak = max(int(m10.get('peak_concurrency_est') or 0), int(h1.get('peak_concurrency_est') or 0))
+    p95_ms = int(h1.get('p95_elapsed_ms') or 0)
+    request_10m = int(m10.get('request_count') or 0)
+    request_1h = int(h1.get('request_count') or 0)
+    llm_failures = int(h1.get('llm_failure_count') or 0)
+    quality_issues = int(h1.get('quality_issue_count') or 0)
+
+    suggested_global_slots = max(3, min(10, max(peak + 1, 4 if request_10m >= 8 else 3)))
+    suggested_user_running_limit = 1 if peak >= 8 else 2
+    suggested_user_queue_limit = max(3, suggested_global_slots)
+    suggested_queue_threshold_sec = 180
+    suggested_timeout_sec = 240 if p95_ms >= 120000 else 180
+    should_queue = bool(request_10m >= suggested_global_slots or peak >= suggested_global_slots - 1 or p95_ms >= 90000)
+
+    level = '平稳'
+    if peak >= 6 or p95_ms >= 150000 or llm_failures >= 3:
+        level = '高压'
+    elif peak >= 3 or p95_ms >= 90000 or request_10m >= 6 or quality_issues >= 2:
+        level = '关注'
+
+    reasons = []
+    if request_10m:
+        reasons.append(f"最近 10 分钟共有 {request_10m} 个重请求进入核心链路。")
+    if peak:
+        reasons.append(f"按日志耗时倒推，最近高峰重叠并发约为 {peak}。")
+    if p95_ms:
+        reasons.append(f"最近 1 小时重请求 P95 耗时约 {round(p95_ms / 1000, 1)} 秒。")
+    if quality_issues:
+        reasons.append(f"最近 1 小时出现 {quality_issues} 次质量异常，说明慢请求之外还要关注结果稳定性。")
+    if llm_failures:
+        reasons.append(f"最近 1 小时出现 {llm_failures} 次 LLM 调用非 ok，排队与超时治理应一起考虑。")
+    if not reasons:
+        reasons.append('最近暂无足够的重请求日志，建议先保持当前结构并持续观察。')
+
+    if h24.get('request_count'):
+        reasons.append(
+            f"最近 24 小时累计 {int(h24.get('request_count') or 0)} 个重请求，可作为后续并发阈值和扩容策略的基线。"
+        )
+
+    return {
+        'level': level,
+        'should_queue': should_queue,
+        'suggested_global_slots': suggested_global_slots,
+        'suggested_user_running_limit': suggested_user_running_limit,
+        'suggested_user_queue_limit': suggested_user_queue_limit,
+        'suggested_timeout_sec': suggested_timeout_sec,
+        'suggested_queue_threshold_sec': suggested_queue_threshold_sec,
+        'reason_lines': reasons,
+        'queue_scope': list(SYSTEM_PRESSURE_ACTIONS),
+        'current_basis': '基于最近 24 小时 user_operation_log 与 llm_trace_digest 聚合估算',
+        'next_step': '建议先对重接口做异步 job 队列与前端轮询，不对轻接口排队。',
+        'request_1h': request_1h,
     }
 
 
@@ -2116,6 +2511,30 @@ def _build_local_storage_path(
     return out_dir / f'project_{project_id}{unique_part}{safe_ext}'
 
 
+def _read_validated_audio_upload(file, *, label: str = '音频文件', max_mb: int = AUDIO_UPLOAD_MAX_MB) -> tuple[str, bytes]:
+    if file is None or not getattr(file, 'filename', ''):
+        raise ValueError(f'{label}不能为空')
+    original_name = str(getattr(file, 'filename', '') or '').strip()
+    if not original_name:
+        raise ValueError(f'{label}不能为空')
+    if any(sep in original_name for sep in ('/', '\\', '\x00')):
+        raise ValueError(f'{label}文件名不合法')
+    safe_name = Path(original_name).name.strip()
+    ext = (Path(safe_name).suffix or '').lower()
+    if ext not in ALLOWED_AUDIO_EXTENSIONS:
+        raise ValueError('仅支持 mp3 / wav / m4a / aac / flac / ogg 音频文件')
+    content_type = str(getattr(file, 'mimetype', '') or getattr(file, 'content_type', '') or '').split(';', 1)[0].strip().lower()
+    if content_type and not (content_type.startswith('audio/') or content_type in ALLOWED_AUDIO_MIME_TYPES):
+        raise ValueError('仅支持音频格式文件，禁止上传视频、文本或其他非音频内容')
+    file_bytes = file.read()
+    if not file_bytes:
+        raise ValueError(f'{label}不能为空文件')
+    max_bytes = int(max_mb) * 1024 * 1024
+    if len(file_bytes) > max_bytes:
+        raise OverflowError(f'{label}大小不能超过 {int(max_mb)}MB')
+    return safe_name, file_bytes
+
+
 def _is_under_upload_root(abs_path: Path) -> bool:
     root = Path(settings.upload_dir).resolve()
     try:
@@ -2215,6 +2634,22 @@ def auth_request_code():
     with SessionLocal() as db:
         _ensure_bootstrap_admins(db)
         _ensure_invite_seed_codes(db)
+        day_start = datetime.combine(_utc_now().date(), datetime.min.time())
+        sent_today = int(
+            db.execute(
+                select(func.count())
+                .select_from(AuthCode)
+                .where(AuthCode.phone == phone)
+                .where(AuthCode.created_at >= day_start)
+            ).scalar() or 0
+        )
+        if sent_today >= AUTH_CODE_DAILY_LIMIT:
+            return jsonify({
+                'detail': f'该手机号今日最多可接收 {AUTH_CODE_DAILY_LIMIT} 次验证码，请明天再试',
+                'phone': phone,
+                'sent_today': sent_today,
+                'daily_limit': AUTH_CODE_DAILY_LIMIT,
+            }), 429
         code = f'{random.randint(0, 999999):06d}'
         row = AuthCode(
             phone=phone,
@@ -2227,7 +2662,16 @@ def auth_request_code():
     # 当前为MVP，本地直接返回验证码，正式上线改短信网关
     with SessionLocal() as db:
         invite_only_enabled = _invite_only_enabled(db)
-    return jsonify({'ok': True, 'phone': phone, 'code': code, 'ttl_sec': settings.auth_code_ttl_sec, 'invite_only_enabled': invite_only_enabled})
+    return jsonify({
+        'ok': True,
+        'phone': phone,
+        'code': code,
+        'ttl_sec': settings.auth_code_ttl_sec,
+        'invite_only_enabled': invite_only_enabled,
+        'sent_today': sent_today + 1,
+        'daily_limit': AUTH_CODE_DAILY_LIMIT,
+        'remaining_today': max(0, AUTH_CODE_DAILY_LIMIT - sent_today - 1),
+    })
 
 
 @app.post(f'{settings.api_prefix}/auth/login')
@@ -2326,6 +2770,7 @@ def auth_code_login_or_register():
         _ensure_invite_seed_codes(db)
         beta_invite_only = _invite_only_enabled(db)
         is_test_bypass = code == '111111'
+        existing_user = db.execute(select(UserAccount).where(UserAccount.phone == phone)).scalar_one_or_none()
         c = (
             db.execute(
                 select(AuthCode)
@@ -2339,7 +2784,7 @@ def auth_code_login_or_register():
             return jsonify({'detail': '验证码无效或已过期'}), 400
 
         u = _ensure_user(db, phone)
-        created_now = not str(getattr(u, 'password_hash', '') or '').strip()
+        created_now = existing_user is None
         if created_now:
             if not uid_input:
                 return jsonify({'detail': '首次登录请填写 UID（纯数字）'}), 400
@@ -2662,8 +3107,17 @@ def auth_logout():
 @_require_admin
 def admin_list_users():
     ymd = (request.args.get('ymd') or datetime.now().strftime('%Y-%m-%d')).strip()
+    phone = _normalize_phone(request.args.get('phone') or '')
+    uid = str(request.args.get('uid') or '').strip()
     with SessionLocal() as db:
-        rows = db.execute(select(UserAccount).order_by(UserAccount.id.desc()).limit(1000)).scalars().all()
+        stmt = select(UserAccount)
+        if phone and uid:
+            stmt = stmt.where(UserAccount.phone == phone, UserAccount.uid == uid)
+        elif phone:
+            stmt = stmt.where(UserAccount.phone == phone)
+        elif uid:
+            stmt = stmt.where(UserAccount.uid == uid)
+        rows = db.execute(stmt.order_by(UserAccount.id.desc()).limit(1000)).scalars().all()
         growth_days = 14
         growth_rows = db.execute(
             select(func.date(UserAccount.created_at), func.count())
@@ -2737,6 +3191,10 @@ def admin_list_users():
     return jsonify({
         'count': len(data),
         'ymd': ymd,
+        'query': {
+            'phone': phone,
+            'uid': uid,
+        },
         'items': data,
         'growth_chart': {
             'points': growth_points,
@@ -3825,6 +4283,8 @@ def create_project():
     genre = (payload.get('genre') or '玄幻').strip()
     if not title:
         return jsonify({'detail': 'title is required'}), 400
+    if len(title) > PROJECT_TITLE_MAX_CHARS:
+        return jsonify({'detail': f'项目标题最多支持 {PROJECT_TITLE_MAX_CHARS} 个字'}), 400
     if genre not in SUPPORTED_GENRES:
         return jsonify({'detail': 'genre must be one of: 玄幻, 言情, 悬疑, 科幻'}), 400
 
@@ -3868,6 +4328,12 @@ def upload_audio(project_id: int):
     llm_provider_override = (request.form.get('llm_provider_override') or request.args.get('llm_provider_override') or '').strip()
     if file is None:
         return jsonify({'detail': 'file is required'}), 400
+    try:
+        safe_file_name, file_bytes = _read_validated_audio_upload(file, label='音乐文件')
+    except OverflowError as exc:
+        return jsonify({'detail': str(exc)}), 413
+    except ValueError as exc:
+        return jsonify({'detail': str(exc)}), 400
 
     with SessionLocal() as db:
         project = db.get(Project, project_id)
@@ -3877,14 +4343,9 @@ def upload_audio(project_id: int):
         save_path = _build_local_storage_path(
             action='audio_analysis',
             project_id=project_id,
-            original_name=file.filename or 'audio.bin',
+            original_name=safe_file_name or 'audio.bin',
             suffix_fallback='.bin',
         )
-
-        file_bytes = file.read()
-        max_bytes = settings.max_upload_mb * 1024 * 1024
-        if len(file_bytes) > max_bytes:
-            return jsonify({'detail': f'File too large. Max {settings.max_upload_mb}MB'}), 413
         save_path.write_bytes(file_bytes)
 
         report_mode = (request.args.get('report_mode') or settings.report_mode_default).strip().lower()
@@ -3903,7 +4364,7 @@ def upload_audio(project_id: int):
         if row is None:
             row = AudioAnalysis(
                 project_id=project_id,
-                file_name=file.filename or save_path.name,
+                file_name=safe_file_name or save_path.name,
                 file_path=str(save_path),
                 duration_sec=result['duration_sec'],
                 bpm=result['bpm'],
@@ -3913,7 +4374,7 @@ def upload_audio(project_id: int):
             )
             db.add(row)
         else:
-            row.file_name = file.filename or save_path.name
+            row.file_name = safe_file_name or save_path.name
             row.file_path = str(save_path)
             row.duration_sec = result['duration_sec']
             row.bpm = result['bpm']
@@ -4236,7 +4697,9 @@ def analyze_action_sfx_api(project_id: int):
         if not project_row:
             return jsonify({'detail': 'Project not found'}), 404
 
+        threshold = _action_sfx_effective_threshold(db)
         result = build_action_sfx_recommendation(project_id=project_id, action_report=action_report)
+        result, filtered_asset_count = _filter_action_sfx_result_by_threshold(result, threshold)
         duration_ms = int((perf_counter() - t0) * 1000)
         _record_inheritance_review_hits(db, project_id, result.get('blocked_inheritance_hits') or [])
         db.commit()
@@ -4253,6 +4716,8 @@ def analyze_action_sfx_api(project_id: int):
                 'duration_ms': duration_ms,
                 'graph_item_count': len(result.get('graph_items') or []),
                 'asset_count': (result.get('summary') or {}).get('asset_count', 0),
+                'effective_threshold': round(float(threshold), 4),
+                'filtered_asset_count': int(filtered_asset_count),
                 'fallback_cluster_count': len(fallback_clusters),
                 'fallback_clusters': fallback_clusters,
             },
@@ -5735,6 +6200,12 @@ def analyze_narration(project_id: int):
     file = request.files.get('file')
     if file is None:
         return jsonify({'detail': 'file is required'}), 400
+    try:
+        safe_file_name, file_bytes = _read_validated_audio_upload(file, label='演绎音频')
+    except OverflowError as exc:
+        return jsonify({'detail': str(exc)}), 413
+    except ValueError as exc:
+        return jsonify({'detail': str(exc)}), 400
 
     with SessionLocal() as db:
         project = db.get(Project, project_id)
@@ -5748,10 +6219,10 @@ def analyze_narration(project_id: int):
         save_path = _build_local_storage_path(
             action='narration_analysis',
             project_id=project_id,
-            original_name=file.filename or 'narration.bin',
+            original_name=safe_file_name or 'narration.bin',
             suffix_fallback='.bin',
         )
-        save_path.write_bytes(file.read())
+        save_path.write_bytes(file_bytes)
 
         scenes = json.loads(text.scenes_json)
         result = analyze_narration_for_audiobook(str(save_path), scenes=scenes, raw_text=text.raw_text)
@@ -5760,7 +6231,7 @@ def analyze_narration(project_id: int):
         if row is None:
             row = NarrationAnalysis(
                 project_id=project_id,
-                file_name=file.filename or save_path.name,
+                file_name=safe_file_name or save_path.name,
                 file_path=str(save_path),
                 duration_sec=result['duration_sec'],
                 timeline_json=json.dumps(timeline_payload, ensure_ascii=False),
@@ -5768,7 +6239,7 @@ def analyze_narration(project_id: int):
             )
             db.add(row)
         else:
-            row.file_name = file.filename or save_path.name
+            row.file_name = safe_file_name or save_path.name
             row.file_path = str(save_path)
             row.duration_sec = result['duration_sec']
             row.timeline_json = json.dumps(timeline_payload, ensure_ascii=False)
@@ -5779,7 +6250,7 @@ def analyze_narration(project_id: int):
             db=db,
             action='narration_analysis',
             project_id=project_id,
-            req={'file_name': file.filename or save_path.name},
+            req={'file_name': safe_file_name or save_path.name},
             resp={
                 'duration_sec': result.get('duration_sec'),
                 'scene_timeline_count': len(result.get('timeline') or []),
@@ -5804,6 +6275,12 @@ def analyze_text_narration(project_id: int):
         return jsonify({'detail': 'text is required'}), 400
     if file is None:
         return jsonify({'detail': 'narration file is required'}), 400
+    try:
+        safe_file_name, file_bytes = _read_validated_audio_upload(file, label='演绎音频')
+    except OverflowError as exc:
+        return jsonify({'detail': str(exc)}), 413
+    except ValueError as exc:
+        return jsonify({'detail': str(exc)}), 400
 
     with SessionLocal() as db:
         project = db.get(Project, project_id)
@@ -5850,13 +6327,9 @@ def analyze_text_narration(project_id: int):
         save_path = _build_local_storage_path(
             action='text_narration_analysis',
             project_id=project_id,
-            original_name=file.filename or 'narration.bin',
+            original_name=safe_file_name or 'narration.bin',
             suffix_fallback='.bin',
         )
-        file_bytes = file.read()
-        max_bytes = settings.max_upload_mb * 1024 * 1024
-        if len(file_bytes) > max_bytes:
-            return jsonify({'detail': f'File too large. Max {settings.max_upload_mb}MB'}), 413
         save_path.write_bytes(file_bytes)
 
         narration_result = analyze_narration_for_audiobook(str(save_path), scenes=text_result['scenes'], raw_text=text)
@@ -5868,7 +6341,7 @@ def analyze_text_narration(project_id: int):
         if narration_row is None:
             narration_row = NarrationAnalysis(
                 project_id=project_id,
-                file_name=file.filename or save_path.name,
+                file_name=safe_file_name or save_path.name,
                 file_path=str(save_path),
                 duration_sec=narration_result['duration_sec'],
                 timeline_json=json.dumps(timeline_payload, ensure_ascii=False),
@@ -5876,7 +6349,7 @@ def analyze_text_narration(project_id: int):
             )
             db.add(narration_row)
         else:
-            narration_row.file_name = file.filename or save_path.name
+            narration_row.file_name = safe_file_name or save_path.name
             narration_row.file_path = str(save_path)
             narration_row.duration_sec = narration_result['duration_sec']
             narration_row.timeline_json = json.dumps(timeline_payload, ensure_ascii=False)
@@ -5896,7 +6369,7 @@ def analyze_text_narration(project_id: int):
             db=db,
             action='text_narration_analysis',
             project_id=project_id,
-            req={'report_mode': report_mode, 'text_len': len(text), 'text_fingerprint': text_fingerprint, 'file_name': file.filename or save_path.name, 'llm_provider_override': llm_provider_override},
+            req={'report_mode': report_mode, 'text_len': len(text), 'text_fingerprint': text_fingerprint, 'file_name': safe_file_name or save_path.name, 'llm_provider_override': llm_provider_override},
             resp={
                 'analysis_mode': response_payload['analysis_mode'],
                 'text_scene_count': len((text_result or {}).get('scenes') or []),
@@ -6194,6 +6667,78 @@ def get_report(project_id: int):
         )
 
 
+def _project_export_readiness(db, project_id: int) -> dict:
+    audio = db.execute(select(AudioAnalysis).where(AudioAnalysis.project_id == project_id)).scalar_one_or_none()
+    narration = db.execute(select(NarrationAnalysis).where(NarrationAnalysis.project_id == project_id)).scalar_one_or_none()
+    action = db.execute(select(ActionVerbAnalysis).where(ActionVerbAnalysis.project_id == project_id)).scalar_one_or_none()
+    scene = db.execute(select(SceneAnalysis).where(SceneAnalysis.project_id == project_id)).scalar_one_or_none()
+
+    action_sfx_done = db.execute(
+        select(UserOperationLog.id)
+        .where(
+            UserOperationLog.project_id == project_id,
+            UserOperationLog.action == 'action_sfx_graph',
+        )
+        .limit(1)
+    ).first() is not None
+    scene_sfx_done = db.execute(
+        select(UserOperationLog.id)
+        .where(
+            UserOperationLog.project_id == project_id,
+            UserOperationLog.action == 'scene_sfx_graph',
+        )
+        .limit(1)
+    ).first() is not None
+
+    base_ready = bool(audio and narration)
+    action_chain_ready = bool(action and action_sfx_done)
+    scene_chain_ready = bool(scene and scene_sfx_done)
+    ready = bool(base_ready and (action_chain_ready or scene_chain_ready))
+
+    missing_steps = []
+    if not audio:
+        missing_steps.append({'step_no': 2, 'label': '音乐分析'})
+    if not narration:
+        missing_steps.append({'step_no': 3, 'label': '文本演绎分析'})
+    if base_ready and not action_chain_ready and not scene_chain_ready:
+        missing_steps.extend(
+            [
+                {'step_no': 7, 'label': '动作图谱推荐（需先完成 6）'},
+                {'step_no': 10, 'label': '场景音效推荐（需先完成 9）'},
+            ]
+        )
+
+    message = (
+        '导出工程文件说明书前，请先完成 2) 音乐分析、3) 文本演绎分析，'
+        '并至少完成一条推荐链路：6)+7) 动作提取 + 动作图谱推荐，或 9)+10) 场景搭建分析 + 场景音效推荐。'
+    )
+
+    return {
+        'ready': ready,
+        'base_ready': base_ready,
+        'action_chain_ready': action_chain_ready,
+        'scene_chain_ready': scene_chain_ready,
+        'missing_steps': missing_steps,
+        'message': message,
+    }
+
+
+@app.get(f'{settings.api_prefix}/analysis/<int:project_id>/export-readiness')
+@_enforce_feature_access('view_report')
+def get_export_readiness(project_id: int):
+    with SessionLocal() as db:
+        project = db.get(Project, project_id)
+        if not project:
+            return jsonify({'detail': 'Project not found'}), 404
+        readiness = _project_export_readiness(db, project_id)
+        return _user_json_response(
+            {
+                'project_id': project_id,
+                **readiness,
+            }
+        )
+
+
 @app.get(f'{settings.api_prefix}/analysis/<int:project_id>/export')
 @_enforce_feature_access('export_assets')
 def export_report_assets(project_id: int):
@@ -6214,6 +6759,15 @@ def export_report_assets(project_id: int):
         narration = db.execute(
             select(NarrationAnalysis).where(NarrationAnalysis.project_id == project_id)
         ).scalar_one_or_none()
+
+        readiness = _project_export_readiness(db, project_id)
+        if not readiness.get('ready'):
+            return jsonify(
+                {
+                    'detail': readiness.get('message') or '导出条件未满足',
+                    'readiness': readiness,
+                }
+            ), 400
 
         cues = json.loads(fusion.cue_sheet_json) if fusion else []
 
@@ -6332,6 +6886,7 @@ def ops_recommendations():
             select(ReasoningLog.event_type, ReasoningLog.term, ReasoningLog.output_json)
             .where(ReasoningLog.created_at >= cutoff)
         ).all()
+        threshold_evaluation = _build_action_sfx_threshold_recommendation(db, days=days)
 
     for event_type, term, output_json in rows:
         try:
@@ -6359,8 +6914,38 @@ def ops_recommendations():
                 'expand_lexicon_for_terms': [{'term': k, 'count': v} for k, v in top_low_match],
                 'add_sfx_assets_for_terms': [{'term': k, 'count': v} for k, v in top_missing],
             },
+            'threshold_evaluation': threshold_evaluation,
         }
     )
+
+
+@app.get(f'{settings.api_prefix}/admin/recommendation-threshold-settings')
+@_require_admin
+def admin_recommendation_threshold_settings():
+    with SessionLocal() as db:
+        current = _action_sfx_effective_threshold(db)
+    return jsonify({'action_sfx_effective_threshold': round(float(current), 4)})
+
+
+@app.post(f'{settings.api_prefix}/admin/recommendation-threshold-settings')
+@_require_admin
+def admin_save_recommendation_threshold_settings():
+    payload = request.get_json(force=True, silent=True) or {}
+    raw_value = payload.get('action_sfx_effective_threshold', 0.18)
+    try:
+        threshold = float(raw_value)
+    except (TypeError, ValueError):
+        return jsonify({'detail': '推荐阈值必须是 0 到 1 之间的小数'}), 400
+    with SessionLocal() as db:
+        actual = _set_float_system_setting(
+            db,
+            ACTION_SFX_THRESHOLD_KEY,
+            threshold,
+            min_value=0.0,
+            max_value=1.0,
+            precision=4,
+        )
+    return jsonify({'ok': True, 'action_sfx_effective_threshold': round(float(actual), 4)})
 
 
 @app.get(f'{settings.api_prefix}/ops/action-sfx-feedback')
@@ -6684,24 +7269,27 @@ def home_create_sfx_submission():
         return jsonify({'detail': 'verb is required'}), 400
     if upload is None or not (upload.filename or '').strip():
         return jsonify({'detail': '请先选择要上传的音效文件'}), 400
-    ext = (Path(upload.filename or '').suffix or '').lower()
-    if ext not in {'.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg'}:
-        return jsonify({'detail': '仅支持 mp3 / wav / m4a / aac / flac / ogg 音频文件'}), 400
+    try:
+        safe_file_name, upload_bytes = _read_validated_audio_upload(upload, label='音效文件')
+    except OverflowError as exc:
+        return jsonify({'detail': str(exc)}), 413
+    except ValueError as exc:
+        return jsonify({'detail': str(exc)}), 400
     save_path = _build_local_storage_path(
         action='user_sfx_submission',
         project_id=project_id,
-        original_name=upload.filename or 'user-sfx.bin',
+        original_name=safe_file_name or 'user-sfx.bin',
         suffix_fallback='.bin',
         unique_name=True,
     )
     safe_genre = _safe_storage_name(genre, 'genre')
     safe_verb = _safe_storage_name(verb, 'verb')
     safe_display = _safe_storage_name(display_term, 'display')
-    ext = save_path.suffix or (Path(upload.filename or '').suffix or '.bin')
+    ext = save_path.suffix or (Path(safe_file_name or '').suffix or '.bin')
     unique_suffix = secrets.token_hex(4)
     renamed_path = save_path.with_name(f'project_{project_id or 0}__{safe_genre}__{safe_verb}__{safe_display}__submission_{unique_suffix}{ext}')
     save_path = renamed_path
-    save_path.write_bytes(upload.read())
+    save_path.write_bytes(upload_bytes)
     with SessionLocal() as db:
         row = UserSfxSubmission(
             user_phone=g.current_user.phone,
@@ -6712,7 +7300,7 @@ def home_create_sfx_submission():
             sentence_excerpt=sentence_excerpt,
             project_text_excerpt=project_text_excerpt[:5000],
             note=note[:1000],
-            file_name=upload.filename or save_path.name,
+            file_name=safe_file_name or save_path.name,
             file_path=str(save_path),
             status='pending',
         )
@@ -7534,6 +8122,178 @@ def ops_user_events():
     return jsonify({'count': len(items), 'total_matched': total_matched, 'action_counts': action_counts, 'items': items})
 
 
+@app.get(f'{settings.api_prefix}/ops/system-pressure')
+@_require_admin
+def ops_system_pressure():
+    now = datetime.now()
+    cutoff_24h = now - timedelta(hours=24)
+
+    with SessionLocal() as db:
+        rows = db.execute(
+            select(UserOperationLog)
+            .where(
+                UserOperationLog.action.in_(SYSTEM_PRESSURE_ACTIONS),
+                UserOperationLog.created_at >= cutoff_24h,
+            )
+            .order_by(UserOperationLog.created_at.desc())
+            .limit(5000)
+        ).scalars().all()
+
+    normalized = []
+    for row in rows:
+        try:
+            output_json = json.loads(row.output_json or '{}')
+        except json.JSONDecodeError:
+            output_json = {}
+        llm_audit = _summarize_llm_audit(output_json)
+        calls = llm_audit.get('calls') if isinstance(llm_audit.get('calls'), list) else []
+        llm_failure_count = 0
+        quality_issue_count = 0
+        contract_issue_count = 0
+        quality_reasons = []
+        for call in calls:
+            if not isinstance(call, dict):
+                continue
+            status = str(call.get('status') or '').strip().lower()
+            if status and status != 'ok':
+                llm_failure_count += 1
+            if call.get('quality_valid') is False:
+                quality_issue_count += 1
+            if call.get('contract_valid') is False:
+                contract_issue_count += 1
+            reason = str(call.get('quality_reason') or '').strip()
+            if reason:
+                quality_reasons.append(reason)
+        duration_ms = _pressure_duration_ms(output_json, llm_audit)
+        normalized.append(
+            {
+                'id': row.id,
+                'action': row.action,
+                'action_label': SYSTEM_PRESSURE_ACTION_LABELS.get(row.action, row.action),
+                'project_id': row.project_id,
+                'user_phone': str(row.user_phone or '').strip(),
+                'created_at': row.created_at,
+                'created_at_iso': row.created_at.isoformat() if row.created_at else None,
+                'duration_ms': duration_ms,
+                'llm_calls': int(llm_audit.get('llm_calls') or 0),
+                'llm_failure_count': llm_failure_count,
+                'quality_issue_count': quality_issue_count,
+                'contract_issue_count': contract_issue_count,
+                'quality_reasons': quality_reasons,
+                'models': llm_audit.get('models') or [],
+            }
+        )
+
+    m10_entries = [item for item in normalized if item.get('created_at') and item['created_at'] >= now - timedelta(minutes=10)]
+    h1_entries = [item for item in normalized if item.get('created_at') and item['created_at'] >= now - timedelta(hours=1)]
+    h24_entries = list(normalized)
+
+    windows = {
+        'm10': _build_system_pressure_window(m10_entries),
+        'h1': _build_system_pressure_window(h1_entries),
+        'h24': _build_system_pressure_window(h24_entries),
+    }
+    guidance = _build_system_pressure_guidance(windows['m10'], windows['h1'], windows['h24'])
+
+    action_breakdown = []
+    for action in SYSTEM_PRESSURE_ACTIONS:
+        items = [item for item in h24_entries if item.get('action') == action]
+        if not items:
+            continue
+        stats = _build_system_pressure_window(items)
+        action_breakdown.append(
+            {
+                'action': action,
+                'action_label': SYSTEM_PRESSURE_ACTION_LABELS.get(action, action),
+                **stats,
+            }
+        )
+    action_breakdown.sort(
+        key=lambda item: (
+            int(item.get('request_count') or 0),
+            int(item.get('peak_concurrency_est') or 0),
+            int(item.get('p95_elapsed_ms') or 0),
+        ),
+        reverse=True,
+    )
+
+    quality_reason_counts: dict[str, int] = {}
+    for item in h24_entries:
+        for reason in item.get('quality_reasons') or []:
+            key = str(reason or '').strip()
+            if not key:
+                continue
+            quality_reason_counts[key] = quality_reason_counts.get(key, 0) + 1
+    top_quality_reasons = [
+        {'reason': reason, 'count': count}
+        for reason, count in sorted(quality_reason_counts.items(), key=lambda x: x[1], reverse=True)[:8]
+    ]
+
+    top_slowest = []
+    for item in sorted(
+        [entry for entry in h24_entries if isinstance(entry.get('duration_ms'), int)],
+        key=lambda x: int(x.get('duration_ms') or 0),
+        reverse=True,
+    )[:8]:
+        top_slowest.append(
+            {
+                'action': item.get('action'),
+                'action_label': item.get('action_label'),
+                'project_id': item.get('project_id'),
+                'user_phone': item.get('user_phone'),
+                'created_at': item.get('created_at_iso'),
+                'duration_ms': item.get('duration_ms'),
+                'llm_calls': item.get('llm_calls'),
+                'models': item.get('models') or [],
+            }
+        )
+
+    recent_issues = []
+    for item in h24_entries:
+        if not (item.get('llm_failure_count') or item.get('quality_issue_count') or item.get('contract_issue_count')):
+            continue
+        reasons = []
+        if item.get('llm_failure_count'):
+            reasons.append(f"LLM 非 ok {int(item.get('llm_failure_count') or 0)} 次")
+        if item.get('quality_issue_count'):
+            reasons.append(f"质量异常 {int(item.get('quality_issue_count') or 0)} 次")
+        if item.get('contract_issue_count'):
+            reasons.append(f"结构契约异常 {int(item.get('contract_issue_count') or 0)} 次")
+        if item.get('quality_reasons'):
+            reasons.append('原因：' + ' / '.join(item.get('quality_reasons')[:2]))
+        recent_issues.append(
+            {
+                'action': item.get('action'),
+                'action_label': item.get('action_label'),
+                'project_id': item.get('project_id'),
+                'user_phone': item.get('user_phone'),
+                'created_at': item.get('created_at_iso'),
+                'duration_ms': item.get('duration_ms'),
+                'issue_summary': '；'.join(reasons),
+            }
+        )
+        if len(recent_issues) >= 8:
+            break
+
+    return jsonify(
+        {
+            'ok': True,
+            'generated_at': now.isoformat(),
+            'source': {
+                'lookback_hours': 24,
+                'heavy_actions': list(SYSTEM_PRESSURE_ACTIONS),
+                'log_count': len(h24_entries),
+            },
+            'windows': windows,
+            'queue_guidance': guidance,
+            'action_breakdown': action_breakdown,
+            'top_quality_reasons': top_quality_reasons,
+            'top_slowest': top_slowest,
+            'recent_issues': recent_issues,
+        }
+    )
+
+
 @app.get(f'{settings.api_prefix}/ops/project/<int:project_id>/flow-bundle')
 @_require_admin
 def ops_project_flow_bundle(project_id: int):
@@ -7696,7 +8456,12 @@ def download_sfx_file():
             resp={'ok': True},
             file_refs=[str(abs_p)],
         )
-        resp = send_file(abs_p, as_attachment=True, download_name=abs_p.name)
+        download_name = _build_user_visible_sfx_download_name(
+            abs_path=abs_p,
+            display_name=display_name or label or abs_p.stem,
+            adopted_submission=adopted_submission,
+        )
+        resp = send_file(abs_p, as_attachment=True, download_name=download_name)
         resp = _attach_quota_headers(resp, _user_quota_snapshot(db, db_user))
         return resp
 

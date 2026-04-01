@@ -150,6 +150,101 @@
       .supp-debug { min-height: 100px; max-height: 220px; }
       .graph-detail { border:1px solid var(--line); border-radius:12px; padding:12px; background:#0a1830; margin-top:10px; }
       .graph-detail h4 { margin:0 0 10px; font-size:15px; }
+      .graph-manage-shell {
+        position: relative;
+        min-height: 140px;
+      }
+      .graph-manage-overlay {
+        position: absolute;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 14px;
+        border-radius: 12px;
+        background: rgba(5, 12, 24, 0.76);
+        backdrop-filter: blur(3px);
+        z-index: 4;
+      }
+      .graph-manage-overlay.active {
+        display: flex;
+      }
+      .graph-manage-overlay-card {
+        width: min(520px, 100%);
+        border: 1px solid rgba(30, 200, 255, 0.35);
+        border-radius: 14px;
+        padding: 16px 18px;
+        background: linear-gradient(180deg, rgba(10, 24, 48, 0.96), rgba(8, 19, 37, 0.96));
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+      }
+      .graph-manage-overlay-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+      .graph-manage-spinner {
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        border: 2px solid rgba(158, 181, 216, 0.32);
+        border-top-color: var(--accent);
+        animation: graphManageSpin .78s linear infinite;
+        flex: 0 0 auto;
+      }
+      .graph-manage-overlay-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--ink);
+      }
+      .graph-manage-overlay-copy {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.7;
+      }
+      .flow-overlay {
+        position: absolute;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 14px;
+        border-radius: 12px;
+        background: rgba(5, 12, 24, 0.76);
+        backdrop-filter: blur(3px);
+        z-index: 4;
+      }
+      .flow-overlay.active {
+        display: flex;
+      }
+      .flow-overlay-card {
+        width: min(520px, 100%);
+        border: 1px solid rgba(30, 200, 255, 0.35);
+        border-radius: 14px;
+        padding: 16px 18px;
+        background: linear-gradient(180deg, rgba(10, 24, 48, 0.96), rgba(8, 19, 37, 0.96));
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+      }
+      .flow-overlay-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+      .flow-overlay-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--ink);
+      }
+      .flow-overlay-copy {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.7;
+      }
+      @keyframes graphManageSpin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
       .graph-two-col { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:10px; }
       .view-switch { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
       .view-chip { width:auto; display:inline-block; padding:6px 12px; font-size:12px; border-radius:999px; cursor:pointer; background:#0b1730; color:var(--ink); border:1px solid var(--line); }
@@ -287,7 +382,7 @@
         left: 50%;
         top: calc(100% + 10px);
         transform: translateX(-50%);
-        width: min(420px, 78vw);
+        width: min(280px, calc(100vw - 56px));
         padding: 12px 14px;
         border-radius: 14px;
         border: 1px solid rgba(84, 130, 193, 0.42);
@@ -438,6 +533,109 @@
         border-color:#2d4f80;
         background:#0c1c34;
         color:#d9ecff;
+      }
+      .archive-pressure-grid {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+        gap: 14px;
+        align-items: start;
+      }
+      .system-pressure-grid {
+        display:grid;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap:10px;
+        margin-top:10px;
+      }
+      .system-pressure-stat {
+        border:1px solid var(--line);
+        border-radius:12px;
+        padding:10px 12px;
+        background:linear-gradient(180deg, rgba(13,28,49,.96), rgba(9,19,37,.98));
+      }
+      .system-pressure-stat .k {
+        color:var(--muted);
+        font-size:11px;
+        margin-bottom:6px;
+      }
+      .system-pressure-stat .v {
+        font-size:20px;
+        font-weight:700;
+      }
+      .system-pressure-card {
+        border:1px solid var(--line);
+        border-radius:12px;
+        padding:12px;
+        background:linear-gradient(180deg, rgba(13,28,49,.96), rgba(9,19,37,.98));
+      }
+      .system-pressure-card h4 {
+        margin:0 0 8px;
+        font-size:13px;
+        color:var(--muted);
+      }
+      .system-pressure-list {
+        display:flex;
+        flex-direction:column;
+        gap:8px;
+      }
+      .system-pressure-item {
+        border:1px solid rgba(34,64,109,.7);
+        border-radius:10px;
+        padding:10px;
+        background:#0c1c34;
+      }
+      .system-pressure-item-head {
+        display:flex;
+        justify-content:space-between;
+        gap:8px;
+        flex-wrap:wrap;
+      }
+      .system-pressure-item-title {
+        font-weight:700;
+        font-size:13px;
+      }
+      .system-pressure-item-meta {
+        color:var(--muted);
+        font-size:11px;
+        line-height:1.6;
+      }
+      .system-pressure-chip-row {
+        display:flex;
+        gap:6px;
+        flex-wrap:wrap;
+        margin-top:8px;
+      }
+      .system-pressure-chip {
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        padding:4px 10px;
+        border:1px solid var(--line);
+        border-radius:999px;
+        background:#10203c;
+        font-size:12px;
+        color:var(--ink);
+      }
+      .system-pressure-chip.level-high {
+        border-color:#ab6248;
+        background:#2a1711;
+        color:#ffd9c8;
+      }
+      .system-pressure-chip.level-mid {
+        border-color:#93814a;
+        background:#251e0d;
+        color:#fff0be;
+      }
+      .system-pressure-chip.level-low {
+        border-color:#3c8d6c;
+        background:#11251d;
+        color:#dfffee;
+      }
+      .system-pressure-dual {
+        display:grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap:12px;
+        margin-top:12px;
       }
       .field-disabled-note {
         color:var(--muted);
@@ -785,6 +983,10 @@
       @media (max-width: 980px) {
         .graph-stage { grid-template-columns: 1fr; }
       }
+      @media (max-width: 980px) {
+        .archive-pressure-grid,
+        .system-pressure-dual { grid-template-columns: 1fr; }
+      }
       @media (max-width: 900px) { .graph-two-col { grid-template-columns:1fr; } }
       @media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } }
       @media (max-width: 1200px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -814,14 +1016,14 @@
           <span class="tag" id="loginState">未登录</span>
         </div>
         <div id="adminQuickNav" class="quick-nav">
-          <button onclick="scrollToAdminSection('graphMaintenanceSection')">结构维护：元数据与赛道分配</button>
+          <button onclick="scrollToAdminSection('actionSupplementSection')">结构维护：元数据与赛道分配</button>
           <button onclick="scrollToAdminSection('actionSupplementSection')">动作补充单运营</button>
           <button onclick="scrollToAdminSection('userSfxReviewSection')">用户音效投稿审核</button>
           <button onclick="scrollToAdminSection('opsAuditSection')">运营行为审计</button>
           <button onclick="scrollToAdminSection('userBetaManageSection')">用户与测试期管理</button>
         </div>
         <div id="adminAuthHint" class="muted" style="margin-top:8px;">当前为测试登录模式，发送验证码后会在本地直接返回验证码。</div>
-        <pre id="adminAuthOut" style="margin-top:10px;">等待登录操作...</pre>
+        <pre id="adminAuthOut" style="margin-top:10px; display:none;"></pre>
       </section>
 
       <section id="adminRuntimeErrorBanner" class="card" style="display:none; margin-bottom:14px; border-color:#8d3434; background:linear-gradient(180deg, rgba(141,52,52,.18), rgba(34,13,13,.22));">
@@ -846,12 +1048,23 @@
 
       <section class="grid">
         <div class="card">
-          <h3>分词增强预览</h3>
+          <h3>用户音效投稿审核</h3>
           <div class="row">
-            <div class="cell"><input id="tokenizeText" value="躲闪不及，飞身后撤，衣料摩擦声骤起" placeholder="输入一个词或一句文本" /></div>
-            <div class="cell"><button onclick="previewTokenize()">预览分词</button></div>
+            <div class="cell">
+              <select id="sfxSubmissionStatus">
+                <option value="active" selected>未驳回</option>
+                <option value="pending">待审核</option>
+                <option value="approved">已通过</option>
+                <option value="rejected">已驳回</option>
+              </select>
+            </div>
+            <div class="cell"><input id="sfxSubmissionQuery" placeholder="手机号 / 动作词 / 展示词" /></div>
+            <div class="cell"><button onclick="loadUserSfxSubmissions()">加载投稿</button></div>
           </div>
-          <pre id="tokenizeOut">等待查询...</pre>
+          <div class="muted-sm note-prefix" style="margin-top:8px;">审核通过后，系统会给投稿用户永久增加 3 次音效下载次数；驳回则删除这条投稿文件，不影响用户端继续使用。</div>
+          <div id="userSfxSubmissionsOut" class="muted-sm" style="margin-top:8px;"></div>
+          <div id="userSfxSubmissionsView" style="margin-top:10px;" class="muted">等待加载音效投稿...</div>
+          <div id="userSfxSubmissionsPager" class="row" style="margin-top:8px;"></div>
         </div>
 
         <div class="card">
@@ -861,7 +1074,7 @@
           <div id="graphSeedActions" style="margin-top:8px;"></div>
         </div>
 
-        <div id="graphMaintenanceSection" class="card wide">
+        <div id="graphMaintenanceSection" class="card wide" style="display:none;">
           <h3>节点工作台</h3>
           <div class="muted" style="margin-top:8px;">
             这里先做“找节点、看当前业务状态、决定下一步操作”。建议先按赛道和状态筛选，再进入节点详情判断是去补充、去通知，还是去图谱维护。
@@ -1001,14 +1214,19 @@
           </div>
           <div id="graphInheritanceDashboard" style="margin-top:10px;"></div>
           <div id="graphManagePickerHint" class="muted-sm note-prefix" style="margin-top:6px;">正在加载维护目录...</div>
-          <details style="margin-top:8px;">
-            <summary class="muted-sm" style="cursor:pointer;">高级入口：直接输入节点Key</summary>
-            <div class="row" style="margin-top:8px;">
-              <div class="cell"><input id="graphManageNodeKey" value="" placeholder="节点Key，如 玄幻::躲闪" /></div>
-              <div class="cell"><button onclick="loadGraphMaintenance(document.getElementById('graphManageNodeKey').value)">按节点Key加载</button></div>
+          <input id="graphManageNodeKey" type="hidden" value="" />
+          <div id="graphManageShell" class="graph-manage-shell" style="margin-top:10px;">
+            <div id="graphManageBox"></div>
+            <div id="graphManageLoadingOverlay" class="graph-manage-overlay" aria-hidden="true">
+              <div class="graph-manage-overlay-card">
+                <div class="graph-manage-overlay-head">
+                  <span class="graph-manage-spinner"></span>
+                  <span class="graph-manage-overlay-title">正在加载维护节点</span>
+                </div>
+                <div id="graphManageLoadingText" class="graph-manage-overlay-copy">正在同步当前节点数据，请稍候。</div>
+              </div>
             </div>
-          </details>
-          <div id="graphManageBox" style="margin-top:10px;"></div>
+          </div>
           <details style="margin-top:10px;">
             <summary style="cursor:pointer; color:#9eb5d8;">查看维护操作 JSON</summary>
             <pre id="graphManageOut">等待加载...</pre>
@@ -1044,7 +1262,18 @@
           </div>
         <div id="fallbackMonitorSummary" class="muted-sm note-prefix" style="margin-top:8px;">等待加载保底生成监控数据...</div>
         <div id="fallbackMonitorRules" style="margin-top:10px;"></div>
-        <div id="fallbackMonitorView" style="margin-top:10px;"></div>
+        <div id="fallbackMonitorShell" class="graph-manage-shell" style="margin-top:10px;">
+          <div id="fallbackMonitorView"></div>
+          <div id="fallbackMonitorLoadingOverlay" class="flow-overlay" aria-hidden="true">
+            <div class="flow-overlay-card">
+              <div class="flow-overlay-head">
+                <span class="graph-manage-spinner"></span>
+                <span class="flow-overlay-title">正在同步问题词替代与维护节点</span>
+              </div>
+              <div id="fallbackMonitorLoadingText" class="flow-overlay-copy">正在处理当前问题词，请稍候。</div>
+            </div>
+          </div>
+        </div>
         <details style="margin-top:10px;">
           <summary style="cursor:pointer; color:#9eb5d8;">查看保底监控原始 JSON</summary>
           <pre id="fallbackMonitorOut">等待加载...</pre>
@@ -1184,23 +1413,14 @@
               <div id="rechargeOrdersView" style="margin-top:10px;" class="muted">等待加载充值订单...</div>
             </div>
             <div class="card">
-              <h3>用户音效投稿审核</h3>
+              <h3>分词增强预览</h3>
               <div class="row">
-                <div class="cell">
-                  <select id="sfxSubmissionStatus">
-                    <option value="active" selected>未驳回</option>
-                    <option value="pending">待审核</option>
-                    <option value="approved">已通过</option>
-                    <option value="rejected">已驳回</option>
-                  </select>
+                <div class="cell" style="flex:1 1 100%;">
+                  <textarea id="tokenizeText" rows="4" style="min-height:112px; resize:vertical;" placeholder="输入一段真实文本，建议以句号结尾，便于预览分词命中与运营判断。">躲闪不及，飞身后撤，衣料摩擦声骤起。</textarea>
                 </div>
-                <div class="cell"><input id="sfxSubmissionQuery" placeholder="手机号 / 动作词 / 展示词" /></div>
-                <div class="cell"><button onclick="loadUserSfxSubmissions()">加载投稿</button></div>
+                <div class="cell"><button onclick="previewTokenize()">预览分词</button></div>
               </div>
-              <div class="muted-sm note-prefix" style="margin-top:8px;">审核通过后，系统会给投稿用户永久增加 3 次音效下载次数；驳回则删除这条投稿文件，不影响用户端继续使用。</div>
-              <div id="userSfxSubmissionsOut" class="muted-sm" style="margin-top:8px;"></div>
-              <div id="userSfxSubmissionsView" style="margin-top:10px;" class="muted">等待加载音效投稿...</div>
-              <div id="userSfxSubmissionsPager" class="row" style="margin-top:8px;"></div>
+              <pre id="tokenizeOut">等待查询...</pre>
             </div>
           </div>
         </div>
@@ -1209,7 +1429,7 @@
           <h3>用户与测试期管理</h3>
           <div class="row" style="margin-bottom:10px;">
             <div class="cell">
-              <button onclick="loadBetaAccess()">查看测试期开关</button>
+              <button onclick="loadBetaAccess(true)">查看测试期开关</button>
             </div>
             <div class="cell">
               <select id="betaInviteOnly">
@@ -1227,7 +1447,11 @@
           <div class="row">
             <div class="cell"><input id="uPhone" placeholder="用户手机号" /></div>
             <div class="cell"><input id="uUid" placeholder="UID（可选）" /></div>
+            <div class="cell"><button onclick="queryUserInfo()">查询用户</button></div>
+          </div>
+          <div class="row" style="margin-top:8px;">
             <div class="cell">
+              <label class="muted" style="display:block; margin-bottom:4px;">赋予角色</label>
               <select id="uRole">
                 <option value="33">33 普通用户</option>
                 <option value="22">22 种子用户</option>
@@ -1236,26 +1460,31 @@
               </select>
             </div>
             <div class="cell">
+              <label class="muted" style="display:block; margin-bottom:4px;">前台展示等级</label>
               <select id="uTier">
                 <option value="22">22 种子用户</option>
                 <option value="33">33 普通用户</option>
               </select>
             </div>
             <div class="cell">
+              <label class="muted" style="display:block; margin-bottom:4px;">使用权限</label>
               <select id="uAuth">
                 <option value="1">授权用户（不限次）</option>
                 <option value="0">未授权用户（日限3次）</option>
               </select>
             </div>
             <div class="cell">
-              <select id="uAdmin">
-                <option value="0">普通用户</option>
-                <option value="1">管理员</option>
-              </select>
+              <label class="muted" style="display:block; margin-bottom:4px;">每日文本字符额度</label>
+              <input id="uTextCharLimit" value="5000" placeholder="每日文本字符额度" />
             </div>
-            <div class="cell"><input id="uTextCharLimit" value="5000" placeholder="每日文本字符额度" /></div>
-            <div class="cell"><input id="uSfxDownloadLimit" value="100" placeholder="每日音效下载额度" /></div>
-            <div class="cell"><input id="uLimit" value="3" /></div>
+            <div class="cell">
+              <label class="muted" style="display:block; margin-bottom:4px;">每日音效下载额度</label>
+              <input id="uSfxDownloadLimit" value="100" placeholder="每日音效下载额度" />
+            </div>
+            <div class="cell">
+              <label class="muted" style="display:block; margin-bottom:4px;">日限次数</label>
+              <input id="uLimit" value="3" />
+            </div>
             <div class="cell"><button onclick="applyTierQuotaPreset()">按级别回填默认额度</button></div>
             <div class="cell"><button onclick="saveUser()">保存用户策略</button></div>
           </div>
@@ -1269,6 +1498,10 @@
             <div class="cell"><button onclick="loadUsers()">刷新用户列表</button></div>
           </div>
           <div class="ops-section" style="margin-top:12px;">
+            <h4 style="margin-bottom:8px;">查询用户信息</h4>
+            <div id="userLookupOut" class="muted">请先输入手机号，必要时再补 UID，然后点击“查询用户”。</div>
+          </div>
+          <div class="ops-section" style="margin-top:12px;">
             <h4 style="margin-bottom:8px;">推荐奖励设置</h4>
             <div class="row">
               <div class="cell"><input id="refRewardSfx" value="15" placeholder="每成功推荐 1 人奖励音效下载次数" /></div>
@@ -1277,7 +1510,6 @@
               <div class="cell"><button onclick="saveReferralRewardSettings()">保存奖励配置</button></div>
             </div>
             <div id="referralRewardHint" class="muted" style="margin-top:8px;">等待加载推荐奖励配置...</div>
-            <pre id="referralRewardOut">等待加载推荐奖励配置...</pre>
           </div>
           <div class="ops-section" style="margin-top:12px;">
             <h4 style="margin-bottom:8px;">前端安全设置</h4>
@@ -1298,19 +1530,18 @@
               <div class="cell"><button onclick="saveFrontendSecurity()">保存前端安全设置</button></div>
             </div>
             <div id="frontendSecurityHint" class="muted" style="margin-top:8px;">等待读取前端安全配置...</div>
-            <pre id="frontendSecurityOut">等待加载前端安全配置...</pre>
           </div>
-          <pre id="betaAccessOut">等待加载测试期开关...</pre>
-          <pre id="inviteCodesOut">等待加载邀请码池...</pre>
-          <pre id="usageResetOut">等待重置操作...</pre>
+          <details id="userManageActionPanel" class="ops-section" style="margin-top:12px; display:none;">
+            <summary style="cursor:pointer;">用户与测试期管理操作结果</summary>
+            <div id="userManageActionTitle" class="muted" style="margin-top:8px;">等待操作...</div>
+            <pre id="userManageActionOut">等待操作...</pre>
+          </details>
           <div class="ops-section" style="margin-top:12px;">
             <h4 style="margin-bottom:8px;">用户增长统计</h4>
             <div id="usersGrowthChartOut" class="muted">等待加载用户增长统计...</div>
           </div>
-          <div id="usersSummaryOut" class="muted" style="margin:8px 0;">等待加载用户额度概览...</div>
           <div id="usersPaginationOut" class="row" style="margin:8px 0;"></div>
           <div id="usersTableOut" style="margin:8px 0;"></div>
-          <pre id="usersOut">等待加载...</pre>
         </div>
 
         <div id="opsAuditSection" class="card">
@@ -1349,16 +1580,36 @@
           <pre id="bundleOut">等待加载...</pre>
         </div>
 
-        <div class="card">
-          <h3>文件下载（本地归档）</h3>
-          <div class="muted-sm note-prefix" style="margin-bottom:8px;">作为内部文件取回工具暂存保留，后续等核心功能全部稳定后再继续优化。</div>
-          <div class="row">
-            <div class="cell"><textarea id="filePath" rows="4" placeholder="填入flow-bundle返回的绝对路径"></textarea></div>
+        <div class="archive-pressure-grid">
+          <div class="card">
+            <h3>文件下载（本地归档）</h3>
+            <div class="muted-sm note-prefix" style="margin-bottom:8px;">作为内部文件取回工具暂存保留，后续等核心功能全部稳定后再继续优化。</div>
+            <div class="row">
+              <div class="cell"><textarea id="filePath" rows="4" placeholder="填入flow-bundle返回的绝对路径"></textarea></div>
+            </div>
+            <div class="row">
+              <div class="cell"><button onclick="downloadFile()">下载文件</button></div>
+            </div>
+            <pre id="fileOut">等待下载...</pre>
           </div>
-          <div class="row">
-            <div class="cell"><button onclick="downloadFile()">下载文件</button></div>
+
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start; flex-wrap:wrap;">
+              <div>
+                <h3 style="margin-bottom:6px;">系统请求压力区</h3>
+                <div class="muted-sm note-prefix">这块只看真实重请求链路，目标是帮助运营和开发判断是否需要启用队列、并发该开多大，以及哪类链路最该先治理。</div>
+              </div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="ghost-btn" onclick="loadSystemPressure()">刷新压力区</button>
+              </div>
+            </div>
+            <div id="systemPressureSummary" class="ops-audit-note" style="margin-top:10px;">等待加载系统请求压力...</div>
+            <div id="systemPressureView">请先登录后台并刷新压力区。</div>
+            <details style="margin-top:10px;">
+              <summary style="cursor:pointer; color:#9eb5d8;">查看原始 JSON</summary>
+              <pre id="systemPressureOut">等待加载...</pre>
+            </details>
           </div>
-          <pre id="fileOut">等待下载...</pre>
         </div>
       </section>
     </div>
@@ -1374,8 +1625,11 @@
       let supplementMaintenanceRedirectState = {};
       let graphMaintenanceState = null;
       let graphMaintenanceCatalogState = { genres: [], selectedGenreKey: '', selectedNodeKey: '', verbQuery: '' };
+      let graphMaintenanceLoadState = { requestSeq: 0, activeSeq: 0, loading: false, pendingNodeKey: '', pendingReason: '' };
+      let fallbackResolutionFlowState = { busy: false, idx: -1, mode: '', text: '' };
       let inheritanceDashboardState = { blocked_pool: { items: [], count: 0 }, review_pool: { items: [], count: 0, days: 30 } };
-      const INHERITANCE_BLOCKED_PAGE_SIZE = 5;
+      const INHERITANCE_BLOCKED_PAGE_SIZE = 3;
+      const INHERITANCE_REVIEW_PAGE_SIZE = 5;
       let inheritanceBlockedPageState = {
         currentPage: 1,
         totalPages: 1,
@@ -1421,7 +1675,16 @@
       function setAdminAuthStatus(message, level = 'info') {
         const box = document.getElementById('adminAuthOut');
         if (!box) return;
-        const text = String(message || '').trim() || '等待登录操作...';
+        const text = String(message || '').trim();
+        if (!text) {
+          box.textContent = '';
+          box.style.display = 'none';
+          box.style.padding = '';
+          box.style.border = '';
+          box.style.background = '';
+          box.style.color = '';
+          return;
+        }
         const styles = {
           info: { color: '#d9e7ff', bg: 'rgba(47,88,154,.14)', border: '#315f9f' },
           success: { color: '#d6ffe8', bg: 'rgba(28,112,66,.18)', border: '#2d8b59' },
@@ -1429,6 +1692,7 @@
           warning: { color: '#ffe8b8', bg: 'rgba(128,94,19,.18)', border: '#8c6b21' },
         };
         const tone = styles[level] || styles.info;
+        box.style.display = 'block';
         box.textContent = text;
         box.style.color = tone.color;
         box.style.background = tone.bg;
@@ -1488,6 +1752,17 @@
           return;
         }
         node.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      }
+
+      function showUserManageAction(title, data, expand = true) {
+        const panel = document.getElementById('userManageActionPanel');
+        const titleNode = document.getElementById('userManageActionTitle');
+        const out = document.getElementById('userManageActionOut');
+        if (!panel || !titleNode || !out) return;
+        panel.style.display = 'block';
+        titleNode.textContent = title || '用户与测试期管理操作结果';
+        out.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+        panel.open = !!expand;
       }
 
       window.addEventListener('error', (event) => {
@@ -1622,6 +1897,19 @@
           'action_sfx_asset_download': '下载单个音效',
           'scene_sfx_asset_download': '下载场景音效',
           'export_download': '导出下载',
+          'user_sfx_submission': '提交更优音效',
+          'admin_review_sfx_submission': '用户音效投稿审核',
+          'admin_adjust_sfx_submission_download_count': '调整投稿音效下载次数',
+          'admin_review_creator_showcase': '作品审核',
+          'admin_review_recharge_order': '充值订单审核',
+          'admin_update_user': '更新用户与测试期策略',
+          'admin_reset_daily_usage': '重置用户当日用量',
+          'admin_update_referral_reward_settings': '更新推荐奖励设置',
+          'admin_update_recommendation_threshold': '更新推荐阈值',
+          'admin_update_beta_access': '更新测试期开关',
+          'admin_update_frontend_security': '更新前端安全设置',
+          'admin_generate_invite_codes': '生成邀请码',
+          'admin_refresh_invite_codes': '查看邀请码池',
         })[key] || key || '未标注动作';
       }
 
@@ -1640,15 +1928,13 @@
 
       function renderUsersTable(data) {
         const box = document.getElementById('usersTableOut');
-        const summary = document.getElementById('usersSummaryOut');
         const pager = document.getElementById('usersPaginationOut');
         const growthBox = document.getElementById('usersGrowthChartOut');
-        if (!box || !summary || !pager) return;
+        if (!box || !pager) return;
         const items = Array.isArray(data && data.items) ? data.items : [];
         const ymd = String((data && data.ymd) || '').trim() || '今日';
         renderUserGrowthChart((data && data.growth_chart) || {});
         if (!items.length) {
-          summary.textContent = `${ymd} 暂无用户数据。`;
           pager.innerHTML = '';
           box.innerHTML = '<div class="muted">当前没有可展示的用户额度数据。</div>';
           return;
@@ -1659,8 +1945,63 @@
         usersPageState.currentPage = Math.min(usersPageState.currentPage, usersPageState.totalPages);
         const totalTextUsed = items.reduce((sum, item) => sum + Number((((item || {}).quota || {}).text_chars_used) || 0), 0);
         const totalSfxUsed = items.reduce((sum, item) => sum + Number((((item || {}).quota || {}).sfx_download_used) || 0), 0);
-        summary.textContent = `${ymd} 共 ${items.length} 个用户，文本已用 ${totalTextUsed} 字，音效下载已用 ${totalSfxUsed} 次。下方按每页 6 个用户分页展示。`;
         renderUsersPage();
+      }
+
+      function renderUserLookup(data) {
+        const box = document.getElementById('userLookupOut');
+        if (!box) return;
+        const items = Array.isArray(data && data.items) ? data.items : [];
+        if (!items.length) {
+          box.innerHTML = '<div class="muted">当前没有命中用户。建议先输入手机号查询，UID 作为辅助条件使用。</div>';
+          return;
+        }
+        const item = items[0] || {};
+        const quota = (item && item.quota) || {};
+        const roleText = ({
+          '00': '超级管理员',
+          '11': '管理员',
+          '22': '种子用户',
+          '33': '普通用户',
+        })[String(item.ops_role_code || '').trim()] || '普通用户';
+        const tierText = String(item.user_tier_code || '') === '22' ? '种子用户' : '普通用户';
+        const authText = item.is_authorized ? '授权用户（不限次）' : '未授权用户（日限控制）';
+        box.innerHTML = `
+          <div class="panel" style="margin-bottom:0; background:linear-gradient(180deg, rgba(14,27,51,0.96), rgba(10,18,34,0.96)); border-color:#27476e;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+              <div>
+                <div style="font-size:16px; font-weight:700; color:#eaf3ff;">${escHtml(item.phone || '-')}</div>
+                <div class="muted-sm" style="margin-top:4px;">UID：${escHtml(item.uid || '未填写')} ｜ 角色：${escHtml(roleText)} ｜ 前台等级：${escHtml(tierText)}</div>
+              </div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <span class="ghost-btn" style="opacity:.85; pointer-events:none;">${escHtml(authText)}</span>
+                <span class="ghost-btn" style="opacity:.85; pointer-events:none;">${item.is_admin ? '管理员身份' : '普通身份'}</span>
+              </div>
+            </div>
+            <div class="ops-kv-list" style="margin-top:12px;">
+              <div class="k">文本额度</div><div>${escHtml(quota.text_chars_used || 0)} / ${escHtml(quota.text_chars_limit || 0)}</div>
+              <div class="k">音效下载额度</div><div>${escHtml(quota.sfx_download_used || 0)} / ${escHtml(quota.sfx_download_limit || 0)}</div>
+              <div class="k">邀请码激活</div><div>${item.invite_activated ? '已激活' : '未激活'}</div>
+              <div class="k">使用邀请码</div><div>${escHtml(item.invite_code_used || '无')}</div>
+              <div class="k">推荐人 UID</div><div>${escHtml(item.referred_by_uid || '无')}</div>
+              <div class="k">邀请用户数</div><div>${escHtml(item.referral_user_count || 0)}</div>
+              <div class="k">创建时间</div><div>${escHtml(String(item.created_at || '').replace('T', ' ').slice(0, 19) || '-')}</div>
+              <div class="k">更新时间</div><div>${escHtml(String(item.updated_at || '').replace('T', ' ').slice(0, 19) || '-')}</div>
+            </div>
+          </div>
+        `;
+        const roleSel = document.getElementById('uRole');
+        const tierSel = document.getElementById('uTier');
+        const authSel = document.getElementById('uAuth');
+        const textLimit = document.getElementById('uTextCharLimit');
+        const sfxLimit = document.getElementById('uSfxDownloadLimit');
+        const dailyLimit = document.getElementById('uLimit');
+        if (roleSel) roleSel.value = String(item.ops_role_code || '33').trim() || '33';
+        if (tierSel) tierSel.value = String(item.user_tier_code || '33').trim() || '33';
+        if (authSel) authSel.value = item.is_authorized ? '1' : '0';
+        if (textLimit) textLimit.value = String(item.daily_text_char_limit || 0);
+        if (sfxLimit) sfxLimit.value = String(item.daily_sfx_download_limit || 0);
+        if (dailyLimit) dailyLimit.value = String(item.daily_limit || 3);
       }
 
       function renderUserGrowthChart(growthChart) {
@@ -1693,6 +2034,9 @@
             }).join('')}
           </div>
         `;
+        if (fallbackResolutionFlowState.busy) {
+          setFallbackResolutionBusy(true, fallbackResolutionFlowState.text, fallbackResolutionFlowState.idx, fallbackResolutionFlowState.mode);
+        }
       }
 
       function changeUsersPage(delta) {
@@ -1894,7 +2238,8 @@
         }
         await loadCreatorShowcases();
       }
-      async function loadUserSfxSubmissions() {
+      async function loadUserSfxSubmissions(options = {}) {
+        const preservePage = !!(options && options.preservePage);
         const status = (document.getElementById('sfxSubmissionStatus')?.value || '').trim();
         const q = (document.getElementById('sfxSubmissionQuery')?.value || '').trim();
         const qs = new URLSearchParams();
@@ -1912,7 +2257,7 @@
         }
         const items = Array.isArray(data.items) ? data.items : [];
         userSfxSubmissionState.items = items;
-        userSfxSubmissionState.page = 1;
+        if (!preservePage) userSfxSubmissionState.page = 1;
         renderUserSfxSubmissions();
       }
       function renderUserSfxSubmissions() {
@@ -2001,7 +2346,7 @@
           const detail = typeof data === 'string' ? data : (data?.detail || data?.message || '操作失败');
           show('userSfxSubmissionsOut', detail);
         }
-        await loadUserSfxSubmissions();
+        await loadUserSfxSubmissions({ preservePage: true });
       }
       async function updateUserSfxSubmissionDownloadCount(id) {
         const input = document.getElementById(`sfxSubmissionDownloadCount_${id}`);
@@ -2015,7 +2360,7 @@
         const data = await read(res);
         if (res.ok) show('userSfxSubmissionsOut', data.message || '贡献音效下载次数已更新。');
         else show('userSfxSubmissionsOut', typeof data === 'string' ? data : (data?.detail || '更新失败'));
-        await loadUserSfxSubmissions();
+        await loadUserSfxSubmissions({ preservePage: true });
       }
       async function loadCopyrightAdsAdmin() {
         const res = await fetch(`${base()}/admin/copyright-ads`, { headers: h() });
@@ -2141,7 +2486,7 @@
           body: JSON.stringify({ id, decision, note }),
         });
         const data = await read(res);
-        show('usersOut', data);
+        showUserManageAction(showLookup ? '查询用户结果' : '用户列表刷新结果', data, false);
         await loadRechargeOrders();
       }
       function isInheritanceBlocked(genre, verbHead) {
@@ -2179,10 +2524,10 @@
         const blockedPageItems = blockedItems.slice(blockedStart, blockedStart + INHERITANCE_BLOCKED_PAGE_SIZE);
         const blockedPageStart = blockedItems.length ? blockedStart + 1 : 0;
         const blockedPageEnd = blockedItems.length ? blockedStart + blockedPageItems.length : 0;
-        inheritanceReviewPageState.totalPages = Math.max(1, Math.ceil(reviewItems.length / INHERITANCE_BLOCKED_PAGE_SIZE));
+        inheritanceReviewPageState.totalPages = Math.max(1, Math.ceil(reviewItems.length / INHERITANCE_REVIEW_PAGE_SIZE));
         inheritanceReviewPageState.currentPage = Math.min(inheritanceReviewPageState.currentPage, inheritanceReviewPageState.totalPages);
-        const reviewStart = (inheritanceReviewPageState.currentPage - 1) * INHERITANCE_BLOCKED_PAGE_SIZE;
-        const reviewPageItems = reviewItems.slice(reviewStart, reviewStart + INHERITANCE_BLOCKED_PAGE_SIZE);
+        const reviewStart = (inheritanceReviewPageState.currentPage - 1) * INHERITANCE_REVIEW_PAGE_SIZE;
+        const reviewPageItems = reviewItems.slice(reviewStart, reviewStart + INHERITANCE_REVIEW_PAGE_SIZE);
         const reviewPageStart = reviewItems.length ? reviewStart + 1 : 0;
         const reviewPageEnd = reviewItems.length ? reviewStart + reviewPageItems.length : 0;
         const blockedPagerHtml = blockedItems.length > INHERITANCE_BLOCKED_PAGE_SIZE ? `
@@ -2192,7 +2537,7 @@
             <button style="width:auto; min-width:120px;" ${inheritanceBlockedPageState.currentPage >= inheritanceBlockedPageState.totalPages ? 'disabled' : ''} onclick="changeInheritanceBlockedPage(1)">下一页</button>
           </div>
         ` : '';
-        const reviewPagerHtml = reviewItems.length > INHERITANCE_BLOCKED_PAGE_SIZE ? `
+        const reviewPagerHtml = reviewItems.length > INHERITANCE_REVIEW_PAGE_SIZE ? `
           <div class="ops-pager" style="margin-top:8px;">
             <button style="width:auto; min-width:120px;" ${inheritanceReviewPageState.currentPage <= 1 ? 'disabled' : ''} onclick="changeInheritanceReviewPage(-1)">上一页</button>
             <div class="ops-pager-info">第 ${inheritanceReviewPageState.currentPage} / ${inheritanceReviewPageState.totalPages} 页，当前显示 ${reviewPageStart}-${reviewPageEnd} / ${reviewItems.length}</div>
@@ -2227,13 +2572,13 @@
         `).join('') : '<div class="muted-sm note-prefix">当前没有“删除后仍高频命中”的复核项。</div>';
         box.innerHTML = `
           <div class="section-box">
-            <h5>赛道删除池</h5>
+            <h5>通用词停止在赛道引用</h5>
             <div class="muted-sm note-prefix" style="margin-bottom:8px;">当前展示范围：${showAll ? '全部赛道' : escHtml(selectedGenreKey)}</div>
             ${blockedHtml}
             ${blockedPagerHtml}
           </div>
           <div class="section-box" style="margin-top:10px;">
-            <h5>删除后命中复核</h5>
+            <h5>停止引用后命中复核</h5>
             <div class="muted-sm note-prefix" style="margin-bottom:8px;">当前展示范围：${showAll ? '全部赛道' : escHtml(selectedGenreKey)}</div>
             ${reviewHtml}
             ${reviewPagerHtml}
@@ -2322,6 +2667,99 @@
             <span class="pill">${escHtml(term === source ? '原始问题词' : (risk.label === '建议归并' ? '建议替代' : risk.label))}</span>
           </label>`;
         }).join('')}</div>`;
+      }
+      function setFallbackResolutionBusy(busy, text = '', idx = -1, mode = '') {
+        fallbackResolutionFlowState = {
+          busy: !!busy,
+          idx: Number.isFinite(Number(idx)) ? Number(idx) : -1,
+          mode: String(mode || '').trim(),
+          text: String(text || '').trim(),
+        };
+        const overlay = document.getElementById('fallbackMonitorLoadingOverlay');
+        const overlayText = document.getElementById('fallbackMonitorLoadingText');
+        if (overlay) {
+          overlay.classList.toggle('active', !!busy);
+          overlay.setAttribute('aria-hidden', busy ? 'false' : 'true');
+        }
+        if (overlayText) {
+          overlayText.textContent = busy
+            ? (text || '正在处理当前问题词，请稍候。')
+            : '正在处理当前问题词，请稍候。';
+        }
+        document.querySelectorAll('[id^="fallbackSaveBtn_"], [id^="fallbackSaveAndEnterBtn_"], [id^="fallbackIgnoreBtn_"], [id^="fallbackGotoGraphBtn_"]').forEach((node) => {
+          node.disabled = !!busy;
+        });
+      }
+      function buildDraftGraphMaintenancePayload(nodeKey, genre, targetHead) {
+        const head = String(targetHead || '').trim();
+        const genreValue = String(genre || '').trim();
+        const isGenre = !!genreValue;
+        const semanticItems = head ? [{
+          term: head,
+          source: 'suggested',
+          source_label: '问题词替代候选',
+          origin_label: '保存并进入维护节点',
+          from_common: !isGenre,
+          from_genre: isGenre,
+        }] : [];
+        return {
+          ok: true,
+          node_key: String(nodeKey || '').trim(),
+          verb_head: head,
+          genre: genreValue,
+          common_layer: {
+            exists: false,
+            semantic_terms: isGenre ? [] : (head ? [head] : []),
+            direct_sfx_terms: [],
+            composite_sfx_terms: [],
+          },
+          genre_layer: {
+            exists: false,
+            semantic_terms: isGenre && head ? [head] : [],
+            direct_sfx_terms: [],
+            composite_sfx_terms: [],
+          },
+          genre_layer_any_exists: false,
+          genre_layer_any_genres: [],
+          merged: {
+            summary: {
+              semantic_count: semanticItems.length,
+              sfx_count: 0,
+            },
+            semantic_term_items: semanticItems,
+            direct_sfx_term_items: [],
+            composite_sfx_term_items: [],
+            has_fallback_terms: true,
+          },
+          migration_candidates: { semantic_terms: [], sfx_terms: [] },
+          demotion_candidates: { semantic_terms: [], sfx_terms: [] },
+          overlap_candidates: { semantic_terms: [], sfx_terms: [] },
+          draft_from_fallback: true,
+        };
+      }
+      function openDraftGraphMaintenanceFromFallback(nodeKey, genre, targetHead) {
+        const nodeKeyValue = String(nodeKey || '').trim();
+        const genreValue = String(genre || '').trim();
+        const head = String(targetHead || '').trim();
+        if (!nodeKeyValue || !head) return;
+        graphMaintenanceCatalogState.selectedGenreKey = genreValue || 'common';
+        graphMaintenanceCatalogState.selectedNodeKey = nodeKeyValue;
+        graphMaintenanceCatalogState.verbQuery = '';
+        const genreSel = document.getElementById('graphManageGenre');
+        const queryInput = document.getElementById('graphManageVerbQuery');
+        if (genreSel) genreSel.value = genreValue || 'common';
+        if (queryInput) queryInput.value = '';
+        syncGraphManageNodeInput(nodeKeyValue);
+        renderGraphMaintenancePicker(nodeKeyValue);
+        const draftPayload = buildDraftGraphMaintenancePayload(nodeKeyValue, genreValue, head);
+        setGraphMaintenanceUiState({
+          feedbackText: `已将 ${head} 同步到“元数据与赛道分配”。它现在以下拉框中的“未保存”节点显示，你可以继续完成${genreValue ? '赛道特化维护' : '通用元数据维护'}。`,
+          feedbackLevel: 'success',
+          genreSaveFeedbackText: genreValue ? '当前节点尚未保存，请继续完成赛道特化内容。' : '',
+          commonSaveFeedbackText: genreValue ? '' : '当前节点尚未保存，请继续完成通用元数据内容。',
+          newNodeContext: null,
+        });
+        renderGraphMaintenance(draftPayload);
       }
       function captureFallbackMonitorDraftState() {
         const items = Array.isArray(actionFallbackMonitorState?.items) ? actionFallbackMonitorState.items : [];
@@ -2610,6 +3048,7 @@
                         <input id="fallbackSource_${idx}" value="${escHtml(sourceTerm)}" placeholder="原始问题词，如 惊恐道" />
                       </div>
                     </div>
+                    <div class="muted-sm note-prefix" style="margin-top:6px;">默认归属：${escHtml(genre ? `赛道·${genre}` : '通用层')}。这里只优化问题词替代规则的默认归属，不会自动改写正式图谱；后续仍可在候选展示词中继续补入通用元数据或创建赛道动词。</div>
                     ${sourceTerm ? `
                     <div class="mini-action-row" style="margin-top:6px;">
                       <button type="button" class="ghost-btn" onclick="applySuggestedFallbackSource(${idx}, '${escAttr(sourceTerm)}')">使用原始问题词：${escHtml(sourceTerm)}</button>
@@ -2623,9 +3062,20 @@
                     </div>
                     <div id="fallbackFeedback_${idx}" class="fallback-inline-feedback info">保存后，前台下次再命中这个问题词时，系统会优先展示你勾选的替代词，不再把原词直接推荐给用户。</div>
                     <div class="mini-action-row">
-                      <button id="fallbackSaveBtn_${idx}" onclick="applyActionFallbackResolution(${idx})">保存问题词替代设置</button>
-                      <button class="ghost-btn" onclick="ignoreActionFallbackResolution(${idx})">忽略此问题词</button>
-                      <button class="ghost-btn" onclick="openFallbackGraphMaintenance(${idx})">去图谱维护</button>
+                      <span class="title-help-wrap" style="display:inline-flex; align-items:center; gap:6px;">
+                        <button id="fallbackSaveBtn_${idx}" onclick="applyActionFallbackResolution(${idx})">保存问题词替代设置</button>
+                        ${idx === 0 ? `<span class="title-help" tabindex="0">?
+                          <span class="title-help-bubble"><strong>保存问题词替代设置</strong><br>这一步表示：运营已经确认，这个问题词下次再出现时，应该优先替换成哪个展示词；并且这条替代规则要落到明确范围里，比如某个赛道，而不是乱进通用。<br><br>它解决的是：下次用户再触发同类词时，系统不会再把原始怪词、碎词直接给用户，而是先按这条规则替代成更合适的展示词。<br><br>对运营来说，这一步等于：<strong>先把前台结果治理正确</strong>。</span>
+                        </span>` : ''}
+                      </span>
+                      <span class="title-help-wrap" style="display:inline-flex; align-items:center; gap:6px;">
+                        <button id="fallbackSaveAndEnterBtn_${idx}" onclick="applyActionFallbackResolution(${idx}, { enterMaintenance: true })">保存并进入维护节点</button>
+                        ${idx === 0 ? `<span class="title-help" tabindex="0">?
+                          <span class="title-help-bubble"><strong>保存并进入维护节点</strong><br>这一步表示：运营不只想让系统“下次先替代成这个词”，还想继续把这个词建设成正式长期能力。<br><br>保存后会直接进入维护节点，继续在 <strong>通用元数据层</strong> 或 <strong>赛道特化维护区</strong> 里补扩展词、直达音效、整体音效。<br><br>它还兼顾了：这个词最终是保存到<strong>通用元数据</strong>，还是保存到<strong>赛道层</strong> 的区分。</span>
+                        </span>` : ''}
+                      </span>
+                      <button id="fallbackIgnoreBtn_${idx}" class="ghost-btn" onclick="ignoreActionFallbackResolution(${idx})">忽略此问题词</button>
+                      <button id="fallbackGotoGraphBtn_${idx}" class="ghost-btn" onclick="openFallbackGraphMaintenance(${idx})">去图谱维护</button>
                     </div>
                   </div>
                 </div>
@@ -2708,6 +3158,9 @@
         }
       }
       async function openFallbackGraphMaintenance(idx) {
+        if (fallbackResolutionFlowState.busy) {
+          return show('graphManageOut', '当前还有一条问题词替代流程正在同步，请等待当前 loading 完成后再进入图谱维护。');
+        }
         const selected = getSelectedFallbackReplacements(idx);
         const sourceTerm = String(document.getElementById(`fallbackSource_${idx}`)?.value || '').trim();
         const item = (actionFallbackMonitorState?.items || [])[idx] || {};
@@ -2732,11 +3185,16 @@
         });
         show('fallbackMonitorOut', data);
       }
-      async function applyActionFallbackResolution(idx) {
+      async function applyActionFallbackResolution(idx, options = {}) {
+        if (fallbackResolutionFlowState.busy) {
+          return show('fallbackMonitorOut', '当前还有一条问题词替代流程正在同步，请等待当前 loading 完成后再继续。');
+        }
         const item = (actionFallbackMonitorState?.items || [])[idx];
         if (!item) return;
+        const enterMaintenance = !!options?.enterMaintenance;
         const feedback = document.getElementById(`fallbackFeedback_${idx}`);
         const button = document.getElementById(`fallbackSaveBtn_${idx}`);
+        const enterButton = document.getElementById(`fallbackSaveAndEnterBtn_${idx}`);
         const originalSourceTerm = String(item?.source_term || '').trim();
         const editedTerm = String(document.getElementById(`fallbackSource_${idx}`)?.value || originalSourceTerm || '').trim();
         const genre = String(item?.genre || '').trim();
@@ -2786,12 +3244,22 @@
           feedback.textContent = '当前保存的是原始问题词本身。系统会保留这个词作为展示结果，不额外做替代扩展。';
         }
         if (button) {
-          button.disabled = true;
-          button.textContent = '保存中...';
+          button.textContent = enterMaintenance ? '处理中...' : '保存中...';
         }
+        if (enterButton) enterButton.textContent = enterMaintenance ? '同步中...' : '保存并进入维护节点';
+        setFallbackResolutionBusy(
+          true,
+          enterMaintenance
+            ? `正在保存问题词替代设置，并把“${replacementHead || sourceTerm}”同步到“元数据与赛道分配”。同步完成后会自动进入维护节点。`
+            : '正在保存问题词替代设置，请稍候。',
+          idx,
+          enterMaintenance ? 'save-enter' : 'save'
+        );
         if (feedback) {
           feedback.className = 'fallback-inline-feedback info';
-          feedback.textContent = '正在保存问题词替代设置，并同步刷新图谱维护视图...';
+          feedback.textContent = enterMaintenance
+            ? '正在保存问题词替代设置，并同步进入“元数据与赛道分配”的维护节点...'
+            : '正在保存问题词替代设置，并同步刷新图谱维护视图...';
         }
         try {
           const res = await fetch(`${base()}/action-graph/fallback-monitor/resolve`, {
@@ -2802,7 +3270,7 @@
               original_source_term: originalSourceTerm,
               replacement_terms: replacementTerms,
               ignored_terms: ignoredTerms,
-              genre: '',
+              genre,
             }),
           });
           const data = await read(res);
@@ -2815,9 +3283,9 @@
             return;
           }
           if (feedback) {
-            feedback.className = 'fallback-inline-feedback success';
-            feedback.textContent = `保存成功：已将问题词 ${originalSourceTerm || sourceTerm} 按 ${replacementTerms.join('、')} 进行替代展示。下次前台再命中这组问题词时，系统会优先展示这些替代词。`;
-          }
+              feedback.className = 'fallback-inline-feedback success';
+              feedback.textContent = `保存成功：已将问题词 ${originalSourceTerm || sourceTerm} 按 ${genre ? `赛道·${genre}` : '通用层'} 归属保存，并按 ${replacementTerms.join('、')} 进行替代展示。下次前台再命中这组问题词时，系统会优先展示这些替代词。`;
+            }
           if (Array.isArray(actionFallbackMonitorState?.items)) {
             actionFallbackMonitorState.items = actionFallbackMonitorState.items.filter((_, itemIdx) => itemIdx !== idx);
             renderActionFallbackMonitor({
@@ -2829,10 +3297,17 @@
           }
           await loadActionFallbackMonitor();
           await loadActionFallbackAlerts(true);
-          const graphTarget = String(replacementTerms[0] || sourceTerm || '').trim();
-          if (graphTarget) {
-            await loadGraphMaintenanceCatalog(graphTarget);
-            await loadGraphMaintenance(graphTarget);
+          if (enterMaintenance) {
+            const graphTarget = String(replacementTerms[0] || sourceTerm || '').trim();
+            if (graphTarget) {
+              const graphNodeKey = genre ? `${genre}::${graphTarget}` : graphTarget;
+              await loadGraphMaintenanceCatalog(graphNodeKey);
+              openDraftGraphMaintenanceFromFallback(graphNodeKey, genre, graphTarget);
+              const maintenanceCard = document.getElementById('graphManageBox')?.closest('.card');
+              if (maintenanceCard) {
+                maintenanceCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }
           }
         } catch (err) {
           const message = String(err?.message || err || 'unknown error');
@@ -2842,22 +3317,28 @@
             feedback.textContent = `保存失败：${message}`;
           }
         } finally {
+          setFallbackResolutionBusy(false);
           if (button) {
-            button.disabled = false;
             button.textContent = '保存问题词替代设置';
           }
+          if (enterButton) enterButton.textContent = '保存并进入维护节点';
         }
       }
       async function ignoreActionFallbackResolution(idx) {
+        if (fallbackResolutionFlowState.busy) {
+          return show('fallbackMonitorOut', '当前还有一条问题词替代流程正在同步，请等待当前 loading 完成后再继续。');
+        }
         const item = (actionFallbackMonitorState?.items || [])[idx];
         if (!item) return;
         const originalSourceTerm = String(item?.source_term || '').trim();
+        const genre = String(item?.genre || '').trim();
         const fallbackTerms = Array.isArray(item?.fallback_terms) ? item.fallback_terms.map(x => String(x || '').trim()).filter(Boolean) : [];
         const feedback = document.getElementById(`fallbackFeedback_${idx}`);
         if (feedback) {
           feedback.className = 'fallback-inline-feedback info';
           feedback.textContent = '正在忽略这个问题词，并同步刷新待确认列表...';
         }
+        setFallbackResolutionBusy(true, '正在忽略当前问题词并刷新保底收敛列表，请稍候。', idx, 'ignore');
         try {
           const res = await fetch(`${base()}/action-graph/fallback-monitor/resolve`, {
             method: 'POST',
@@ -2867,7 +3348,7 @@
               original_source_term: originalSourceTerm,
               replacement_terms: [],
               ignored_terms: mergeUniqueTerms(fallbackTerms.length ? fallbackTerms : [originalSourceTerm]),
-              genre: '',
+              genre,
             }),
           });
           const data = await read(res);
@@ -2901,6 +3382,8 @@
             feedback.className = 'fallback-inline-feedback error';
             feedback.textContent = `忽略失败：${message}`;
           }
+        } finally {
+          setFallbackResolutionBusy(false);
         }
       }
       async function releaseActionFallbackRule(sourceTerm, genre) {
@@ -3621,13 +4104,14 @@
           localStorage.setItem('mfa_admin_phone', loginPhone);
           setState();
           setAdminAuthStatus(`后台登录成功。\n手机号：${loginPhone}\n当前已进入管理员操作态。`, 'success');
-          loadBetaAccess();
+          loadBetaAccess(false);
           loadReferralRewardSettings();
-          loadFrontendSecurity();
-          loadInviteCodes();
+          loadFrontendSecurity(false);
+          loadInviteCodes(false);
           loadUsers();
           loadNotifyTargets();
           loadAssetFeedback();
+          loadSystemPressure();
           loadActionFallbackMonitor();
           loadActionFallbackAlerts();
           loadCreatorShowcases();
@@ -3640,24 +4124,38 @@
         }
       }
 
-      async function loadUsers() {
+      async function loadUsers(options = {}) {
+        const showLookup = !!(options && options.showLookup);
         const ymd = (document.getElementById('usageViewDate').value || '').trim();
+        const phone = normalizePhoneInput((document.getElementById('uPhone').value || '').trim());
+        const uid = (document.getElementById('uUid').value || '').trim();
+        const phoneInput = document.getElementById('uPhone');
+        if (phoneInput) phoneInput.value = phone;
         const q = new URLSearchParams();
         if (ymd) q.set('ymd', ymd);
+        if (phone) q.set('phone', phone);
+        if (uid) q.set('uid', uid);
         const suffix = q.toString() ? `?${q.toString()}` : '';
         const res = await fetch(`${base()}/admin/users${suffix}`, { headers: h() });
         const data = await read(res);
         renderUsersTable(data);
-        show('usersOut', data);
+        if (showLookup) {
+          renderUserLookup(data);
+        }
+        showUserManageAction(showLookup ? '查询用户结果' : '用户列表结果', data, false);
       }
 
-      async function loadBetaAccess() {
+      async function queryUserInfo() {
+        await loadUsers({ showLookup: true });
+      }
+
+      async function loadBetaAccess(showResult = true) {
         const res = await fetch(`${base()}/admin/beta-access`, { headers: h() });
         const data = await read(res);
         if (res.ok) {
           document.getElementById('betaInviteOnly').value = data.invite_only_enabled ? '1' : '0';
         }
-        show('betaAccessOut', data);
+        if (showResult) showUserManageAction('测试期开关结果', data, true);
       }
 
       async function saveBetaAccess() {
@@ -3667,7 +4165,7 @@
           headers: h({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ invite_only_enabled }),
         });
-        show('betaAccessOut', await read(res));
+        showUserManageAction('测试期开关结果', await read(res), true);
       }
 
       function renderFrontendSecurityState(data) {
@@ -3688,11 +4186,11 @@
         if (boardSel) boardSel.value = data.home_leaderboards_enabled ? '1' : '0';
       }
 
-      async function loadFrontendSecurity() {
+      async function loadFrontendSecurity(showResult = false) {
         const res = await fetch(`${base()}/admin/frontend-security`, { headers: h() });
         const data = await read(res);
         renderFrontendSecurityState(data);
-        show('frontendSecurityOut', data);
+        if (showResult) showUserManageAction('前端安全设置结果', data, true);
       }
 
       function renderReferralRewardSettings(data) {
@@ -3714,7 +4212,6 @@
         const res = await fetch(`${base()}/admin/referral-reward-settings`, { headers: h() });
         const data = await read(res);
         renderReferralRewardSettings(data);
-        show('referralRewardOut', data);
       }
 
       async function saveReferralRewardSettings() {
@@ -3727,7 +4224,29 @@
         });
         const data = await read(res);
         renderReferralRewardSettings(data);
-        show('referralRewardOut', data);
+        showUserManageAction('推荐奖励设置结果', data, true);
+      }
+
+      async function saveRecommendationThresholdSettings() {
+        const input = document.getElementById('opsThresholdValue');
+        const hint = document.getElementById('opsThresholdHint');
+        const action_sfx_effective_threshold = Number((input && input.value) || 0);
+        if (!Number.isFinite(action_sfx_effective_threshold) || action_sfx_effective_threshold < 0 || action_sfx_effective_threshold > 1) {
+          if (hint) hint.textContent = '推荐阈值必须是 0 到 1 之间的小数。';
+          return;
+        }
+        if (hint) hint.textContent = `正在保存动作图谱推荐阈值：${action_sfx_effective_threshold.toFixed(4)}...`;
+        const res = await fetch(`${base()}/admin/recommendation-threshold-settings`, {
+          method: 'POST',
+          headers: h({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ action_sfx_effective_threshold }),
+        });
+        const data = await read(res);
+        if (res.ok && hint) {
+          hint.textContent = `已保存当前生效阈值：${Number(data.action_sfx_effective_threshold || 0).toFixed(4)}。`;
+        }
+        show('eventsOut', data);
+        await loadRecommendations();
       }
 
       async function saveFrontendSecurity() {
@@ -3740,21 +4259,21 @@
         });
         const data = await read(res);
         renderFrontendSecurityState(data);
-        show('frontendSecurityOut', data);
+        showUserManageAction('前端安全设置结果', data, true);
       }
 
-      async function loadInviteCodes() {
+      async function loadInviteCodes(showResult = true) {
         const res = await fetch(`${base()}/admin/invite-codes`, { headers: h() });
-        show('inviteCodesOut', await read(res));
+        if (showResult) showUserManageAction('邀请码池结果', await read(res), true);
+        else await read(res);
       }
 
       async function saveUser() {
         const phone = normalizePhoneInput((document.getElementById('uPhone').value || '').trim());
         const uid = (document.getElementById('uUid').value || '').trim();
         document.getElementById('uPhone').value = phone;
-        if (!isValidPhoneInput(phone)) return show('usersOut', '请输入有效的11位手机号');
+        if (!isValidPhoneInput(phone)) return showUserManageAction('保存用户策略结果', '请输入有效的11位手机号', true);
         const is_authorized = document.getElementById('uAuth').value === '1';
-        const is_admin = document.getElementById('uAdmin').value === '1';
         const ops_role_code = (document.getElementById('uRole').value || '33').trim();
         const user_tier_code = (document.getElementById('uTier').value || '33').trim();
         const daily_limit = Number(document.getElementById('uLimit').value || 3);
@@ -3769,13 +4288,12 @@
             ops_role_code,
             user_tier_code,
             is_authorized,
-            is_admin,
             daily_limit,
             daily_text_char_limit,
             daily_sfx_download_limit,
           }),
         });
-        show('usersOut', await read(res));
+        showUserManageAction('保存用户策略结果', await read(res), true);
         await loadUsers();
       }
 
@@ -3783,7 +4301,7 @@
         const phone = normalizePhoneInput((document.getElementById('usageResetPhone').value || '').trim());
         const ymd = (document.getElementById('usageResetDate').value || '').trim();
         document.getElementById('usageResetPhone').value = phone;
-        if (!isValidPhoneInput(phone)) return show('usageResetOut', '请输入有效的11位手机号');
+        if (!isValidPhoneInput(phone)) return showUserManageAction('重置当日用量结果', '请输入有效的11位手机号', true);
         const payload = { phone };
         if (ymd) payload.ymd = ymd;
         const res = await fetch(`${base()}/admin/users/reset-usage`, {
@@ -3791,7 +4309,7 @@
           headers: h({ 'Content-Type': 'application/json' }),
           body: JSON.stringify(payload),
         });
-        show('usageResetOut', await read(res));
+        showUserManageAction('重置当日用量结果', await read(res), true);
         await loadUsers();
       }
 
@@ -4061,10 +4579,40 @@
         const box = document.getElementById('opsAuditView');
         if (!note || !box) return;
         const rec = (data && data.recommendations) || {};
+        const thresholdEval = (data && data.threshold_evaluation) || {};
         const expandTerms = Array.isArray(rec.expand_lexicon_for_terms) ? rec.expand_lexicon_for_terms : [];
         const addAssets = Array.isArray(rec.add_sfx_assets_for_terms) ? rec.add_sfx_assets_for_terms : [];
         note.textContent = '优化建议：数据源来自推理日志 ReasoningLog。它不是泛泛而谈的“建议”，而是告诉运营和图谱维护人员，哪些词经常搜不到、哪些音效经常缺素材，适合拿来指导补词典和补音效库。';
+        const dims = (thresholdEval && thresholdEval.dimensions) || {};
+        const reasons = Array.isArray(thresholdEval.reasons) ? thresholdEval.reasons : [];
+        const effectiveThreshold = Number(thresholdEval.effective_threshold || 0.18);
+        const suggestedThreshold = Number(thresholdEval.suggested_threshold || effectiveThreshold || 0.18);
         box.innerHTML = `
+          <div class="ops-section">
+            <h4>推荐阈值建议</h4>
+            <div class="muted" style="margin-bottom:8px;">系统会结合最近周期内的素材搜索表现、低分命中占比、无命中占比，以及用户更优推荐素材的采纳与下载情况，动态给出一个建议阈值。当前第一阶段只先作用在动作图谱推荐的素材展示过滤上。</div>
+            <div class="ops-kv-list">
+              <div class="k">当前生效阈值</div><div>${escHtml(effectiveThreshold.toFixed(4))}</div>
+              <div class="k">系统建议阈值</div><div>${escHtml(suggestedThreshold.toFixed(4))}</div>
+              <div class="k">参考周期</div><div>最近 ${escHtml(thresholdEval.evaluation_period_days || data?.days || 7)} 天</div>
+              <div class="k">素材搜索样本</div><div>${escHtml(dims.search_sample_count || 0)} 次</div>
+              <div class="k">完全无命中</div><div>${escHtml(dims.zero_match_count || 0)} 次（${escHtml(((Number(dims.zero_match_ratio || 0) * 100).toFixed(1)))}%）</div>
+              <div class="k">低分命中</div><div>${escHtml(dims.weak_match_count || 0)} 次（${escHtml(((Number(dims.weak_match_ratio || 0) * 100).toFixed(1)))}%）</div>
+              <div class="k">平均最高分</div><div>${escHtml(Number(dims.avg_top_score || 0).toFixed(4))}</div>
+              <div class="k">官方素材数</div><div>${escHtml(dims.official_asset_count || 0)}</div>
+              <div class="k">用户更优推荐素材数</div><div>${escHtml(dims.user_better_asset_count || 0)}</div>
+              <div class="k">已采纳投稿数</div><div>${escHtml(dims.adopted_submission_count || 0)}</div>
+              <div class="k">用户更优推荐总下载</div><div>${escHtml(dims.adopted_download_total || 0)}</div>
+            </div>
+            <div class="row" style="margin-top:10px;">
+              <div class="cell"><input id="opsThresholdValue" value="${escHtml(suggestedThreshold.toFixed(4))}" placeholder="动作图谱推荐阈值 0~1" /></div>
+              <div class="cell"><button onclick="saveRecommendationThresholdSettings()">保存当前阈值</button></div>
+            </div>
+            <div id="opsThresholdHint" class="muted" style="margin-top:8px;">当前系统建议值已自动带入输入框；运营可以直接保存，也可以结合下方原因自行微调。</div>
+            <div style="margin-top:8px;">
+              ${reasons.length ? reasons.map(reason => `<div class="ops-event-summary" style="margin-bottom:6px;">${escHtml(reason)}</div>`).join('') : '<div class="muted">当前样本量有限，暂未生成明显的阈值建议原因。</div>'}
+            </div>
+          </div>
           <div class="ops-section">
             <h4>建议先扩词典</h4>
             ${expandTerms.length ? expandTerms.map(item => `
@@ -4366,6 +4914,56 @@
       function syncGraphManageNodeInput(nodeKey) {
         const input = document.getElementById('graphManageNodeKey');
         if (input) input.value = nodeKey || '';
+      }
+
+      function setGraphMaintenanceLoadingState(loading, nodeKey = '', reason = '') {
+        graphMaintenanceLoadState.loading = !!loading;
+        graphMaintenanceLoadState.pendingNodeKey = loading ? String(nodeKey || '').trim() : '';
+        graphMaintenanceLoadState.pendingReason = loading ? String(reason || '').trim() : '';
+        const genreSel = document.getElementById('graphManageGenre');
+        const verbSel = document.getElementById('graphManageVerb');
+        const verbQueryInput = document.getElementById('graphManageVerbQuery');
+        const nodeInput = document.getElementById('graphManageNodeKey');
+        const overlay = document.getElementById('graphManageLoadingOverlay');
+        const overlayText = document.getElementById('graphManageLoadingText');
+        if (genreSel) genreSel.disabled = !!loading;
+        if (verbSel) verbSel.disabled = !!loading;
+        if (verbQueryInput) verbQueryInput.disabled = !!loading;
+        if (nodeInput) nodeInput.disabled = !!loading;
+        if (overlay) {
+          overlay.classList.toggle('active', !!loading);
+          overlay.setAttribute('aria-hidden', loading ? 'false' : 'true');
+        }
+        if (overlayText) {
+          overlayText.textContent = loading
+            ? (reason || (nodeKey ? `正在同步 ${nodeKey} 的元数据与赛道信息，请稍候。` : '正在同步当前维护节点，请稍候。'))
+            : '正在同步当前节点数据，请稍候。';
+        }
+      }
+
+      function renderGraphMaintenanceLoading(nodeKey = '', reason = '') {
+        const box = document.getElementById('graphManageBox');
+        const hint = document.getElementById('graphManagePickerHint');
+        const label = String(nodeKey || '').trim();
+        if (hint) {
+          hint.textContent = label
+            ? `正在加载维护节点：${label}。为避免前后数据不一致，当前区域会在加载完成前短暂锁定。`
+            : '正在刷新维护节点数据。为避免前后数据不一致，当前区域会在加载完成前短暂锁定。';
+        }
+        if (box) {
+          box.innerHTML = `
+            <div class="section-box">
+              <h5>维护节点加载中</h5>
+              <div class="muted-sm note-prefix">${escHtml(
+                label
+                  ? `正在同步 ${label} 的维护数据，请稍候。`
+                  : '正在同步当前维护节点，请稍候。'
+              )}</div>
+              ${reason ? `<div class="muted-sm note-prefix" style="margin-top:6px;">${escHtml(reason)}</div>` : ''}
+            </div>
+          `;
+        }
+        setGraphMaintenanceLoadingState(true, label, reason || (label ? `正在同步 ${label} 的元数据与赛道信息，请稍候再继续维护。` : '正在同步当前维护节点，请稍候再继续维护。'));
       }
 
       function renderGraphMaintenancePicker(preferredNodeKey = '') {
@@ -5373,15 +5971,28 @@
       async function loadGraphMaintenance(nodeKeyOverride = '') {
         const nodeKey = String(nodeKeyOverride || currentGraphManageNodeKey() || '').trim();
         if (!nodeKey) return show('graphManageOut', '请输入节点Key');
+        const requestSeq = graphMaintenanceLoadState.requestSeq + 1;
+        graphMaintenanceLoadState.requestSeq = requestSeq;
+        graphMaintenanceLoadState.activeSeq = requestSeq;
+        setGraphMaintenanceLoadingState(true, nodeKey, '节点详情与维护节点标题会以最后一次选择为准。');
         syncGraphManageNodeInput(nodeKey);
         if (graphMaintenanceCatalogState?.genres?.length) renderGraphMaintenancePicker(nodeKey);
+        renderGraphMaintenanceLoading(nodeKey, '后台端优先保证维护节点与当前下拉选择严格一致。');
         const qs = new URLSearchParams({ node_key: nodeKey });
         const targetGenre = String(graphMaintenanceState?.ui?.overlapTargetGenre || '').trim();
         if (!nodeKey.includes('::') && targetGenre) qs.set('target_genre', targetGenre);
-        const res = await fetch(`${base()}/action-graph/node-layers?${qs.toString()}`, { headers: h() });
-        const data = await read(res);
-        renderGraphMaintenance(data);
-        show('graphManageOut', data);
+        try {
+          const res = await fetch(`${base()}/action-graph/node-layers?${qs.toString()}`, { headers: h() });
+          const data = await read(res);
+          if (graphMaintenanceLoadState.activeSeq !== requestSeq) return;
+          renderGraphMaintenance(data);
+          show('graphManageOut', data);
+        } finally {
+          if (graphMaintenanceLoadState.activeSeq === requestSeq) {
+            setGraphMaintenanceLoadingState(false);
+            renderGraphMaintenancePicker(nodeKey);
+          }
+        }
       }
 
       function renderEditableTermChips(layer, termType, items, suffix = '') {
@@ -5416,16 +6027,9 @@
             originLabel: String(item?.source || '').trim() === 'suggested' ? String(item?.origin_label || '').trim() : '',
           });
         });
-        const available = filterSuggestionTerms(Array.from(sourceMap.keys()), getLayerSearch(layer)?.[searchField] || '');
-        const searchInputId = `search-${layer}-${searchField}`;
-        const searchValue = getLayerSearch(layer)?.[searchField] || '';
-        const controls = `
-          <div class="mini-action-row">
-            <input id="${searchInputId}" placeholder="搜索现成词" value="${escHtml(searchValue)}" oninput="setLayerSearch('${escHtml(layer)}','${escHtml(searchField)}', this.value)" />
-          </div>
-        `;
-        if (!available.length) return `${controls}<div class="muted">当前没有可直接加入的现成词</div>`;
-        return `${controls}<div class="suggestion-list">${available.map(term => {
+        const available = Array.from(sourceMap.keys());
+        if (!available.length) return '<div class="muted">当前没有可直接加入的现成词</div>';
+        return `<div class="suggestion-list">${available.map(term => {
           const meta = sourceMap.get(term) || {};
           return `
           <button type="button" class="ghost-btn" onclick="addLayerTerm('${escHtml(layer)}','${escHtml(termType)}','${escHtml(term)}')">
@@ -5708,8 +6312,8 @@
             </div>
             ${(commonLayer.exists && (isCommonOnlyNode || inheritedOnlyInGenreView)) ? `
             <div class="section-box" style="margin-top:10px;">
-              <h5>从赛道删除与恢复</h5>
-              <div class="muted-sm note-prefix">${isCommonOnlyNode ? '当前你打开的是通用动词。可在这里决定它是否继续出现在某个赛道里。对运营来说，这里的动作就是“从赛道删除”或“恢复到赛道”。' : '当前你打开的是赛道目录里的通用动词引用。这里可以直接把它从当前赛道删除，或重新恢复到当前赛道。'}</div>
+              <h5>赛道使用控制</h5>
+              <div class="muted-sm note-prefix">${isCommonOnlyNode ? '当前你打开的是通用动词。这里控制的不是删除通用元数据本体，而是决定这条通用词是否继续在某个赛道中被使用和显示。' : '当前你打开的是赛道目录里的通用动词引用。这里控制的是：当前赛道是否继续使用这条通用元数据。'}</div>
               ${isCommonOnlyNode ? `
               <div class="row" style="margin-top:8px;">
                 <div class="cell">
@@ -5717,19 +6321,26 @@
                     ${graphManageTargetGenreOptions(inheritTargetGenre)}
                   </select>
                 </div>
-                <div class="cell"><button onclick="toggleCurrentInheritance(true)">从当前赛道删除</button></div>
-                <div class="cell"><button onclick="toggleCurrentInheritance(false)">恢复到当前赛道</button></div>
+                <div class="cell">
+                  <span class="title-help-wrap" style="display:inline-flex; align-items:center; gap:6px;">
+                    <button onclick="toggleCurrentInheritance(true)">停止在所选赛道使用</button>
+                    <span class="title-help" tabindex="0">?
+                      <span class="title-help-bubble"><strong>停止在所选赛道使用</strong><br>当你在 <strong>通用元数据 -> 掰开</strong> 这样的视角下点击这个按钮时，系统做的是：<br><br>1. <strong>通用层里的“掰开”这条元数据仍然保留</strong><br>2. 只是指定一个赛道后，让这个赛道<strong>不再引用 / 使用</strong>这条通用词。<br><br>它影响的是：<strong>某个赛道是否继续继承这条通用元数据</strong><br>不是影响：<strong>这条通用元数据本体是否还存在</strong><br><br>所以，如果对 <strong>掰开</strong> 选择某个赛道执行这个动作，含义是：<br>1. <strong>掰开</strong> 仍然在通用元数据层<br>2. 但在你选中的那个赛道里，不再显示 / 不再参与该赛道推荐。<br><br><strong>一句话：</strong>停止在所选赛道使用 = 保留通用层本体，只切断该赛道对这条通用词的引用。</span>
+                    </span>
+                  </span>
+                </div>
+                <div class="cell"><button onclick="toggleCurrentInheritance(false)">恢复到所选赛道使用</button></div>
               </div>
               ` : `
               <div class="row" style="margin-top:8px;">
-                <div class="cell"><button onclick="toggleCurrentInheritance(true)">从当前赛道删除</button></div>
-                <div class="cell"><button onclick="toggleCurrentInheritance(false)">恢复到当前赛道</button></div>
+                <div class="cell"><button onclick="toggleCurrentInheritance(true)">停止当前赛道使用</button></div>
+                <div class="cell"><button onclick="toggleCurrentInheritance(false)">恢复当前赛道使用</button></div>
               </div>
               `}
               <div class="muted-sm note-prefix" style="margin-top:6px;">当前状态：${escHtml(
                 inheritBlocked
-                  ? (inheritTargetHasGenreNode ? '已从当前赛道删除通用动词引用，但当前赛道仍有真实的赛道特化节点，所以它仍会显示。' : '已从当前赛道删除，当前赛道下拉框和推荐结果里将不再显示这个通用动词。')
-                  : '当前赛道仍在使用这个通用动词'
+                  ? (inheritTargetHasGenreNode ? '已停止当前赛道对这条通用元数据的引用，但当前赛道仍有真实的赛道特化节点，所以它仍会显示。' : '已停止当前赛道使用，这条通用词将不再出现在该赛道的下拉框和推荐结果里。')
+                  : '当前赛道仍在使用这条通用元数据'
               )}</div>
               <div style="margin-top:8px;">${inlineActionFeedback(graphMaintenanceState?.ui?.inheritFeedbackText || '', graphMaintenanceState?.ui?.feedbackLevel || 'info')}</div>
             </div>
@@ -5781,6 +6392,36 @@
                 ${renderNewNodeAssetUploadSection('genre', data, genreEditor)}
               </div>
             </div>
+            <div class="section-box" style="margin-top:10px;">
+              <h5>删除当前维护节点</h5>
+              <div class="muted-sm note-prefix">${isCommonOnlyNode
+                ? '这里是显式删除入口。删除的是当前维护节点本身，不建议通过把两层内容手动清空来替代正式删除。'
+                : '这里可以显式删除当前赛道特化节点；如果当前词同时有通用元数据，也可以选择只删除赛道特化层并保留通用层。'
+              }</div>
+              ${isCommonOnlyNode && genreLayerAnyExists ? `
+              <div class="row" style="margin-top:8px;">
+                <div class="cell">
+                  <select id="graphNodeDeleteTargetGenre" onchange="setGraphMaintenanceUiState({ nodeDeleteTargetGenre: this.value }); renderGraphMaintenance(graphMaintenanceState?.rawData || {});">
+                    ${graphManageTargetGenreOptions(String(graphMaintenanceState?.ui?.nodeDeleteTargetGenre || '').trim())}
+                  </select>
+                </div>
+                <div class="cell">
+                  <span class="title-help-wrap" style="display:inline-flex; align-items:center; gap:6px;">
+                    <button onclick="deleteCurrentCommonVerb()">${busyAction === 'delete-keep-other' ? '处理中...' : '删除通用元数据并保留所选赛道特化'}</button>
+                    <span class="title-help" tabindex="0">?
+                      <span class="title-help-bubble"><strong>降级删除说明</strong><br>这条链路本质上是：<strong>先降级，再删除</strong>。<br><br>1. 先从 <strong>通用 + 赛道</strong> 降到 <strong>只保留赛道</strong><br>2. 再从 <strong>只保留赛道</strong> 降到 <strong>完全删除节点</strong><br><br>这样做的目的是：通过正式删除节点的方式完成清理，尽量避免留下幽灵数据。</span>
+                    </span>
+                  </span>
+                </div>
+              </div>
+              <div style="margin-top:8px;">${inlineActionFeedback(graphMaintenanceState?.ui?.nodeKeepOtherFeedbackText || '', graphMaintenanceState?.ui?.feedbackLevel || 'info')}</div>
+              ` : `
+              <div class="row" style="margin-top:8px;">
+                <div class="cell"><button onclick="${isCommonOnlyNode ? 'deleteCurrentCommonVerb()' : 'deleteCurrentGenreVerb()'}">${busyAction === 'delete-current-layer' ? '处理中...' : (isCommonOnlyNode ? '删除当前通用元数据节点' : '删除当前赛道特化节点')}</button></div>
+              </div>
+              <div style="margin-top:8px;">${inlineActionFeedback(graphMaintenanceState?.ui?.nodeDeleteFeedbackText || '', graphMaintenanceState?.ui?.feedbackLevel || 'info')}</div>
+              `}
+            </div>
             <div class="muted note-prefix" style="margin-top:8px;">如果把某一层的标签全部移空再保存，该层配置会被删除。建议先确认是要清理通用元数据，还是只清理当前赛道特化。</div>
           </div>
         `;
@@ -5812,7 +6453,10 @@
           commonSaveFeedbackText: '',
           genreSaveFeedbackText: '',
         });
-        renderGraphMaintenance(graphMaintenanceState.rawData || {});
+        renderGraphMaintenanceLoading(
+          nodeKey,
+          `正在把 ${[...semantic_terms, ...sfx_terms].join('、')} 补入通用元数据，并刷新维护节点。为保证当前节点数据一致，操作区会在完成前短暂锁定。`
+        );
         show('graphManageOut', {
           ok: true,
           message: '正在补入通用元数据，请稍候…',
@@ -5857,6 +6501,8 @@
             detail: `补入通用元数据失败：${err && err.message ? err.message : String(err || 'unknown error')}`,
             node_key: nodeKey,
           });
+        } finally {
+          setGraphMaintenanceLoadingState(false);
         }
       }
 
@@ -5940,9 +6586,6 @@
           } else {
             await loadGraphMaintenanceCatalog(nodeKey);
           }
-          const actionNodeKey = (document.getElementById('actionNodeKey').value || '').trim();
-          if (actionNodeKey === nodeKey || actionNodeKey === nextNodeKey) await queryActionGraphNode();
-          await browseActionGraphNodes();
         } catch (err) {
           setGraphMaintenanceUiState({
             busyAction: '',
@@ -6145,7 +6788,12 @@
           show('graphManageOut', data);
           if (!res.ok) return;
           const nextNodeKey = String(data?.result_node_key || data?.node_key || nodeKey).trim();
-          if (nextNodeKey) {
+          if (action === 'delete_current_layer') {
+            graphMaintenanceCatalogState.selectedNodeKey = '';
+            syncGraphManageNodeInput('');
+            await loadGraphMaintenanceCatalog('');
+            renderGraphMaintenance(null);
+          } else if (nextNodeKey) {
             syncGraphManageNodeInput(nextNodeKey);
             await loadGraphMaintenanceCatalog(nextNodeKey);
             await loadGraphMaintenance(nextNodeKey);
@@ -6717,6 +7365,176 @@
         }
       }
 
+      function formatPressureDuration(ms) {
+        const value = Number(ms || 0);
+        if (!Number.isFinite(value) || value <= 0) return '—';
+        if (value < 1000) return `${Math.round(value)} ms`;
+        const sec = value / 1000;
+        if (sec < 60) return `${sec >= 10 ? sec.toFixed(0) : sec.toFixed(1)} 秒`;
+        const min = Math.floor(sec / 60);
+        const rem = Math.round(sec % 60);
+        return `${min} 分 ${rem} 秒`;
+      }
+
+      function formatPressureTime(iso) {
+        const text = String(iso || '').trim();
+        if (!text) return '未记录';
+        return text.replace('T', ' ').slice(0, 19);
+      }
+
+      function pressureLevelClass(level) {
+        if (level === '高压') return 'level-high';
+        if (level === '关注') return 'level-mid';
+        return 'level-low';
+      }
+
+      function renderSystemPressure(data) {
+        const box = document.getElementById('systemPressureView');
+        const summary = document.getElementById('systemPressureSummary');
+        if (!box || !summary) return;
+        if (!data || data.ok !== true) {
+          summary.textContent = data?.detail || data?.message || '系统请求压力加载失败';
+          box.innerHTML = '';
+          return;
+        }
+        const windows = data.windows || {};
+        const guidance = data.queue_guidance || {};
+        const level = String(guidance.level || '平稳');
+        const reasonLines = Array.isArray(guidance.reason_lines) ? guidance.reason_lines : [];
+        const windowDefs = [
+          ['m10', '最近 10 分钟'],
+          ['h1', '最近 1 小时'],
+          ['h24', '最近 24 小时'],
+        ];
+        summary.innerHTML = `
+          <strong>当前压力级别：</strong>${escHtml(level)}
+          <span class="system-pressure-chip ${pressureLevelClass(level)}" style="margin-left:8px;">${guidance.should_queue ? '建议尽快接入重任务排队' : '当前可继续观察'}</span>
+          <div style="margin-top:8px;">${reasonLines.slice(0, 3).map(line => escHtml(line)).join('<br/>')}</div>
+          <div class="muted-sm" style="margin-top:8px;">生成时间：${escHtml(formatPressureTime(data.generated_at || ''))} ｜ 基线：${escHtml(guidance.current_basis || '')}</div>
+        `;
+
+        const windowHtml = windowDefs.map(([key, label]) => {
+          const item = windows[key] || {};
+          return `
+            <div class="system-pressure-stat">
+              <div class="k">${escHtml(label)}</div>
+              <div class="v">${escHtml(item.request_count || 0)}</div>
+              <div class="muted-sm" style="margin-top:6px; line-height:1.7;">
+                活跃用户 ${escHtml(item.unique_users || 0)} ｜ 项目 ${escHtml(item.unique_projects || 0)}<br/>
+                并发峰值估算 ${escHtml(item.peak_concurrency_est || 0)} ｜ P95 ${escHtml(formatPressureDuration(item.p95_elapsed_ms))}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        const queueChips = [
+          `建议全局槽位 ${guidance.suggested_global_slots || 0}`,
+          `单用户运行上限 ${guidance.suggested_user_running_limit || 0}`,
+          `单用户排队上限 ${guidance.suggested_user_queue_limit || 0}`,
+          `建议超时 ${guidance.suggested_timeout_sec || 0}s`,
+          `排队提醒阈值 ${guidance.suggested_queue_threshold_sec || 0}s`,
+        ].map(text => `<span class="system-pressure-chip">${escHtml(text)}</span>`).join('');
+
+        const actionItems = Array.isArray(data.action_breakdown) ? data.action_breakdown : [];
+        const actionHtml = actionItems.length ? actionItems.map(item => `
+          <div class="system-pressure-item">
+            <div class="system-pressure-item-head">
+              <div class="system-pressure-item-title">${escHtml(item.action_label || item.action || '未命名动作')}</div>
+              <div class="system-pressure-item-meta">24h 请求 ${escHtml(item.request_count || 0)} ｜ 并发峰值估算 ${escHtml(item.peak_concurrency_est || 0)}</div>
+            </div>
+            <div class="system-pressure-chip-row">
+              <span class="system-pressure-chip">P95 ${escHtml(formatPressureDuration(item.p95_elapsed_ms))}</span>
+              <span class="system-pressure-chip">均值 ${escHtml(formatPressureDuration(item.avg_elapsed_ms))}</span>
+              <span class="system-pressure-chip">重试任务 ${escHtml(item.retry_jobs || 0)}</span>
+              <span class="system-pressure-chip">LLM 异常 ${escHtml(item.llm_failure_count || 0)}</span>
+              <span class="system-pressure-chip">质量异常 ${escHtml(item.quality_issue_count || 0)}</span>
+            </div>
+          </div>
+        `).join('') : '<div class="muted-sm">最近 24 小时暂无重请求日志。</div>';
+
+        const slowest = Array.isArray(data.top_slowest) ? data.top_slowest : [];
+        const slowestHtml = slowest.length ? slowest.map(item => `
+          <div class="system-pressure-item">
+            <div class="system-pressure-item-head">
+              <div class="system-pressure-item-title">${escHtml(item.action_label || item.action || '')}</div>
+              <div class="system-pressure-item-meta">${escHtml(formatPressureDuration(item.duration_ms))}</div>
+            </div>
+            <div class="system-pressure-item-meta">
+              时间：${escHtml(formatPressureTime(item.created_at || ''))}<br/>
+              项目：${escHtml(item.project_id || '无')} ｜ 手机号：${escHtml(item.user_phone || '未记录')} ｜ LLM 调用 ${escHtml(item.llm_calls || 0)} 次
+            </div>
+          </div>
+        `).join('') : '<div class="muted-sm">暂无慢请求样本。</div>';
+
+        const issues = Array.isArray(data.recent_issues) ? data.recent_issues : [];
+        const issuesHtml = issues.length ? issues.map(item => `
+          <div class="system-pressure-item">
+            <div class="system-pressure-item-head">
+              <div class="system-pressure-item-title">${escHtml(item.action_label || item.action || '')}</div>
+              <div class="system-pressure-item-meta">${escHtml(formatPressureTime(item.created_at || ''))}</div>
+            </div>
+            <div class="system-pressure-item-meta">
+              项目：${escHtml(item.project_id || '无')} ｜ 手机号：${escHtml(item.user_phone || '未记录')} ｜ 耗时 ${escHtml(formatPressureDuration(item.duration_ms))}<br/>
+              ${escHtml(item.issue_summary || '未记录问题摘要')}
+            </div>
+          </div>
+        `).join('') : '<div class="muted-sm">最近 24 小时暂无质量或 LLM 异常。</div>';
+
+        const qualityReasons = Array.isArray(data.top_quality_reasons) ? data.top_quality_reasons : [];
+        const qualityHtml = qualityReasons.length ? qualityReasons.map(item => `
+          <span class="system-pressure-chip">${escHtml(item.reason || '未命名原因')} × ${escHtml(item.count || 0)}</span>
+        `).join('') : '<span class="muted-sm">最近暂无高频质量异常原因。</span>';
+
+        box.innerHTML = `
+          <div class="system-pressure-grid">${windowHtml}</div>
+          <div class="system-pressure-card" style="margin-top:12px;">
+            <h4>排队机制建议参数</h4>
+            <div class="system-pressure-chip-row">${queueChips}</div>
+            <div class="muted-sm" style="margin-top:10px; line-height:1.8;">
+              适用范围：${escHtml((guidance.queue_scope || []).join('、'))}<br/>
+              下一步建议：${escHtml(guidance.next_step || '暂无')}
+            </div>
+          </div>
+          <div class="system-pressure-card" style="margin-top:12px;">
+            <h4>重请求类型分布（24h）</h4>
+            <div class="system-pressure-list">${actionHtml}</div>
+          </div>
+          <div class="system-pressure-card" style="margin-top:12px;">
+            <h4>高频质量异常原因</h4>
+            <div class="system-pressure-chip-row">${qualityHtml}</div>
+          </div>
+          <div class="system-pressure-dual">
+            <div class="system-pressure-card">
+              <h4>最慢请求样本</h4>
+              <div class="system-pressure-list">${slowestHtml}</div>
+            </div>
+            <div class="system-pressure-card">
+              <h4>最近异常与重试关注点</h4>
+              <div class="system-pressure-list">${issuesHtml}</div>
+            </div>
+          </div>
+        `;
+      }
+
+      async function loadSystemPressure() {
+        if (!token) {
+          document.getElementById('systemPressureSummary').textContent = '请先登录后台，再加载系统请求压力区。';
+          show('systemPressureOut', '等待登录...');
+          return;
+        }
+        document.getElementById('systemPressureSummary').textContent = '正在加载系统请求压力...';
+        try {
+          const res = await fetch(`${base()}/ops/system-pressure`, { headers: h() });
+          const data = await read(res);
+          show('systemPressureOut', data);
+          renderSystemPressure(data);
+        } catch (err) {
+          const msg = String(err?.message || err || 'unknown error');
+          document.getElementById('systemPressureSummary').textContent = `加载失败：${msg}`;
+          show('systemPressureOut', msg);
+        }
+      }
+
       async function downloadFile() {
         const path = (document.getElementById('filePath').value || '').trim();
         if (!path) return show('fileOut', '请输入文件路径');
@@ -6742,14 +7560,15 @@
       renderDocAnchors('actionDocsOut', ACTION_DOC_ANCHORS);
       updateSupplementStatusHint();
       if (token) {
-        loadReferralRewardSettings().catch(err => show('referralRewardOut', String(err?.message || err)));
-        loadFrontendSecurity().catch(err => show('frontendSecurityOut', String(err?.message || err)));
+        loadReferralRewardSettings().catch(err => showUserManageAction('推荐奖励设置结果', String(err?.message || err), false));
+        loadFrontendSecurity(false).catch(err => showUserManageAction('前端安全设置结果', String(err?.message || err), false));
+        loadSystemPressure().catch(err => show('systemPressureOut', String(err?.message || err)));
         loadActionFallbackMonitor().catch(err => show('fallbackMonitorOut', String(err?.message || err)));
         loadActionFallbackAlerts().catch(err => show('fallbackMonitorOut', String(err?.message || err)));
         loadCreatorShowcases().catch(err => show('eventsOut', String(err?.message || err)));
         loadCopyrightAdsAdmin().catch(err => show('assetFeedbackOut', String(err?.message || err)));
-        loadRechargeOrders().catch(err => show('usersOut', String(err?.message || err)));
-        loadUserSfxSubmissions().catch(err => show('usersOut', String(err?.message || err)));
+        loadRechargeOrders().catch(err => show('eventsOut', String(err?.message || err)));
+        loadUserSfxSubmissions().catch(err => show('eventsOut', String(err?.message || err)));
         startFallbackAlertPolling();
       }
       loadInheritanceDashboard();

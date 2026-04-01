@@ -50,6 +50,8 @@ JSON 字段（必须齐全）：
 7) fit_genres、risk_genres、sections、hit_points、mix_notes、key_points、structure_logic 均不得省略；若证据不足可返回空数组或保守对象，但字段必须存在。
 8) 若 feature_evidence 中存在明显静音断点/活跃段变化，sections 必须体现分段差异，不得所有乐段都写成同一套“主层次/配器推测”。
 9) 即便证据不足，也要尽量让不同乐段的描述有层次变化，避免整篇重复。
+10) 如果无法准确判断配器，也必须先基于 markers / active_segments / silence_profile 给出至少 2-4 个不重复的乐段；禁止返回空 sections。
+11) 当 sections>=3 时，不同乐段的 main_layers、instrument_guess、entry_suggestion、exit_suggestion 不得整段复用同一句或同一组词。
 
 长度约束（严格）：
 1) sections<=4，hit_points<=4。
